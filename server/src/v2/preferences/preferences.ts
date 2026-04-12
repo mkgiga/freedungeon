@@ -11,8 +11,8 @@ export const preferencesRouter = router({
 
     update: procedure
         .input(z.object({
-            activeLLMConfigId: z.number().nullable().optional(),
-            playerCharacterId: z.number().nullable().optional(),
+            activeLLMConfigId: z.string().nullable().optional(),
+            playerCharacterId: z.string().nullable().optional(),
         }).passthrough())
         .mutation(({ input }) => {
             for (const [key, value] of Object.entries(input)) {
