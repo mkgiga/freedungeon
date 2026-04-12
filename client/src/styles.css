@@ -81,6 +81,20 @@ p { margin: 0; line-height: 1.5; }
 
 main {
   flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.tab-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.tab-pane.hidden {
+  display: none;
 }
 
 button {
@@ -1395,16 +1409,27 @@ menu#main-nav {
   display: flex;
   width: 100%;
   height: 60px;
+  margin: 0;
+  padding: 0;
 
-  a {
+  a, button {
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
     flex: 1;
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
 
     &:hover {
       background-color: var(--bg-2);
+    }
+
+    &.active {
+      color: var(--primary);
     }
   }
 }

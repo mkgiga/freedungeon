@@ -1,4 +1,5 @@
 import { Show, type JSXElement } from "solid-js";
+import { useRouter } from "@tanstack/solid-router";
 import { Toolbar } from "./Toolbar";
 import { MdFillArrow_back } from "solid-icons/md";
 import { Heading } from "./typography/Heading";
@@ -15,9 +16,10 @@ export type TopBarProps = {
 };
 
 export const TopBar = (props: TopBarProps) => {
+    const router = useRouter();
     const onBack = () => {
         if (typeof props.backButton === 'function') props.backButton();
-        else window.history.back();
+        else router.history.back();
     };
     const leftSlot = <>
         <Show when={props.backButton}>
