@@ -1,15 +1,16 @@
 import { createFileRoute } from '@tanstack/solid-router'
-import { state } from '../state'
-import { Heading } from '../components/typography/Heading'
+import { TopBar } from '../components/TopBar'
 import { Text } from '../components/typography/Text'
 
-export const Route = createFileRoute('/')({ component: App })
+export const Route = createFileRoute('/')({ component: RouteComponent })
 
-function App() {
+function RouteComponent() {
   return (
-    <div>
-      <Heading level={1}>RPApp</Heading>
-      <Text size="sm">State sync test: {state.currentChat?.title || 'waiting...'}</Text>
+    <div class="flex flex-col h-full">
+      <TopBar title="Home" />
+      <div class="flex-1 overflow-y-auto flex items-center justify-center p-8">
+        <Text size="sm" class="opacity-50">Nothing here yet.</Text>
+      </div>
     </div>
   )
 }
