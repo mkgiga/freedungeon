@@ -35,10 +35,10 @@ function RouteComponent() {
                 onClick={async () => {
                   const result = await trpc.llmConfigs.createFromPreset.mutate({ presetKey: key })
                   modal.close()
-                  navigate({ to: '/preferences/llm-configs/$id', params: { id: String(result.id) }, search: { edit: true } })
+                  navigate({ to: '/preferences/llm-configs/$id', params: { id: result.id }, search: { edit: true } })
                 }}
               >
-                <Text class="font-semibold">{preset.name}</Text>
+                <Text><Em semibold>{preset.name}</Em></Text>
                 <Text size="sm" class="opacity-50">{preset.endpoint}</Text>
               </button>
             )}

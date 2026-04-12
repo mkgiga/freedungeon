@@ -61,12 +61,11 @@ p { margin: 0; line-height: 1.5; }
 }
 
 .text-caption {
-  font-size: 0.8125rem;
-  opacity: 0.6;
+  font-size: 0.875rem;  /* 14px */
 }
 
 .text-body {
-  font-size: 0.9375rem;
+  font-size: 1rem;      /* 16px */
   line-height: 1.6;
 }
 

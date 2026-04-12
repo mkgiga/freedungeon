@@ -68,7 +68,7 @@ function RouteComponent() {
             <For each={news()}>
               {(item) => (
                 <article class="flex flex-col gap-2 max-h-[50dvh] overflow-y-auto">
-                  <header class="flex flex-col gap-1">
+                  <header class="flex flex-row items-baseline gap-3 flex-wrap">
                     <Heading level={1}>{item.title}</Heading>
                     <Text size="sm" class="opacity-50 italic">
                       {new Date(item.timestamp).toLocaleDateString(undefined, {

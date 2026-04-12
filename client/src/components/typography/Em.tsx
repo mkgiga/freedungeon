@@ -14,16 +14,18 @@ const emphasisMap: Record<EmphasisType, string> = {
 type EmProps = JSX.HTMLAttributes<HTMLSpanElement> & {
     type?: EmphasisType
     bold?: boolean
+    semibold?: boolean
     italic?: boolean
     underline?: boolean
     strike?: boolean
 }
 
 export function Em(props: EmProps) {
-    const [local, rest] = splitProps(props, ['type', 'bold', 'italic', 'underline', 'strike', 'class', 'children'])
+    const [local, rest] = splitProps(props, ['type', 'bold', 'semibold', 'italic', 'underline', 'strike', 'class', 'children'])
 
     const className = () => [
         local.type ? emphasisMap[local.type] : 'text-emphasis',
+        local.semibold ? 'font-semibold' : '',
         local.class ?? '',
     ].filter(Boolean).join(' ')
 

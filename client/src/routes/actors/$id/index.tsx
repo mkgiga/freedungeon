@@ -9,6 +9,7 @@ import { MdFillMore_horiz, MdFillCheck } from 'solid-icons/md'
 import { Dropdown } from '../../../components/Dropdown'
 import { Heading } from '../../../components/typography/Heading'
 import { Text } from '../../../components/typography/Text'
+import { Em } from '../../../components/typography/Em'
 import { TextEditor } from '../../../components/TextEditor'
 import { ImageIcon } from '../../../components/ImageIcon'
 import { useMediaViewer } from '../../../components/MediaViewer'
@@ -90,14 +91,14 @@ function RouteComponent() {
         return (
           <div class="flex flex-col gap-3">
             <label class="flex flex-col gap-1">
-              <span class="text-sm opacity-70">Name</span>
+              <Text size="sm" class="opacity-70">Name</Text>
               <input type="text" placeholder="e.g. happy, angry, neutral" class="p-2 rounded bg-(--bg) border border-(--primary)" onInput={(e) => setName(e.currentTarget.value)} />
             </label>
             <label class="flex flex-col gap-1">
-              <span class="text-sm opacity-70">Image</span>
+              <Text size="sm" class="opacity-70">Image</Text>
               <Show when={preview()} fallback={
                 <div class="flex items-center justify-center w-full h-24 rounded border border-dashed border-(--primary) cursor-pointer opacity-50 hover:opacity-100 transition-opacity">
-                  <span class="text-sm">Click to upload</span>
+                  <Text size="sm">Click to upload</Text>
                 </div>
               }>
                 <img src={preview()} class="w-24 h-24 rounded object-cover" />
@@ -187,7 +188,7 @@ function RouteComponent() {
             />
             <Show when={edit() && draft.avatarUrl}>
               <div class="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg opacity-0 hover:opacity-100 transition-opacity">
-                <span class="text-xs font-semibold">Change</span>
+                <Text size="sm"><Em semibold>Change</Em></Text>
               </div>
             </Show>
           </div>
