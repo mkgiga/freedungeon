@@ -501,6 +501,44 @@ export async function loadStateFromDb(): Promise<AppState> {
     };
 }
 
+/**
+ * Persists a single chat's row, actor/note refs, and optionally its messages.
+ * Called by `saveStateToDb` (without messages, for all chats) and by
+ * `CurrentChat.saveCurrentChat` (with messages, for the loaded chat).
+ *
+ * Message deletions are not handled here — those are issued immediately at the
+ * call site of `deleteMessage` to avoid resurrection on restart/swap.
+ */
+export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
+    const row = {
+        title: chat.title,
+        created_at: chat.createdAt,
+        updated_at: chat.updatedAt,
+    }
+    db.insertInto('chats')
+        .values({ id: chat.id, ...row })
+        .onConflict((oc) => oc.column('id').doUpdateSet(row))
+        .execute()
+
+    db.deleteFrom('chat_actor_refs').where('chat_id', '=', chat.id).execute()
+    for (const actorId of chat.assets.actors) {
+        db.insertInto('chat_actor_refs').values({ id: nanoid(), chat_id: chat.id, actor_id: actorId }).execute()
+    }
+    db.deleteFrom('chat_note_refs').where('chat_id', '=', chat.id).execute()
+    for (const noteId of chat.assets.notes) {
+        db.insertInto('chat_note_refs').values({ id: nanoid(), chat_id: chat.id, note_id: noteId }).execute()
+    }
+
+    if (messages) {
+        for (const msg of Object.values(messages)) {
+            db.insertInto('chat_messages')
+                .values({ id: msg.id, ...dehydrateChatMessage(msg) })
+                .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateChatMessage(msg)))
+                .execute()
+        }
+    }
+}
+
 export function saveStateToDb({ state: appState }: { state: AppState }) {
     const actorValues = Object.values(appState.assets.actors)
     console.log(`[DB] Saving state: ${actorValues.length} actors, ${Object.values(appState.assets.notes).length} notes`)
@@ -533,55 +571,13 @@ export function saveStateToDb({ state: appState }: { state: AppState }) {
             .execute()
     }
 
-    // Persist all chats (metadata + asset refs) from state.assets.chats
+    // Persist all chats (metadata + asset refs). Messages are attached only for
+    // the currently-loaded chat, since that's the only one with messages in memory.
     for (const chat of Object.values(appState.assets.chats)) {
-        db.insertInto('chats')
-            .values({
-                id: chat.id,
-                title: chat.title,
-                created_at: chat.createdAt,
-                updated_at: chat.updatedAt,
-            })
-            .onConflict((oc) => oc.column('id').doUpdateSet({
-                title: chat.title,
-                created_at: chat.createdAt,
-                updated_at: chat.updatedAt,
-            }))
-            .execute()
-
-        // Sync actor/note refs: delete old, insert current
-        db.deleteFrom('chat_actor_refs').where('chat_id', '=', chat.id).execute()
-        for (const actorId of chat.assets.actors) {
-            db.insertInto('chat_actor_refs').values({ id: nanoid(), chat_id: chat.id, actor_id: actorId }).execute()
-        }
-        db.deleteFrom('chat_note_refs').where('chat_id', '=', chat.id).execute()
-        for (const noteId of chat.assets.notes) {
-            db.insertInto('chat_note_refs').values({ id: nanoid(), chat_id: chat.id, note_id: noteId }).execute()
-        }
-    }
-
-    // Persist current chat's messages (only the currently-loaded chat has messages in memory)
-    if (appState.currentChat.id !== null) {
-        const messageIds: string[] = []
-        for (const msg of Object.values(appState.currentChat.messages)) {
-            messageIds.push(msg.id)
-            db.insertInto('chat_messages')
-                .values({ id: msg.id, ...dehydrateChatMessage(msg) })
-                .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateChatMessage(msg)))
-                .execute()
-        }
-        // Delete any messages in the DB for this chat that are no longer in memory
-        // (handles deletions made during the session)
-        if (messageIds.length > 0) {
-            db.deleteFrom('chat_messages')
-                .where('chat_id', '=', appState.currentChat.id)
-                .where('id', 'not in', messageIds)
-                .execute()
-        } else {
-            db.deleteFrom('chat_messages')
-                .where('chat_id', '=', appState.currentChat.id)
-                .execute()
-        }
+        const messages = appState.currentChat.id === chat.id
+            ? appState.currentChat.messages
+            : undefined
+        saveChat(chat, messages)
     }
 
     const prefsJson = JSON.stringify(appState.userPreferences)

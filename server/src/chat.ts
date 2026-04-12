@@ -1,5 +1,5 @@
 import { bold, brightGreen, ComfyLogger, reset, style, white } from "comfylogger";
-import { db, loadChatById, getMessagesByChatId, dehydrateChatMessage } from "./db";
+import { db, loadChatById, saveChat } from "./db";
 import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
@@ -54,13 +54,13 @@ export class CurrentChat {
     static upsertMessage(message: ChatMessage) {
         const currentChat = state.currentChat;
         if (!currentChat) {
-            logChat('No active chat. Cannot add message to chat history.');
-            throw new Error('No active chat. Cannot add message to chat history.');
+            logChat(`No chat loaded. Cannot upsert message. Message: ${JSON.stringify(message)}`);
+            throw new Error(`No chat loaded. Cannot upsert message. Message: ${JSON.stringify(message)}`);
         }
 
         if (!currentChat.id) {
-            logChat('No active chat. Cannot add message to chat history.');
-            throw new Error('No active chat. Cannot add message to chat history.');
+            logChat(`currentChat has no id. Value: ${JSON.stringify(currentChat)}`);
+            throw new Error(`currentChat has no id. Value: ${JSON.stringify(currentChat)}`);
         }
 
         if (currentChat.messages[message.id]) {
@@ -76,41 +76,41 @@ export class CurrentChat {
     }
 
     /**
-     * Persists the currently-loaded chat's messages to the DB.
+     * Removes a message from the currently-loaded chat, in memory and in the DB.
      *
-     * This is the one function that breaks the "state-only mutations, auto-save
-     * handles persistence" pattern. Reason: chat messages only live in memory
-     * for the currently-loaded chat (to avoid keeping hundreds of thousands of
-     * messages across all chats in RAM). When we swap out `currentChat`, the
-     * messages MUST be written to disk first or they're gone.
+     * Both writes happen here (rather than state-only + auto-save) because message
+     * deletions need to propagate immediately — otherwise a restart or chat swap
+     * between delete and next save could resurrect the message from disk.
+     */
+    static deleteMessage(messageId: string) {
+        const currentChat = state.currentChat;
+        if (!currentChat.id) {
+            logChat(`No chat loaded. Cannot delete message ${messageId}.`);
+            throw new Error(`No chat loaded. Cannot delete message ${messageId}.`);
+        }
+        if (!currentChat.messages[messageId]) return;
+
+        deleteState('currentChat', 'messages', messageId);
+        db.deleteFrom('chat_messages').where('id', '=', messageId).execute();
+    }
+
+    /**
+     * Persists the currently-loaded chat (row, refs, and messages) to the DB.
+     *
+     * Called on chat swap and shutdown — chat messages only live in memory for
+     * the currently-loaded chat (to avoid keeping hundreds of thousands of
+     * messages across all chats in RAM), so they MUST be written to disk before
+     * `currentChat` is replaced or they're gone.
+     *
+     * Message deletions are handled immediately at their call site in
+     * `deleteMessage`; this function only upserts.
      */
     static saveCurrentChat() {
         const currentChat = state.currentChat;
         if (!currentChat.id) return;
-
-        // Upsert each in-memory message for this chat
-        const messageIds: string[] = [];
-        for (const msg of Object.values(currentChat.messages)) {
-            messageIds.push(msg.id);
-            db.insertInto('chat_messages')
-                .values({ id: msg.id, ...dehydrateChatMessage(msg) })
-                .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateChatMessage(msg)))
-                .execute();
-        }
-
-        // Delete any messages in the DB for this chat that are no longer in memory
-        // (handles deletions made during the session)
-        if (messageIds.length > 0) {
-            db.deleteFrom('chat_messages')
-                .where('chat_id', '=', currentChat.id)
-                .where('id', 'not in', messageIds)
-                .execute();
-        } else {
-            // No messages in memory → clear all DB messages for this chat
-            db.deleteFrom('chat_messages')
-                .where('chat_id', '=', currentChat.id)
-                .execute();
-        }
+        const chat = state.assets.chats[currentChat.id];
+        if (!chat) return;
+        saveChat(chat, currentChat.messages);
     }
 
     static async prompt(message: string) {
