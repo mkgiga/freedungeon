@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
-import { CurrentChat } from '../../chat'
+import { CurrentChat, logChat } from '../../chat'
 import { ChatCompletionManager } from '../../llm'
 import { deleteChat } from '../../db'
 import { nanoid } from 'nanoid'
@@ -165,6 +165,10 @@ export const chatRouter = router({
             const currentChat = state.currentChat
             if (!currentChat.id) {
                 throw new Error('No chat loaded')
+            }
+            if (state.isGenerating) {
+                logChat(`Generation is already in progress. Exiting now.`);
+                throw new Error('Generation is already in progress. Please wait until the current generation finishes before sending a new message.');
             }
 
             CurrentChat.prompt({ message: input.message })

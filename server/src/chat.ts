@@ -158,8 +158,7 @@ export class CurrentChat {
         const sortedMessages = allMessages.sort((a, b) => a.createdAt - b.createdAt);
         const systemPrompt = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.values?.systemPrompt ?? '';
         if (!systemPrompt) {
-            logChat('No system prompt found in active LLM config. This may lead to unhelpful responses.');
-            throw new Error('No system prompt found in active LLM config. This may lead to unhelpful responses.');
+            logChat('No system prompt set. Proceeding with empty system prompt — model behavior may drift.');
         }
         
         const debugFetchResultData = await ChatCompletionManager.chatCompletion({
