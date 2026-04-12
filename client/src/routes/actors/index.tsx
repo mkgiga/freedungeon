@@ -18,7 +18,7 @@ function RouteComponent() {
   const modal = useModal()
 
   return (
-    <div class="flex flex-col h-full">
+    <div class="flex flex-col h-full overflow-hidden">
       <TopBar title="Characters" slots={{
         right: (
           <button onClick={() => {

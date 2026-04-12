@@ -45,7 +45,7 @@ function RouteComponent() {
   const [news] = createResource(() => trpc.news.list.query())
 
   return (
-    <div class="flex flex-col h-full">
+    <div class="flex flex-col h-full overflow-hidden">
       <TopBar
         title="Home"
         slots={{

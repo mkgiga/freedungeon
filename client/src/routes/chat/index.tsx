@@ -34,10 +34,10 @@ function RouteComponent() {
   // their local state (sort, scroll, dropdowns, modals) survives switching.
   return (
     <>
-      <div class="flex flex-col h-full" classList={{ hidden: view() !== 'list' }}>
+      <div class="flex flex-col h-full overflow-hidden" classList={{ hidden: view() !== 'list' }}>
         <ChatListView onOpen={goToConversation} onCreate={goToConversation} />
       </div>
-      <div class="flex flex-col h-full" classList={{ hidden: view() !== 'conversation' }}>
+      <div class="flex flex-col h-full overflow-hidden" classList={{ hidden: view() !== 'conversation' }}>
         <ConversationView onBack={goToList} />
       </div>
     </>

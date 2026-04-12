@@ -90,7 +90,7 @@ function RouteComponent() {
     })
 
     return (
-        <div class="flex flex-col h-full">
+        <div class="flex flex-col h-full overflow-hidden">
             <TopBar
                 backButton
                 title={draft.name}

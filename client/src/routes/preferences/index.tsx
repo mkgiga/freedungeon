@@ -49,7 +49,7 @@ function RouteComponent() {
   }
 
   return (
-    <div class="flex flex-col h-full">
+    <div class="flex flex-col h-full overflow-hidden">
       <TopBar title="Preferences" />
       <div class="flex-1 overflow-y-auto p-4">
         {/* General Preferences */}
