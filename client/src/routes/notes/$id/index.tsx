@@ -25,15 +25,12 @@ function RouteComponent() {
   const navigate = useNavigate()
   const modal = useModal()
 
-  const serverNote = () => {
-    const id = Number(routeId())
-    return isNaN(id) ? undefined : state.assets.notes[id]
-  }
+  const serverNote = () => state.assets.notes[routeId()]
   const isNew = () => !serverNote()
 
   const [draft, setDraft] = createStore(
     serverNote() ?? {
-      id: 0,
+      id: '',
       title: 'New Note',
       type: '',
       content: '',
@@ -50,7 +47,7 @@ function RouteComponent() {
       content: draft.content,
     })
     if (edit()) {
-      navigate({ to: '/notes/$id', params: { id: String(result.id) }, search: { edit: false }, replace: true })
+      navigate({ to: '/notes/$id', params: { id: result.id }, search: { edit: false }, replace: true })
     }
   }
 

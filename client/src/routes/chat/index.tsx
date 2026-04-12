@@ -144,20 +144,29 @@ function ConversationView(props: { onBack: () => void }) {
   /**
    * Pagination model:
    *   - `pinnedIds === null`: follow-latest mode. The memo reads the full messages
-   *     record and returns the last PAGE_SIZE messages. New messages appear live.
-   *   - `pinnedIds === number[]`: frozen window. The memo looks up each id
+   *     record and returns the last PAGE_SIZE messages (sorted by createdAt).
+   *   - `pinnedIds === string[]`: frozen window. The memo looks up each id
    *     individually. Solid's fine-grained store reactivity means adding a NEW
    *     message id to the record does NOT invalidate reads of the specific pinned
    *     ids — so the window stays put, no re-render.
+   *
+   * Ordering is always by `createdAt` (with `id` as lexicographic tiebreaker
+   * for determinism when timestamps collide).
    */
-  const [pinnedIds, setPinnedIds] = createSignal<number[] | null>(null)
+  const [pinnedIds, setPinnedIds] = createSignal<string[] | null>(null)
+
+  const sortByCreatedAt = (a: ChatMessageType, b: ChatMessageType) =>
+    (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 
   const unreadCount = createMemo(() => {
     const pinned = pinnedIds()
-    if (pinned === null) return 0
-    const allIds = Object.keys(state.currentChat.messages ?? {}).map(Number)
-    const pinnedMax = pinned.length > 0 ? pinned[pinned.length - 1] : -Infinity
-    return allIds.filter(id => id > pinnedMax).length
+    if (pinned === null || pinned.length === 0) return 0
+    const pinnedLastId = pinned[pinned.length - 1]
+    const pinnedLast = state.currentChat.messages[pinnedLastId]
+    if (!pinnedLast) return 0
+    return Object.values(state.currentChat.messages ?? {})
+      .filter(m => sortByCreatedAt(m, pinnedLast) > 0)
+      .length
   })
 
   const visibleMessages = createMemo<ChatMessageType[]>(() => {
@@ -171,7 +180,7 @@ function ConversationView(props: { onBack: () => void }) {
       return result
     }
     return Object.values(state.currentChat.messages ?? {})
-      .sort((a, b) => a.id - b.id)
+      .sort(sortByCreatedAt)
       .slice(-PAGE_SIZE)
   })
 
@@ -193,10 +202,11 @@ function ConversationView(props: { onBack: () => void }) {
   const loadMoreHistory = () => {
     const current = pinnedIds()
     if (current === null || current.length === 0) return
-    const oldest = current[0]
+    const oldestMsg = untrack(() => state.currentChat.messages[current[0]])
+    if (!oldestMsg) return
     const older = Object.values(untrack(() => state.currentChat.messages ?? {}))
-      .filter(m => m.id < oldest)
-      .sort((a, b) => a.id - b.id)
+      .filter(m => sortByCreatedAt(m, oldestMsg) < 0)
+      .sort(sortByCreatedAt)
       .slice(-PAGE_SIZE)
       .map(m => m.id)
     if (older.length === 0) return
@@ -206,10 +216,11 @@ function ConversationView(props: { onBack: () => void }) {
   const loadMoreForward = () => {
     const current = pinnedIds()
     if (current === null || current.length === 0) return
-    const newest = current[current.length - 1]
+    const newestMsg = untrack(() => state.currentChat.messages[current[current.length - 1]])
+    if (!newestMsg) return
     const newer = Object.values(untrack(() => state.currentChat.messages ?? {}))
-      .filter(m => m.id > newest)
-      .sort((a, b) => a.id - b.id)
+      .filter(m => sortByCreatedAt(m, newestMsg) > 0)
+      .sort(sortByCreatedAt)
       .slice(0, PAGE_SIZE)
       .map(m => m.id)
     if (newer.length === 0) return
@@ -219,10 +230,10 @@ function ConversationView(props: { onBack: () => void }) {
   const pinnedWindowHasLatest = () => {
     const current = pinnedIds()
     if (current === null || current.length === 0) return true
-    const allIds = untrack(() => Object.keys(state.currentChat.messages ?? {})).map(Number)
-    if (allIds.length === 0) return true
-    const maxId = Math.max(...allIds)
-    return current[current.length - 1] === maxId
+    const allMsgs = Object.values(untrack(() => state.currentChat.messages ?? {}))
+    if (allMsgs.length === 0) return true
+    const latest = allMsgs.reduce((a, b) => sortByCreatedAt(a, b) > 0 ? a : b)
+    return current[current.length - 1] === latest.id
   }
 
   const onScroll = (e: Event) => {

@@ -11,14 +11,14 @@ export const actorsRouter = router({
         }),
 
     get: procedure
-        .input(z.object({ id: z.number() }))
+        .input(z.object({ id: z.string() }))
         .query(({ input }) => {
             return state.assets.actors[input.id] ?? null
         }),
 
     upsert: procedure
         .input(z.object({
-            id: z.number().optional(),
+            id: z.string().optional(),
             name: z.string().min(1),
             description: z.string().optional().default(''),
             avatarUrl: z.string().optional().default(''),
@@ -43,8 +43,7 @@ export const actorsRouter = router({
                 return state.assets.actors[id]
             }
 
-            const ids = Object.keys(state.assets.actors).map(Number)
-            const newId = ids.length > 0 ? Math.max(...ids) + 1 : 1
+            const newId = nanoid()
             const actor: Actor = {
                 id: newId,
                 customId: input.customId ?? nanoid(12),
@@ -60,19 +59,19 @@ export const actorsRouter = router({
         }),
 
     delete: procedure
-        .input(z.object({ id: z.number() }))
+        .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
-            deleteState('assets', 'actors', String(input.id))
+            deleteState('assets', 'actors', input.id)
             return { success: true }
         }),
 
     deleteExpression: procedure
-        .input(z.object({ actorId: z.number(), name: z.string() }))
+        .input(z.object({ actorId: z.string(), name: z.string() }))
         .mutation(({ input }) => {
             const actor = state.assets.actors[input.actorId]
             if (!actor) throw new Error('Actor not found')
 
-            deleteState('assets', 'actors', String(input.actorId), 'expressions', input.name)
+            deleteState('assets', 'actors', input.actorId, 'expressions', input.name)
             return { success: true }
         }),
 })

@@ -2,7 +2,7 @@ import { bold, brightGreen, ComfyLogger, reset, style, white } from "comfylogger
 import { db, loadChatById, getMessagesByChatId, dehydrateChatMessage } from "./db";
 import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
-import { randomNumberId } from "./utils/random";
+import { nanoid } from "nanoid";
 import { ChatCompletionManager } from "./llm";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
@@ -17,7 +17,7 @@ export const logChat = (message: string) => {
 
 export class CurrentChat {
 
-    static async loadChat(id: number) {
+    static async loadChat(id: string) {
         // 1. Save the currently-loaded chat's messages to the DB before replacing.
         //    Chat messages are the one thing that doesn't live in memory across chats,
         //    so they MUST be persisted immediately or they'd be lost when we swap.
@@ -37,7 +37,7 @@ export class CurrentChat {
 
     static newChat({ title }: { title: string; }) {
         const newChat: CurrentChatState = {
-            id: randomNumberId(16), // Temporary ID until saved to DB
+            id: nanoid(),
             title,
             assets: {
                 actors: [],
@@ -89,7 +89,7 @@ export class CurrentChat {
         if (!currentChat.id) return;
 
         // Upsert each in-memory message for this chat
-        const messageIds: number[] = [];
+        const messageIds: string[] = [];
         for (const msg of Object.values(currentChat.messages)) {
             messageIds.push(msg.id);
             db.insertInto('chat_messages')
@@ -133,7 +133,7 @@ export class CurrentChat {
         }
         
         const upsertResult = CurrentChat.upsertMessage({
-            id: randomNumberId(16), // Temporary ID until saved to DB
+            id: nanoid(),
             role: 'user' as const,
             content: message,
             chatId: state.currentChat.id,
@@ -170,7 +170,7 @@ export class CurrentChat {
                 }
 
                 CurrentChat.upsertMessage({
-                    id: randomNumberId(16), // Temporary ID until saved to DB
+                    id: nanoid(),
                     role: 'assistant',
                     chatId: state.currentChat.id,
                     content: response,

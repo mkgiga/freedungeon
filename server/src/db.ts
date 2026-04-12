@@ -2,19 +2,20 @@
 import SQLite from 'bun:sqlite';
 import { Kysely, sql, type Generated } from 'kysely';
 import { BunSqliteDialect } from 'kysely-bun-sqlite';
+import { nanoid } from 'nanoid';
 import path from 'node:path';
 import fs from 'node:fs';
 import { state } from './server';
 import type { Actor, Note, ChatMessage, AppState, Chat, LLMConfig, AppNotification, CurrentChatState }  from '@shared/types';
 export interface DB {
     actor_expressions: {
-        id: Generated<number>;
-        actor_id: number;
+        id: string;
+        actor_id: string;
         name: string;
         url: string;
     };
     actors: {
-        id: Generated<number>;
+        id: string;
         customId: Generated<string>;
         name: Generated<string>;
         description: Generated<string>;
@@ -23,7 +24,7 @@ export interface DB {
         updated_at: Generated<number>;
     };
     notes: {
-        id: Generated<number>;
+        id: string;
         title: Generated<string>;
         type: Generated<string>;
         content: Generated<string>;
@@ -31,32 +32,32 @@ export interface DB {
         updated_at: Generated<number>;
     };
     chat_actor_refs: {
-        id: Generated<number>;
-        chat_id: number;
-        actor_id: number;
+        id: string;
+        chat_id: string;
+        actor_id: string;
     };
     chat_note_refs: {
-        id: Generated<number>;
-        chat_id: number;
-        note_id: number;
+        id: string;
+        chat_id: string;
+        note_id: string;
     };
     chats: {
-        id: Generated<number>;
+        id: string;
         title: Generated<string>;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
     chat_messages: {
-        id: Generated<number>;
+        id: string;
         role: string;
-        chat_id: number;
+        chat_id: string;
         content: string;
         created_at: Generated<number>;
         updated_at: Generated<number>;
         metadata: string | null;
     };
     llm_configs: {
-        id: Generated<number>;
+        id: string;
         name: Generated<string>;
         provider: string;
         endpoint: string;
@@ -68,7 +69,7 @@ export interface DB {
         updated_at: Generated<number>;
     };
     notifications: {
-        id: Generated<number>;
+        id: string;
         title: Generated<string>;
         content: string;
         background_color: Generated<string>;
@@ -102,7 +103,7 @@ export async function initDb() {
     await db.schema
         .createTable('actors')
         .ifNotExists()
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('customId', 'text', (col) => col.unique().notNull().defaultTo(sql`(lower(hex(randomblob(8))))`))
         .addColumn('name', 'text', (col) => col.notNull().defaultTo('Unnamed Actor'))
         .addColumn('description', 'text', (col) => col.defaultTo('').notNull())
@@ -114,8 +115,8 @@ export async function initDb() {
     await db.schema
         .createTable('actor_expressions')
         .ifNotExists()
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-        .addColumn('actor_id', 'integer', (col) => col.notNull().references('actors.id').onDelete('cascade'))
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('actor_id', 'text', (col) => col.notNull().references('actors.id').onDelete('cascade'))
         .addColumn('name', 'text', (col) => col.notNull().defaultTo('unknown'))
         .addColumn('url', 'text', (col) => col.notNull())
         .execute();
@@ -123,7 +124,7 @@ export async function initDb() {
     await db.schema
         .createTable('notes')
         .ifNotExists()
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('title', 'text', (col) => col.notNull().defaultTo('Untitled Note'))
         .addColumn('type', 'text', (col) => col.notNull().defaultTo(''))
         .addColumn('content', 'text', (col) => col.notNull().defaultTo(''))
@@ -134,7 +135,7 @@ export async function initDb() {
     await db.schema
         .createTable('chats')
         .ifNotExists()
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('title', 'text', (col) => col.notNull().defaultTo('Untitled Chat'))
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
@@ -143,25 +144,25 @@ export async function initDb() {
     await db.schema
         .createTable('chat_actor_refs')
         .ifNotExists()
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-        .addColumn('chat_id', 'integer', (col) => col.notNull().references('chats.id').onDelete('cascade'))
-        .addColumn('actor_id', 'integer', (col) => col.notNull().references('actors.id').onDelete('cascade'))
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('chat_id', 'text', (col) => col.notNull().references('chats.id').onDelete('cascade'))
+        .addColumn('actor_id', 'text', (col) => col.notNull().references('actors.id').onDelete('cascade'))
         .execute();
 
     await db.schema
         .createTable('chat_note_refs')
         .ifNotExists()
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-        .addColumn('chat_id', 'integer', (col) => col.notNull().references('chats.id').onDelete('cascade'))
-        .addColumn('note_id', 'integer', (col) => col.notNull().references('notes.id').onDelete('cascade'))
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('chat_id', 'text', (col) => col.notNull().references('chats.id').onDelete('cascade'))
+        .addColumn('note_id', 'text', (col) => col.notNull().references('notes.id').onDelete('cascade'))
         .execute();
 
     await db.schema
         .createTable('chat_messages')
         .ifNotExists()
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('role', 'text', (col) => col.notNull())
-        .addColumn('chat_id', 'integer', (col) => col.notNull().references('chats.id').onDelete('cascade'))
+        .addColumn('chat_id', 'text', (col) => col.notNull().references('chats.id').onDelete('cascade'))
         .addColumn('content', 'text', (col) => col.notNull())
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
@@ -171,7 +172,7 @@ export async function initDb() {
     await db.schema
         .createTable('llm_configs')
         .ifNotExists()
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('name', 'text', (col) => col.notNull().defaultTo('Untitled Config'))
         .addColumn('provider', 'text', (col) => col.notNull())
         .addColumn('endpoint', 'text', (col) => col.notNull())
@@ -193,7 +194,7 @@ export async function initDb() {
     await db.schema
         .createTable('notifications')
         .ifNotExists()
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('title', 'text', (col) => col.notNull().defaultTo('Notification'))
         .addColumn('content', 'text', (col) => col.notNull())
         .addColumn('background_color', 'text', (col) => col.notNull().defaultTo(''))
@@ -376,13 +377,14 @@ export function listChats({ offset = 0, limit = 20 }) {
  * Loads all messages for a given chat, hydrated into a record keyed by message id.
  * Matches the shape of `CurrentChatState.messages`.
  */
-export async function getMessagesByChatId(chatId: number): Promise<Record<number, ChatMessage>> {
+export async function getMessagesByChatId(chatId: string): Promise<Record<string, ChatMessage>> {
     const rows = await db.selectFrom('chat_messages')
         .selectAll()
         .where('chat_id', '=', chatId)
+        .orderBy('created_at', 'asc')
         .orderBy('id', 'asc')
         .execute();
-    const record: Record<number, ChatMessage> = {};
+    const record: Record<string, ChatMessage> = {};
     for (const row of rows) {
         const msg = hydrateChatMessage(row);
         record[msg.id] = msg;
@@ -390,10 +392,10 @@ export async function getMessagesByChatId(chatId: number): Promise<Record<number
     return record;
 }
 
-export async function loadChatById(chatId: number) {
+export async function loadChatById(chatId: string) {
     const loadedChat = await db.selectFrom('chats').selectAll().where('id', '=', chatId).executeTakeFirst();
     if (!loadedChat) throw new Error('Chat not found');
-    const chatMessages = await db.selectFrom('chat_messages').selectAll().where('chat_id', '=', chatId).orderBy('created_at', 'asc').execute();
+    const chatMessages = await db.selectFrom('chat_messages').selectAll().where('chat_id', '=', chatId).orderBy('created_at', 'asc').orderBy('id', 'asc').execute();
 
     const actorRefs = await db.selectFrom('chat_actor_refs')
         .select('actor_id')
@@ -406,7 +408,7 @@ export async function loadChatById(chatId: number) {
         .execute();
 
     const hydratedChat = hydrateChat(loadedChat);
-    const messagesRecord: Record<number, ChatMessage> = {};
+    const messagesRecord: Record<string, ChatMessage> = {};
     for (const row of chatMessages) {
         const m = hydrateChatMessage(row);
         messagesRecord[m.id] = m;
@@ -428,7 +430,7 @@ export async function loadAssetLibraryActors() {
     const actors = await db.selectFrom('actors').selectAll().execute();
     const expressions = await db.selectFrom('actor_expressions').selectAll().execute();
 
-    const hydratedActors: Record<number, Actor> = {};
+    const hydratedActors: Record<string, Actor> = {};
     for (const actor of actors) {
         hydratedActors[actor.id] = hydrateActor(actor, expressions);
     }
@@ -437,7 +439,7 @@ export async function loadAssetLibraryActors() {
 
 export async function loadAssetLibraryNotes() {
     const notes = await db.selectFrom('notes').selectAll().execute();
-    const hydratedNotes: Record<number, Note> = {};
+    const hydratedNotes: Record<string, Note> = {};
     for (const note of notes) {
         hydratedNotes[note.id] = hydrateNote(note);
     }
@@ -448,12 +450,12 @@ export async function loadAssetLibraryNotes() {
  * Loads all chats as lightweight metadata: id, title, timestamps, and asset ref IDs.
  * Does NOT load messages. Matches the shape of the `Chat` type used in `state.assets.chats`.
  */
-export async function loadAllChatsLite(): Promise<Record<number, Chat>> {
+export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
     const chatRows = await db.selectFrom('chats').selectAll().execute();
     const actorRefs = await db.selectFrom('chat_actor_refs').selectAll().execute();
     const noteRefs = await db.selectFrom('chat_note_refs').selectAll().execute();
 
-    const result: Record<number, Chat> = {};
+    const result: Record<string, Chat> = {};
     for (const row of chatRows) {
         result[row.id] = {
             id: row.id,
@@ -474,7 +476,7 @@ export async function loadStateFromDb(): Promise<AppState> {
     const notes = await loadAssetLibraryNotes();
     const chats = await loadAllChatsLite();
     const llmConfigRows = await db.selectFrom('llm_configs').selectAll().execute();
-    const llmConfigs: Record<number, LLMConfig> = {};
+    const llmConfigs: Record<string, LLMConfig> = {};
     for (const row of llmConfigRows) {
         llmConfigs[row.id] = hydrateLLMConfig(row);
     }
@@ -513,7 +515,7 @@ export function saveStateToDb({ state: appState }: { state: AppState }) {
 
         db.deleteFrom('actor_expressions').where('actor_id', '=', actor.id).execute()
         for (const [name, url] of Object.entries(actor.expressions)) {
-            db.insertInto('actor_expressions').values({ actor_id: actor.id, name, url }).execute()
+            db.insertInto('actor_expressions').values({ id: nanoid(), actor_id: actor.id, name, url }).execute()
         }
     }
 
@@ -550,17 +552,17 @@ export function saveStateToDb({ state: appState }: { state: AppState }) {
         // Sync actor/note refs: delete old, insert current
         db.deleteFrom('chat_actor_refs').where('chat_id', '=', chat.id).execute()
         for (const actorId of chat.assets.actors) {
-            db.insertInto('chat_actor_refs').values({ chat_id: chat.id, actor_id: actorId }).execute()
+            db.insertInto('chat_actor_refs').values({ id: nanoid(), chat_id: chat.id, actor_id: actorId }).execute()
         }
         db.deleteFrom('chat_note_refs').where('chat_id', '=', chat.id).execute()
         for (const noteId of chat.assets.notes) {
-            db.insertInto('chat_note_refs').values({ chat_id: chat.id, note_id: noteId }).execute()
+            db.insertInto('chat_note_refs').values({ id: nanoid(), chat_id: chat.id, note_id: noteId }).execute()
         }
     }
 
     // Persist current chat's messages (only the currently-loaded chat has messages in memory)
     if (appState.currentChat.id !== null) {
-        const messageIds: number[] = []
+        const messageIds: string[] = []
         for (const msg of Object.values(appState.currentChat.messages)) {
             messageIds.push(msg.id)
             db.insertInto('chat_messages')

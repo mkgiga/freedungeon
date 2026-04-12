@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
+import { nanoid } from 'nanoid'
 import type { Note } from '@shared/types'
 
 export const notesRouter = router({
@@ -10,14 +11,14 @@ export const notesRouter = router({
         }),
 
     get: procedure
-        .input(z.object({ id: z.number() }))
+        .input(z.object({ id: z.string() }))
         .query(({ input }) => {
             return state.assets.notes[input.id] ?? null
         }),
 
     upsert: procedure
         .input(z.object({
-            id: z.number().optional(),
+            id: z.string().optional(),
             title: z.string().min(1),
             type: z.string().optional().default(''),
             content: z.string().optional().default(''),
@@ -38,8 +39,7 @@ export const notesRouter = router({
                 return state.assets.notes[id]
             }
 
-            const ids = Object.keys(state.assets.notes).map(Number)
-            const newId = ids.length > 0 ? Math.max(...ids) + 1 : 1
+            const newId = nanoid()
             const note: Note = {
                 id: newId,
                 title: input.title,
@@ -53,9 +53,9 @@ export const notesRouter = router({
         }),
 
     delete: procedure
-        .input(z.object({ id: z.number() }))
+        .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
-            deleteState('assets', 'notes', String(input.id))
+            deleteState('assets', 'notes', input.id)
             return { success: true }
         }),
 })

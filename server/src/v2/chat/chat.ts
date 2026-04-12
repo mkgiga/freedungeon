@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
 import { CurrentChat } from '../../chat'
+import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
 
 export const chatRouter = router({
@@ -11,7 +12,7 @@ export const chatRouter = router({
         }),
 
     load: procedure
-        .input(z.object({ id: z.number() }))
+        .input(z.object({ id: z.string() }))
         .mutation(async ({ input }) => {
             await CurrentChat.loadChat(input.id)
             return { id: input.id }
@@ -21,8 +22,7 @@ export const chatRouter = router({
         .input(z.object({ title: z.string().optional().default('Untitled Chat') }))
         .mutation(({ input }) => {
             const now = Date.now()
-            const ids = Object.keys(state.assets.chats).map(Number)
-            const newId = ids.length > 0 ? Math.max(...ids) + 1 : 1
+            const newId = nanoid()
 
             const chat: Chat = {
                 id: newId,
@@ -50,7 +50,7 @@ export const chatRouter = router({
         }),
 
     rename: procedure
-        .input(z.object({ id: z.number(), title: z.string().min(1) }))
+        .input(z.object({ id: z.string(), title: z.string().min(1) }))
         .mutation(({ input }) => {
             if (!state.assets.chats[input.id]) {
                 throw new Error(`Chat ${input.id} not found`)
@@ -67,10 +67,10 @@ export const chatRouter = router({
         }),
 
     delete: procedure
-        .input(z.object({ id: z.number() }))
+        .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
             // Remove from state; auto-save handles DB cleanup
-            deleteState('assets', 'chats', String(input.id))
+            deleteState('assets', 'chats', input.id)
 
             // If the deleted chat was current, clear currentChat
             if (state.currentChat.id === input.id) {

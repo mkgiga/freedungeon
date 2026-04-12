@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
+import { nanoid } from 'nanoid'
 import { LLM_PRESETS, defaultValuesFromSchema } from '@shared/llm-presets'
 import type { LLMConfig } from '@shared/types'
 
@@ -11,14 +12,14 @@ export const llmConfigsRouter = router({
         }),
 
     get: procedure
-        .input(z.object({ id: z.number() }))
+        .input(z.object({ id: z.string() }))
         .query(({ input }) => {
             return state.assets.llmConfigs[input.id] ?? null
         }),
 
     upsert: procedure
         .input(z.object({
-            id: z.number().optional(),
+            id: z.string().optional(),
             name: z.string().min(1),
             provider: z.enum(['openai', 'anthropic', 'google', 'custom']),
             endpoint: z.string().min(1),
@@ -48,8 +49,7 @@ export const llmConfigsRouter = router({
                 return state.assets.llmConfigs[id]
             }
 
-            const ids = Object.keys(state.assets.llmConfigs).map(Number)
-            const newId = ids.length > 0 ? Math.max(...ids) + 1 : 1
+            const newId = nanoid()
             const config: LLMConfig = {
                 id: newId,
                 name: input.name,
@@ -73,8 +73,7 @@ export const llmConfigsRouter = router({
             if (!preset) throw new Error(`Unknown preset: ${input.presetKey}`)
 
             const now = Date.now()
-            const ids = Object.keys(state.assets.llmConfigs).map(Number)
-            const newId = ids.length > 0 ? Math.max(...ids) + 1 : 1
+            const newId = nanoid()
             const config: LLMConfig = {
                 id: newId,
                 name: preset.name,
@@ -92,9 +91,9 @@ export const llmConfigsRouter = router({
         }),
 
     delete: procedure
-        .input(z.object({ id: z.number() }))
+        .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
-            deleteState('assets', 'llmConfigs', String(input.id))
+            deleteState('assets', 'llmConfigs', input.id)
             return { success: true }
         }),
 })

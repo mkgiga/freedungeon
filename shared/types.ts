@@ -7,10 +7,10 @@
  */
 export type AppState = {
     assets: {
-        actors: Record<number, Actor>;
-        notes: Record<number, Note>;
-        llmConfigs: Record<number, LLMConfig>;
-        chats: Record<number, Chat>;
+        actors: Record<string, Actor>;
+        notes: Record<string, Note>;
+        llmConfigs: Record<string, LLMConfig>;
+        chats: Record<string, Chat>;
     },
     currentChat: CurrentChatState;
     notifications: AppNotification[];
@@ -18,7 +18,7 @@ export type AppState = {
 }
 
 export type AppNotification = {
-    id: number;
+    id: string;
     title: string;
     content: string;
     backgroundColor: string;
@@ -35,7 +35,7 @@ export type AppNotification = {
 export type ActorExpressions = { [expressionName: string]: string };
 
 export type Actor = {
-    id: number;
+    id: string;
     customId: string;
     name: string;
     description: string;
@@ -46,7 +46,7 @@ export type Actor = {
 }
 
 export type Note = {
-    id: number;
+    id: string;
     title: string;
     type: string;
     content: string;
@@ -57,7 +57,7 @@ export type Note = {
 export type LLMProvider = 'openai' | 'anthropic' | 'google' | 'custom'
 
 export type LLMConfig = {
-    id: number;
+    id: string;
     name: string;
     provider: LLMProvider;
     endpoint: string;
@@ -70,11 +70,11 @@ export type LLMConfig = {
 }
 
 export type Chat = {
-    id: number;
+    id: string;
     title: string;
     assets: {
-        actors: number[];
-        notes: number[];
+        actors: string[];
+        notes: string[];
     };
     createdAt: number;
     updatedAt: number;
@@ -82,22 +82,22 @@ export type Chat = {
 
 /** The in-memory, hydrated version of a chat that's been loaded from the database. */
 export type CurrentChatState = {
-    id: number | null;
+    id: string | null;
     title: string;
     assets: {
-        actors: number[];
-        notes: number[];
+        actors: string[];
+        notes: string[];
     };
-    /** Keyed by message id. Frontend sorts by id for render order. */
-    messages: Record<number, ChatMessage>;
+    /** Keyed by message id. Render order is determined by `createdAt`. */
+    messages: Record<string, ChatMessage>;
     createdAt: number | null;
     updatedAt: number | null;
 }
 
 export type ChatMessage = {
-    id: number;
+    id: string;
     role: 'user' | 'assistant' | 'system';
-    chatId: number;
+    chatId: string;
     content: string;
     createdAt: number;
     updatedAt: number;
@@ -107,10 +107,10 @@ export type ChatMessage = {
 export type UserChatMessage = ChatMessage & {
     role: 'user';
     /** For preserving what character the user was roleplaying as when they sent this message. */
-    actorId?: number;
+    actorId?: string;
 }
 export type UserPreferences = {
-    activeLLMConfigId: number | null;
-    playerCharacterId: number | null;
+    activeLLMConfigId: string | null;
+    playerCharacterId: string | null;
     [key: string]: any;
 };

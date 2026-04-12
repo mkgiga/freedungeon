@@ -25,15 +25,12 @@ function RouteComponent() {
     const edit = () => search().edit
     const navigate = useNavigate()
 
-    const serverConfig = () => {
-        const id = Number(routeId())
-        return isNaN(id) ? undefined : state.assets.llmConfigs[id]
-    }
+    const serverConfig = () => state.assets.llmConfigs[routeId()]
     const isNew = () => !serverConfig()
 
     const [draft, setDraft] = createStore(
         serverConfig() ?? {
-            id: 0,
+            id: '',
             name: 'New Config',
             provider: 'custom' as const,
             endpoint: '',
@@ -69,7 +66,7 @@ function RouteComponent() {
         if (edit()) {
             navigate({
                 to: '/preferences/llm-configs/$id',
-                params: { id: String(result.id) },
+                params: { id: result.id },
                 search: { edit: false },
                 replace: true,
             })

@@ -38,12 +38,12 @@ function RouteComponent() {
 
   const [draft, setDraft] = createStore(
     serverActor() ?? {
-      id: 0,
+      id: '',
       customId: routeId(),
       name: 'New Actor',
       description: '',
       avatarUrl: '',
-      expressions: {},
+      expressions: {} as Record<string, string>,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }
