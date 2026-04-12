@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
+import { deleteNote } from '../../db'
 import { nanoid } from 'nanoid'
 import type { Note } from '@shared/types'
 
@@ -56,6 +57,7 @@ export const notesRouter = router({
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
             deleteState('assets', 'notes', input.id)
+            deleteNote(input.id)
             return { success: true }
         }),
 })

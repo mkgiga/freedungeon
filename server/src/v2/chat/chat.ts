@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
 import { CurrentChat } from '../../chat'
+import { deleteChat } from '../../db'
 import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
 
@@ -69,8 +70,10 @@ export const chatRouter = router({
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
-            // Remove from state; auto-save handles DB cleanup
+            // Remove from state and DB together. CASCADE deletes chat_messages,
+            // chat_actor_refs, and chat_note_refs for this chat.
             deleteState('assets', 'chats', input.id)
+            deleteChat(input.id)
 
             // If the deleted chat was current, clear currentChat
             if (state.currentChat.id === input.id) {
