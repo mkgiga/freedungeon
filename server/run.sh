@@ -1,2 +1,2 @@
 #!/bin/env bash
-bun --hot src/server.ts
+bun --watch src/server.ts

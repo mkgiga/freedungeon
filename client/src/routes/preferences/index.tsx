@@ -63,7 +63,7 @@ function RouteComponent() {
                 class="p-2 rounded-lg bg-(--bg) border border-[color-mix(in_oklch,var(--text),transparent_85%)]"
                 value={state.userPreferences.activeLLMConfigId ?? ''}
                 onChange={(e) => {
-                  const val = e.currentTarget.value ? Number(e.currentTarget.value) : null
+                  const val = e.currentTarget.value || null
                   trpc.preferences.update.mutate({ activeLLMConfigId: val })
                 }}
               >
@@ -80,7 +80,7 @@ function RouteComponent() {
                 class="p-2 rounded-lg bg-(--bg) border border-[color-mix(in_oklch,var(--text),transparent_85%)]"
                 value={state.userPreferences.playerCharacterId ?? ''}
                 onChange={(e) => {
-                  const val = e.currentTarget.value ? Number(e.currentTarget.value) : null
+                  const val = e.currentTarget.value || null
                   trpc.preferences.update.mutate({ playerCharacterId: val })
                 }}
               >

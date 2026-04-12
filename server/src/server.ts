@@ -163,7 +163,6 @@ async function initProcessHandlers() {
         console.log('State saved, exiting now.')
         process.exit(0)
     }
-
     process.prependOnceListener('beforeExit', gracefulShutdown);
     process.prependOnceListener('exit', gracefulShutdown);
     process.prependOnceListener('SIGINT', gracefulShutdown);
@@ -179,7 +178,7 @@ async function initProcessHandlers() {
         } catch (err) {
             log.server.error(`Auto-save failed: ${err}`)
         }
-    }, 30_000)
+    }, 5_000)
 }
 
 start();

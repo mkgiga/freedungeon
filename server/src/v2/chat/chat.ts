@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
 import { CurrentChat } from '../../chat'
+import { ChatCompletionManager } from '../../llm'
 import { deleteChat } from '../../db'
 import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
@@ -167,5 +168,11 @@ export const chatRouter = router({
             }
 
             CurrentChat.prompt({ message: input.message })
+        }),
+
+    cancel: procedure
+        .mutation(() => {
+            ChatCompletionManager.cancel()
+            return { success: true }
         }),
 })

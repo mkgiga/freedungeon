@@ -9,6 +9,7 @@ import {
     MdFillFast_forward,
     MdFillAuto_fix_high,
     MdFillSend,
+    MdFillStop,
 } from 'solid-icons/md'
 
 export function ChatInput() {
@@ -26,6 +27,8 @@ export function ChatInput() {
         setMessage('')
         await trpc.chat.prompt.mutate({ message: text })
     }
+
+    const handleStop = () => trpc.chat.cancel.mutate()
 
     const handleContinue = () => console.log('[ChatInput] continue')
     const handleRegenerate = () => console.log('[ChatInput] regenerate')
@@ -56,9 +59,18 @@ export function ChatInput() {
                         </div>
                     )}
                 </Show>
-                <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} title="Send">
-                    <MdFillSend size={20} />
-                </button>
+                <Show
+                    when={state.isGenerating}
+                    fallback={
+                        <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} title="Send">
+                            <MdFillSend size={20} />
+                        </button>
+                    }
+                >
+                    <button class="chat-input-btn chat-input-btn-send" onClick={handleStop} title="Stop">
+                        <MdFillStop size={20} />
+                    </button>
+                </Show>
             </div>
             <textarea
                 class="chat-input-textarea"

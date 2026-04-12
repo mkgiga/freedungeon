@@ -13,7 +13,7 @@ export const preferencesRouter = router({
         .input(z.object({
             activeLLMConfigId: z.string().nullable().optional(),
             playerCharacterId: z.string().nullable().optional(),
-        }).passthrough())
+        }).loose())
         .mutation(({ input }) => {
             for (const [key, value] of Object.entries(input)) {
                 if (value !== undefined) {
