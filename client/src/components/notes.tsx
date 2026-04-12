@@ -15,9 +15,10 @@ function NoteListItem(props: {
     note: Note
     actions?: NoteAction[]
     onClick?: () => void
+    selected?: boolean
 }) {
     return (
-        <tr class="resource-table-row" onClick={props.onClick}>
+        <tr class="resource-table-row" classList={{ selected: props.selected }} onClick={props.onClick}>
             <td class="resource-table-col-name">
                 <span class="resource-table-cell-content">{props.note.title}</span>
             </td>
@@ -45,6 +46,7 @@ export function NoteList(props: {
     notes: Note[]
     actions?: NoteAction[]
     onNoteClick?: (note: Note) => void
+    isSelected?: (note: Note) => boolean
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Note>('title')
 
@@ -68,6 +70,7 @@ export function NoteList(props: {
                             note={note}
                             actions={props.actions}
                             onClick={() => props.onNoteClick?.(note)}
+                            selected={props.isSelected?.(note)}
                         />
                     )}
                 </For>

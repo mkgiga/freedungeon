@@ -133,6 +133,14 @@ button {
   background-color: var(--bg-2);
 }
 
+.resource-table-row.selected {
+  background-color: color-mix(in oklch, var(--primary), transparent 85%);
+}
+
+.resource-table-row.selected:hover {
+  background-color: color-mix(in oklch, var(--primary), transparent 75%);
+}
+
 .resource-table-row td {
   padding: 0;
 }

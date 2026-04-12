@@ -67,6 +67,74 @@ export const chatRouter = router({
             return { success: true }
         }),
 
+    addActor: procedure
+        .input(z.object({ actorId: z.string() }))
+        .mutation(({ input }) => {
+            const chatId = state.currentChat.id
+            if (!chatId) throw new Error('No chat loaded')
+            if (!state.assets.actors[input.actorId]) throw new Error('Actor not found')
+
+            const current = state.currentChat.assets.actors
+            if (current.includes(input.actorId)) return { success: true }
+
+            const next = [...current, input.actorId]
+            const now = Date.now()
+            setState('currentChat', 'assets', 'actors', next)
+            setState('assets', 'chats', chatId, 'assets', 'actors', next)
+            setState('currentChat', 'updatedAt', now)
+            setState('assets', 'chats', chatId, 'updatedAt', now)
+            return { success: true }
+        }),
+
+    removeActor: procedure
+        .input(z.object({ actorId: z.string() }))
+        .mutation(({ input }) => {
+            const chatId = state.currentChat.id
+            if (!chatId) throw new Error('No chat loaded')
+
+            const next = state.currentChat.assets.actors.filter(id => id !== input.actorId)
+            const now = Date.now()
+            setState('currentChat', 'assets', 'actors', next)
+            setState('assets', 'chats', chatId, 'assets', 'actors', next)
+            setState('currentChat', 'updatedAt', now)
+            setState('assets', 'chats', chatId, 'updatedAt', now)
+            return { success: true }
+        }),
+
+    addNote: procedure
+        .input(z.object({ noteId: z.string() }))
+        .mutation(({ input }) => {
+            const chatId = state.currentChat.id
+            if (!chatId) throw new Error('No chat loaded')
+            if (!state.assets.notes[input.noteId]) throw new Error('Note not found')
+
+            const current = state.currentChat.assets.notes
+            if (current.includes(input.noteId)) return { success: true }
+
+            const next = [...current, input.noteId]
+            const now = Date.now()
+            setState('currentChat', 'assets', 'notes', next)
+            setState('assets', 'chats', chatId, 'assets', 'notes', next)
+            setState('currentChat', 'updatedAt', now)
+            setState('assets', 'chats', chatId, 'updatedAt', now)
+            return { success: true }
+        }),
+
+    removeNote: procedure
+        .input(z.object({ noteId: z.string() }))
+        .mutation(({ input }) => {
+            const chatId = state.currentChat.id
+            if (!chatId) throw new Error('No chat loaded')
+
+            const next = state.currentChat.assets.notes.filter(id => id !== input.noteId)
+            const now = Date.now()
+            setState('currentChat', 'assets', 'notes', next)
+            setState('assets', 'chats', chatId, 'assets', 'notes', next)
+            setState('currentChat', 'updatedAt', now)
+            setState('assets', 'chats', chatId, 'updatedAt', now)
+            return { success: true }
+        }),
+
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {

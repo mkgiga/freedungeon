@@ -17,11 +17,12 @@ function ActorListItem(props: {
     actor: Actor
     actions?: ActorAction[]
     onClick?: () => void
+    selected?: boolean
 }) {
     const initials = () => props.actor.name?.charAt(0)?.toUpperCase() ?? '?'
 
     return (
-        <tr class="resource-table-row" onClick={props.onClick}>
+        <tr class="resource-table-row" classList={{ selected: props.selected }} onClick={props.onClick}>
             <td class="resource-table-col-avatar">
                 <ImageIcon
                     url={thumbnailUrl(props.actor.avatarUrl)}
@@ -52,6 +53,7 @@ export function ActorList(props: {
     actors: Actor[]
     actions?: ActorAction[]
     onActorClick?: (actor: Actor) => void
+    isSelected?: (actor: Actor) => boolean
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Actor>('name')
 
@@ -75,6 +77,7 @@ export function ActorList(props: {
                             actor={actor}
                             actions={props.actions}
                             onClick={() => props.onActorClick?.(actor)}
+                            selected={props.isSelected?.(actor)}
                         />
                     )}
                 </For>
