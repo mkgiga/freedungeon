@@ -157,4 +157,15 @@ export const chatRouter = router({
 
             return { success: true }
         }),
+
+    prompt: procedure
+        .input(z.object({ message: z.string() }))
+        .mutation(async ({ input }) => {
+            const currentChat = state.currentChat
+            if (!currentChat.id) {
+                throw new Error('No chat loaded')
+            }
+
+            CurrentChat.prompt({ message: input.message })
+        }),
 })

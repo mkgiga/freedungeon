@@ -496,6 +496,7 @@ export async function loadStateFromDb(): Promise<AppState> {
             createdAt: null,
             updatedAt: null,
         },
+        isGenerating: false,
         notifications: [],
         userPreferences,
     };

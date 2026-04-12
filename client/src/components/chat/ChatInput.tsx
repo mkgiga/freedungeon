@@ -1,5 +1,6 @@
 import { createMemo, createSignal, Show } from 'solid-js'
 import { state } from '../../state'
+import { trpc } from '../../trpc'
 import { ImageIcon } from '../ImageIcon'
 import { Text } from '../typography/Text'
 import {
@@ -19,11 +20,11 @@ export function ChatInput() {
         return state.assets.actors?.[id] ?? null
     })
 
-    const handleSend = () => {
+    const handleSend = async () => {
         const text = message().trim()
         if (!text) return
-        console.log('[ChatInput] send', text)
         setMessage('')
+        await trpc.chat.prompt.mutate({ message: text })
     }
 
     const handleContinue = () => console.log('[ChatInput] continue')

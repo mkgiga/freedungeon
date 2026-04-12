@@ -17,6 +17,7 @@ import type { AppState, CurrentChatState } from '@shared/types';
 import { z } from 'zod';
 import { notification } from './notifications';
 import { nanoid } from 'nanoid';
+import { bootstrapGenerationSync } from './llm';
 
 export const app = new Hono();
 export const httpServer = createServer();
@@ -47,6 +48,7 @@ export const [state, _setState] = createStore({
         createdAt: null,
         updatedAt: null,
     } as CurrentChatState,
+    isGenerating: false,
     notifications: [],
     userPreferences: {
         theme: "system",
@@ -80,6 +82,7 @@ function start() {
         const loaded = await loadStateFromDb();
         setState('assets', loaded.assets);
         setState('userPreferences', loadPreferences());
+        bootstrapGenerationSync();
         await initProcessHandlers();
         await initHttp();
         await initWebSocket();

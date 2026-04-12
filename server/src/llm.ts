@@ -1,4 +1,5 @@
-import { state } from "./server"
+import { createSignal, createRoot, createEffect } from "solid-js"
+import { state, setState } from "./server"
 import type { LLMConfig, LLMProvider } from "@shared/types"
 import type { SchemaField } from "@shared/schema-ui"
 import { LLM_PRESETS, type ApiKeyLocation } from "@shared/llm-presets"
@@ -121,7 +122,14 @@ function parseResponse(provider: LLMProvider, data: any): string {
 // ── Chat Completion Manager ──
 
 export class ChatCompletionManager {
-    private static abortController: AbortController | null = null
+    private static _abortController = createSignal<AbortController | null>(null)
+
+    static get abortController(): AbortController | null {
+        return this._abortController[0]()
+    }
+    static set abortController(v: AbortController | null) {
+        this._abortController[1](v)
+    }
 
     static get isGenerating() {
         return this.abortController !== null
@@ -221,4 +229,17 @@ export class ChatCompletionManager {
 
         return fetchResult; // For debugging purposes, not used in normal flow
     }
+}
+
+/**
+ * Sync `ChatCompletionManager.isGenerating` (signal-backed) into
+ * `state.currentChat.isGenerating`. Called once at server startup from
+ * `server.ts#start()` so the client sees a real-time generating flag.
+ */
+export function bootstrapGenerationSync() {
+    createRoot(() => {
+        createEffect(() => {
+            setState('isGenerating', ChatCompletionManager.isGenerating)
+        })
+    })
 }

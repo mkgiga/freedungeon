@@ -16,7 +16,6 @@ export const logChat = (message: string) => {
 };
 
 export class CurrentChat {
-
     static async loadChat(id: string) {
         // 1. Save the currently-loaded chat's messages to the DB before replacing.
         //    Chat messages are the one thing that doesn't live in memory across chats,
@@ -113,7 +112,10 @@ export class CurrentChat {
         saveChat(chat, currentChat.messages);
     }
 
-    static async prompt(message: string) {
+    static async prompt({message}: {message: string}) {
+        
+        logChat(`User: ${message}`);
+
         if (!state.currentChat.id) {
             logChat('No active chat. Please create or load a chat before sending a message.');
             throw new Error('No active chat. Please create or load a chat before sending a message.');

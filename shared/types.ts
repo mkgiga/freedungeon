@@ -13,6 +13,8 @@ export type AppState = {
         chats: Record<string, Chat>;
     },
     currentChat: CurrentChatState;
+    /** Whether the server is currently generating an LLM response. */
+    isGenerating: boolean;
     notifications: AppNotification[];
     userPreferences: UserPreferences;
 }
