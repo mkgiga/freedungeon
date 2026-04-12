@@ -1,0 +1,39 @@
+{
+  "name": "client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/router-plugin": "^1.133.21",
+    "@tanstack/solid-router": "latest",
+    "@tanstack/solid-router-devtools": "latest",
+    "@trpc/client": "^11.16.0",
+    "nanoid": "^5.1.7",
+    "solid-icons": "^1.2.0",
+    "solid-js": "^1.9.11",
+    "tailwindcss": "^4.1.18",
+    "vite-tsconfig-paths": "^5.1.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@iconify-json/material-symbols": "^1.2.64",
+    "@tanstack/devtools-vite": "latest",
+    "@tanstack/router-plugin": "latest",
+    "typescript": "^5.7.2",
+    "unplugin-icons": "^23.0.1",
+    "vite": "^7.3.1",
+    "vite-plugin-solid": "^2.11.10"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss"
+    ]
+  }
+}

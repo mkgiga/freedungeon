@@ -1,0 +1,3 @@
+Let's say this macro is called 'testMacro'. You can use it anywhere by writing {{ @testMacro({ foo: "bar" }) }}
+
+Of course, the line above won't cause an error because macros can't render themselves in order to prevent infinite loops, but if you call it from a different macro or prompt and the named argument 'foo' is passed, you will see the value of 'foo' right here: <[$foo]>

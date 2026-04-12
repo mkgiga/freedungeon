@@ -1,0 +1,57 @@
+.toolbar {
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    width: 100%;
+    border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+.toolbar,
+.toolbar-left,
+.toolbar-center,
+.toolbar-right {
+    display: flex;
+    height: 100%;
+    align-items: center;
+
+    button {
+        height: 100%;
+        padding: 16px;
+        svg {
+            aspect-ratio: 1;
+            height: 100%;
+            width: auto;
+        }
+        &:hover {
+            background-color: var(--bg-2);
+            text-shadow: var(--text-shadow);
+        }
+    }
+
+}
+
+.toolbar-left {
+    flex-shrink: 0;
+    justify-content: flex-start;
+}
+
+.toolbar-center {
+    justify-content: center;
+}
+
+.toolbar-right {
+    flex-shrink: 0;
+    justify-content: flex-end;
+}
+
+.toolbarButton {
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+
+    &:hover {
+        background-color: var(--bg-2);
+        text-shadow: var(--text-shadow);
+    }
+}

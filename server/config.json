@@ -1,0 +1,7 @@
+{
+    "server": {
+        "port": 8078,
+        "wsPort": 8079,
+        "hostname": "0.0.0.0"
+    }
+}

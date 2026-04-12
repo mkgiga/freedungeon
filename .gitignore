@@ -1,0 +1,38 @@
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+logs
+*.log
+
+# Common dependency folders
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# Environment files
+.env
+
+# Local do-not-commit files
+*.env
+*.local
+
+# Agents
+.agents/
+skills-lock.json
+/.prompt
+.claude
+
+# etc
+./@libraries
+
+# data
+server/data/
+server/data/db/
