@@ -1,0 +1,15 @@
+{
+    "news": [
+        {
+            "timestamp": "2024-06-01T00:00:00Z",
+            "title": "Test News Item",
+            "content": [
+                "This is a test paragraph.",
+                "This is another test paragraph.",
+                "This is yet another test paragraph.",
+                "All of this is parsed as inline HTML."
+            ],
+            "tags": ["test", "update"]
+        }
+    ]
+}

@@ -114,3 +114,10 @@ export type UserPreferences = {
     playerCharacterId: string | null;
     [key: string]: any;
 };
+
+export type NewsItem = {
+    timestamp: string;
+    title: string;
+    content: string[];
+    tags: string[];
+}

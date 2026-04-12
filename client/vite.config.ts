@@ -8,7 +8,12 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import solidPlugin from 'vite-plugin-solid'
 import Icons from 'unplugin-icons/vite'
 
+import serverPkg from '../server/package.json'
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(serverPkg.version),
+  },
   server: {
     port: 5173,
     proxy: {
@@ -16,7 +21,7 @@ export default defineConfig({
     },
   },
   plugins: [
-    
+
     devtools(),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({

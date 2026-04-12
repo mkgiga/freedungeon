@@ -1,6 +1,7 @@
 import { MdFillChat, MdFillHouse, MdFillNote, MdFillPerson, MdFillSettings } from 'solid-icons/md'
+import type { Tab } from '../tab-state'
 
-export type Tab = 'home' | 'actors' | 'chat' | 'notes' | 'preferences'
+export type { Tab }
 
 export function BottomNav(props: { activeTab: Tab; onChange: (t: Tab) => void }) {
     return (

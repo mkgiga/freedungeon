@@ -4,6 +4,7 @@ import { chatRouter } from './chat/chat'
 import { notesRouter } from './notes/notes'
 import { llmConfigsRouter } from './llm-configs/llm-configs'
 import { preferencesRouter } from './preferences/preferences'
+import { newsRouter } from './news/news'
 
 export const appRouter = router({
     actors: actorsRouter,
@@ -11,6 +12,7 @@ export const appRouter = router({
     notes: notesRouter,
     llmConfigs: llmConfigsRouter,
     preferences: preferencesRouter,
+    news: newsRouter,
 })
 
 export type AppRouter = typeof appRouter

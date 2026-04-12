@@ -34,11 +34,13 @@ html,
 }
 
 body,
-html,
+html {
+  font-family: var(--font-sans);
+}
+
 * {
   box-sizing: border-box;
   min-height: 0;
-  font-family: var(--font-sans);
 }
 
 /* ── Typography ── */
@@ -336,7 +338,8 @@ button {
 
 @media (max-width: 640px) {
   .drawer-container {
-    width: 100vw !important;
+    width: 80dvw !important;
+    max-width: 80dvw !important;
   }
 }
 
