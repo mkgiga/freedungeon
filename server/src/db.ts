@@ -501,6 +501,30 @@ export async function loadStateFromDb(): Promise<AppState> {
     };
 }
 
+// ── Delete helpers ──
+// Foreign-key CASCADE (set up in initDb) handles all children when a parent row
+// is deleted. These are called at the site of deletion (inside tRPC mutations)
+// so in-memory state and the DB stay in lockstep — no "sync on save" sweep.
+
+export function deleteActor(id: string) {
+    // CASCADE: actor_expressions, chat_actor_refs
+    db.deleteFrom('actors').where('id', '=', id).execute()
+}
+
+export function deleteNote(id: string) {
+    // CASCADE: chat_note_refs
+    db.deleteFrom('notes').where('id', '=', id).execute()
+}
+
+export function deleteChat(id: string) {
+    // CASCADE: chat_messages, chat_actor_refs, chat_note_refs
+    db.deleteFrom('chats').where('id', '=', id).execute()
+}
+
+export function deleteLLMConfig(id: string) {
+    db.deleteFrom('llm_configs').where('id', '=', id).execute()
+}
+
 /**
  * Persists a single chat's row, actor/note refs, and optionally its messages.
  * Called by `saveStateToDb` (without messages, for all chats) and by
