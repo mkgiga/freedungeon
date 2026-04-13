@@ -298,4 +298,41 @@ export class CurrentChat {
     static rewindToMessage(messageId: string) {
         CurrentChat.pruneFromMessage(messageId, { includeTarget: false });
     }
+
+    static branchFromTargetMessage({messageId, newTitle}: {messageId: string, newTitle: string}) {
+        const targetMessage = CurrentChat.getMessage(messageId);
+        if (!targetMessage) {
+            logChat(`Message with id ${messageId} not found. Cannot branch.`);
+            throw new Error(`Message with id ${messageId} not found. Cannot branch.`);
+        }
+
+        const newChat: Chat = {
+            id: nanoid(),
+            title: `${state.currentChat.title} -> ${newTitle}`,
+            assets: {
+                actors: [...state.currentChat.assets.actors],
+                notes: [...state.currentChat.assets.notes],
+            },
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        };
+
+        const newChatMessages = CurrentChat.buildHistoryBeforeMessage(messageId, true);
+        const newChatMessagesObject = Object.fromEntries(newChatMessages.map((m) => {  
+            const newId = nanoid();
+            const newMessage: ChatMessage = {
+                ...m,
+                id: newId,
+                chatId: newChat.id,
+                createdAt: m.createdAt, // preserve original timestamps to maintain order
+                updatedAt: m.updatedAt,
+            };
+            return [newId, newMessage];
+        }));
+
+        saveChat(newChat, newChatMessagesObject);
+        logChat(`Branched new chat "${newChat.title}" with id ${newChat.id} from message ${messageId}.`);
+
+        CurrentChat.loadChat(newChat.id);
+    }
 }
