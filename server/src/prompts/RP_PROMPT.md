@@ -64,7 +64,7 @@ Strings may use double quotes or template literals (backticks). Each statement =
 This is additional context to influence your output.
 
 <context>
-<#[[NOTES]]>
+{{ @NOTES() }}
 </context>
 
 # 【Actors】
@@ -75,7 +75,7 @@ The following actors are pre-defined in this simulation. You are encouraged to c
 > Actors may reference third-party IP. Use your best judgement to portray them faithfully, and in a grounded, believable manner.
 
 <actors>
-<#[[ACTORS]]>
+{{ @ACTORS() }}
 </actors>
 
 ## 【Ad-hoc Actors】
