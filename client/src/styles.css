@@ -897,6 +897,26 @@ button {
   min-width: 0;
 }
 
+.chat-input-row {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-2);
+}
+
+.chat-input-row .chat-input-textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-input-row .chat-input-btn-send {
+  align-self: stretch;
+  flex-shrink: 0;
+  width: auto;
+  height: auto;
+  padding: 0 20px;
+  border-radius: 0;
+}
+
 .chat-input-textarea {
   width: 100%;
   min-height: 100px;

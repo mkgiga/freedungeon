@@ -102,6 +102,20 @@ export function ChatInput() {
                         </button>
                     )}
                 </Show>
+            </div>
+            <div class="chat-input-row">
+                <textarea
+                    class="chat-input-textarea"
+                    placeholder="Type a message..."
+                    value={message()}
+                    onInput={(e) => setMessage(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault()
+                            handleSend()
+                        }
+                    }}
+                />
                 <Show
                     when={state.isGenerating}
                     fallback={
@@ -115,18 +129,6 @@ export function ChatInput() {
                     </button>
                 </Show>
             </div>
-            <textarea
-                class="chat-input-textarea"
-                placeholder="Type a message..."
-                value={message()}
-                onInput={(e) => setMessage(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        e.preventDefault()
-                        handleSend()
-                    }
-                }}
-            />
         </div>
     )
 }
