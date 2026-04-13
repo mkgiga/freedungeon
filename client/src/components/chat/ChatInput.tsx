@@ -3,6 +3,8 @@ import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { ImageIcon } from '../ImageIcon'
 import { Text } from '../typography/Text'
+import { useModal } from '../Modal'
+import { PlayerCharacterPicker } from './AssetPicker'
 import {
     MdFillArrow_upward,
     MdFillRefresh,
@@ -10,16 +12,25 @@ import {
     MdFillAuto_fix_high,
     MdFillSend,
     MdFillStop,
+    MdFillPerson,
 } from 'solid-icons/md'
 
 export function ChatInput() {
     const [message, setMessage] = createSignal('')
+    const modal = useModal()
 
     const currentActor = createMemo(() => {
         const id = state.userPreferences.playerCharacterId
         if (id == null) return null
         return state.assets.actors?.[id] ?? null
     })
+
+    const openPlayerCharacterPicker = () => {
+        modal.open({
+            title: 'Player Character',
+            content: () => <PlayerCharacterPicker onPick={() => modal.close()} />,
+        })
+    }
 
     const handleSend = async () => {
         const text = message().trim()
@@ -66,12 +77,29 @@ export function ChatInput() {
                     <MdFillAuto_fix_high size={20} />
                 </button>
                 <div class="chat-input-spacer" />
-                <Show when={currentActor()}>
+                <Show
+                    when={currentActor()}
+                    fallback={
+                        <button
+                            type="button"
+                            class="chat-input-btn"
+                            onClick={openPlayerCharacterPicker}
+                            title="Set player character"
+                        >
+                            <MdFillPerson size={20} />
+                        </button>
+                    }
+                >
                     {(actor) => (
-                        <div class="chat-input-current-actor">
+                        <button
+                            type="button"
+                            class="chat-input-current-actor"
+                            onClick={openPlayerCharacterPicker}
+                            title="Change player character"
+                        >
                             <Text size="sm">{actor().name}</Text>
                             <ImageIcon url={actor().avatarUrl} size={28} />
-                        </div>
+                        </button>
                     )}
                 </Show>
                 <Show
