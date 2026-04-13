@@ -71,7 +71,6 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
                         { path: ['generationConfig', 'maxOutputTokens'], label: 'Max Output Tokens', default: 8192, control: { type: 'number', min: 1, max: 1048576 } },
                         { path: ['generationConfig', 'topP'], label: 'Top P', default: 0.95, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },
                         { path: ['generationConfig', 'topK'], label: 'Top K', default: 40, control: { type: 'number', min: 0 } },
-                        { path: ['generationConfig', 'candidateCount'], label: 'Candidate Count', default: 1, control: { type: 'number', min: 1, max: 8 } },
                         { path: ['generationConfig', 'stopSequences'], label: 'Stop Sequences', default: [], control: { type: 'tags', maxItems: 5 } },
                     ],
                 },
