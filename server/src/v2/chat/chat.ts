@@ -170,8 +170,8 @@ export const chatRouter = router({
                 logChat(`Generation is already in progress. Exiting now.`);
                 throw new Error('Generation is already in progress. Please wait until the current generation finishes before sending a new message.');
             }
-            console.log(`unformatted(${JSON.stringify(input.message)});`);
-            CurrentChat.prompt({ message: `unformatted(${JSON.stringify(input.message)});` });
+            
+            CurrentChat.prompt({ message: input.message });
         }),
 
     deleteMessage: procedure

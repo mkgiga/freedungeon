@@ -36,7 +36,7 @@ export function ChatInput() {
         const text = message().trim()
         if (!text) return
         setMessage('')
-        await trpc.chat.prompt.mutate({ message: text })
+        await trpc.chat.prompt.mutate({ message: `unformatted(${JSON.stringify(text)});` })
     }
 
     const handleStop = () => trpc.chat.cancel.mutate()
@@ -56,7 +56,10 @@ export function ChatInput() {
         if (!id) return
         trpc.chat.regenerateMessage.mutate({ id })
     }
-    const handleFastForward = () => console.log('[ChatInput] fast-forward')
+
+    const handleContinue = async () => {
+        await trpc.chat.prompt.mutate({ message: `noOpContinue()` })
+    }
 
     return (
         <div class="chat-input-container">
@@ -64,7 +67,7 @@ export function ChatInput() {
                 <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
                     <MdFillRefresh size={20} />
                 </button>
-                <button class="chat-input-btn" onClick={handleFastForward} title="Fast forward">
+                <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
                     <MdFillFast_forward size={20} />
                 </button>
                 <div class="chat-input-spacer" />
