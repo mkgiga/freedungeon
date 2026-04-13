@@ -30,8 +30,9 @@ function RouteComponent() {
       <div class="flex-1 overflow-y-auto">
         <NoteList
           notes={Object.values(state.assets.notes ?? {})}
+          showType={false}
           onNoteClick={(note) => {
-            navigate({ to: '/notes/$id', params: { id: String(note.id) }, search: { edit: false } })
+            navigate({ to: '/notes/$id', params: { id: note.id }, search: { edit: true } })
           }}
           actions={[
             {

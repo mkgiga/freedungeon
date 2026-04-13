@@ -51,30 +51,21 @@ export function ChatInput() {
         )
         return latest.id
     }
-
-    const handleContinue = () => console.log('[ChatInput] continue')
     const handleRegenerate = () => {
         const id = latestMessageId()
         if (!id) return
         trpc.chat.regenerateMessage.mutate({ id })
     }
     const handleFastForward = () => console.log('[ChatInput] fast-forward')
-    const handlePrompt = () => console.log('[ChatInput] prompt')
 
     return (
         <div class="chat-input-container">
             <div class="chat-input-toolbar">
-                <button class="chat-input-btn" onClick={handleContinue} title="Continue">
-                    <MdFillArrow_upward size={20} />
-                </button>
                 <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
                     <MdFillRefresh size={20} />
                 </button>
                 <button class="chat-input-btn" onClick={handleFastForward} title="Fast forward">
                     <MdFillFast_forward size={20} />
-                </button>
-                <button class="chat-input-btn" onClick={handlePrompt} title="Prompt">
-                    <MdFillAuto_fix_high size={20} />
                 </button>
                 <div class="chat-input-spacer" />
                 <Show
@@ -102,6 +93,7 @@ export function ChatInput() {
                         </button>
                     )}
                 </Show>
+                <span>{/* empty element to give right padding the same size as the flex gap */}</span>
             </div>
             <div class="chat-input-row">
                 <textarea

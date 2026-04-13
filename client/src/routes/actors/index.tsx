@@ -33,7 +33,7 @@ function RouteComponent() {
         <ActorList
           actors={Object.values(state.assets.actors ?? {})}
           onActorClick={(actor) => {
-            navigate({ to: '/actors/$id', params: { id: actor.customId }, search: { edit: false } })
+            navigate({ to: '/actors/$id', params: { id: actor.customId }, search: { edit: true } })
           }}
           actions={[
             {
