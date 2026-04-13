@@ -23,15 +23,14 @@ build/
 # Local do-not-commit files
 *.env
 *.local
+*.dev.*
+*.dev
 
 # Agents
 .agents/
 skills-lock.json
 /.prompt
 .claude
-
-# etc
-./@libraries
 
 # data
 server/data/
