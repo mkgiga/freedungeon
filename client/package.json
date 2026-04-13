@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@solid-primitives/intersection-observer": "^2.2.4",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/router-plugin": "^1.133.21",
     "@tanstack/solid-router": "latest",

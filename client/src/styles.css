@@ -511,6 +511,16 @@ button {
   gap: 6px;
   padding: 12px 16px;
   border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 92%);
+  /* Skip paint + layout for messages scrolled off-screen. Browser measures on
+     first reveal and remembers; the 100px is a one-time fallback for
+     messages that haven't been rendered yet. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 100px;
+}
+
+.chat-messages-sentinel {
+  height: 1px;
+  width: 100%;
 }
 
 .chat-message-actions {

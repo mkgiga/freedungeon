@@ -2,7 +2,8 @@ import { createFileRoute } from '@tanstack/solid-router'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../../components/TopBar'
-import { createMemo, createSignal, For, Show, untrack } from 'solid-js'
+import { createMemo, createSignal, For, onMount, Show, untrack } from 'solid-js'
+import { createViewportObserver } from '@solid-primitives/intersection-observer'
 import { MdFillAdd, MdFillView_sidebar } from 'solid-icons/md'
 import { Text } from '../../components/typography/Text'
 import { ChatMessage } from '../../components/chat/ChatMessage'
@@ -14,10 +15,8 @@ import { ChatList } from '../../components/chats'
 import { Em } from '../../components/typography/Em'
 import type { Chat, ChatMessage as ChatMessageType } from '@shared/types'
 
-const PAGE_SIZE = 30        // how many messages to load per scroll-trigger
-const WINDOW_SIZE = 100     // max messages rendered to the DOM at once
-const BOTTOM_THRESHOLD = 50 // px from bottom to count as "at bottom"
-const TOP_THRESHOLD = 100   // px from top to trigger load more history
+const PAGE_SIZE = 30    // how many messages to load per sentinel-trigger
+const WINDOW_SIZE = 100 // max messages rendered to the DOM at once
 
 type ChatView = 'list' | 'conversation'
 
@@ -239,26 +238,40 @@ function ConversationView(props: { onBack: () => void }) {
     return current[current.length - 1] === latest.id
   }
 
-  const onScroll = (e: Event) => {
-    const el = e.currentTarget as HTMLDivElement
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+  let topSentinelRef: HTMLDivElement | undefined
+  let bottomSentinelRef: HTMLDivElement | undefined
 
-    if (distanceFromBottom < BOTTOM_THRESHOLD) {
-      if (pinnedIds() !== null) {
-        if (pinnedWindowHasLatest()) {
-          setPinnedIds(null)
+  onMount(() => {
+    // createViewportObserver needs the scroll container as `root` so it fires
+    // when sentinels enter/leave that container (not the window viewport).
+    const [observe] = createViewportObserver({ root: scrollEl })
+
+    if (topSentinelRef) {
+      observe(topSentinelRef, (entry) => {
+        if (entry.isIntersecting) loadMoreHistory()
+      })
+    }
+
+    if (bottomSentinelRef) {
+      observe(bottomSentinelRef, (entry) => {
+        if (entry.isIntersecting) {
+          // At (or near) the latest message. If we're in frozen-window mode,
+          // either extend forward or drop back to follow-latest.
+          if (pinnedIds() !== null) {
+            if (pinnedWindowHasLatest()) {
+              setPinnedIds(null)
+            } else {
+              loadMoreForward()
+            }
+          }
         } else {
-          loadMoreForward()
+          // User scrolled away from the bottom — freeze the window so new
+          // incoming messages don't shift the view.
+          if (pinnedIds() === null) pinCurrentWindow()
         }
-      }
-    } else {
-      if (pinnedIds() === null) pinCurrentWindow()
+      })
     }
-
-    if (el.scrollTop < TOP_THRESHOLD) {
-      loadMoreHistory()
-    }
-  }
+  })
 
   const openSidebar = () => {
     drawer.open({
@@ -284,14 +297,15 @@ function ConversationView(props: { onBack: () => void }) {
         <div
           ref={scrollEl}
           class="chat-messages flex-1 overflow-y-auto"
-          onScroll={onScroll}
         >
+          <div ref={topSentinelRef} class="chat-messages-sentinel" />
           <For
             each={visibleMessages()}
             fallback={<Text size="sm" class="p-4 opacity-50">No messages yet</Text>}
           >
             {(message) => <ChatMessage message={message} />}
           </For>
+          <div ref={bottomSentinelRef} class="chat-messages-sentinel" />
         </div>
 
         <Show when={pinnedIds() !== null && unreadCount() > 0}>
