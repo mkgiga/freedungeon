@@ -2,8 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { state } from "./server"
 
-const dirname = path.dirname(new URL(import.meta.url).pathname)
-const promptsDir = path.join(dirname, 'prompts')
+const promptsDir = path.join(import.meta.dirname, 'prompts')
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -61,7 +60,7 @@ registry.set('ACTORS', () => {
         }
     }
 
-    return JSON.stringify(resObject)
+    return JSON.stringify(resObject, null, 2)
 })
 
 registry.set('NOTES', () => {
@@ -74,7 +73,7 @@ registry.set('NOTES', () => {
         if (!note) continue
         result.push({ title: note.title, type: note.type, content: note.content })
     }
-    return JSON.stringify(result)
+    return JSON.stringify(result, null, 2)
 })
 
 // ── File-based macros ────────────────────────────────────────────────────────

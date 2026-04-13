@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import { getConnInfo } from "hono/bun";
 import { log } from './logger';
 import { initDb, saveStateToDb, loadStateFromDb } from './db';
+import './macro.ts';
 import { loadPreferences, savePreferences } from './preferences';
 import { Server, Socket } from "socket.io";
 import { createServer } from 'node:http';
