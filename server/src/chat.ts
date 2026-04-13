@@ -8,6 +8,14 @@ import { parseMacros } from "./macro";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
+async function countChatMessages(chatId: string): Promise<number> {
+    const row = await db.selectFrom('chat_messages')
+        .select(db.fn.count<number>('id').as('count'))
+        .where('chat_id', '=', chatId)
+        .executeTakeFirst();
+    return Number(row?.count ?? 0);
+}
+
 export const chatLoggerStyle = style((text) => {
     return brightGreen(bold(`[Chat] \x1b[0m${white(text)}`));
 });
@@ -222,7 +230,7 @@ export class CurrentChat {
     static buildHistoryBeforeMessage(messageId: string, includeTarget = false): ChatMessage[] {
         const currentChat = state.currentChat;
         const targetMessage = currentChat.messages[messageId];
-        
+
         if (!targetMessage) {
             logChat(`Message with id ${messageId} not found. Cannot build history.`);
             throw new Error(`Message with id ${messageId} not found. Cannot build history.`);
@@ -231,13 +239,22 @@ export class CurrentChat {
         const allMessages = Object.values(currentChat.messages);
         const sortedMessages = allMessages.sort((a, b) => a.createdAt - b.createdAt);
         const targetIndex = sortedMessages.findIndex(msg => msg.id === messageId);
-        
+
         if (targetIndex === -1) {
             logChat(`Message with id ${messageId} not found in sorted messages. Cannot build history.`);
             throw new Error(`Message with id ${messageId} not found in sorted messages. Cannot build history.`);
         }
 
-        return sortedMessages.slice(0, targetIndex + (includeTarget ? 1 : 0));
+        const sliceEnd = targetIndex + (includeTarget ? 1 : 0);
+        logChat(`[HISTORY] target=${messageId} includeTarget=${includeTarget} total=${sortedMessages.length} targetIndex=${targetIndex} sliceLength=${sliceEnd}`);
+        for (let i = 0; i < sortedMessages.length; i++) {
+            const m = sortedMessages[i]!;
+            const marker = i === targetIndex ? ' <-- TARGET' : '';
+            const preview = m.content.slice(0, 40).replace(/\s+/g, ' ');
+            logChat(`[HISTORY]   [${i}] ${m.id} createdAt=${m.createdAt} role=${m.role} "${preview}"${marker}`);
+        }
+
+        return sortedMessages.slice(0, sliceEnd);
     }
 
     /**
@@ -306,6 +323,9 @@ export class CurrentChat {
             throw new Error(`Message with id ${messageId} not found. Cannot branch.`);
         }
 
+        const sourceChatId = state.currentChat.id!;
+        const sourceChatTotal = Object.keys(state.currentChat.messages).length;
+
         const newChat: Chat = {
             id: nanoid(),
             title: `${state.currentChat.title} -> ${newTitle}`,
@@ -318,7 +338,7 @@ export class CurrentChat {
         };
 
         const newChatMessages = CurrentChat.buildHistoryBeforeMessage(messageId, true);
-        const newChatMessagesObject = Object.fromEntries(newChatMessages.map((m) => {  
+        const newChatMessagesObject = Object.fromEntries(newChatMessages.map((m) => {
             const newId = nanoid();
             const newMessage: ChatMessage = {
                 ...m,
@@ -332,7 +352,20 @@ export class CurrentChat {
 
         saveChat(newChat, newChatMessagesObject);
         logChat(`Branched new chat "${newChat.title}" with id ${newChat.id} from message ${messageId}.`);
+        logChat(`[BRANCH] Source chat ${sourceChatId} had ${sourceChatTotal} messages; branch slice has ${Object.keys(newChatMessagesObject).length} messages.`);
+
+        const countAfterSave = await countChatMessages(newChat.id);
+        const sourceCountAfterSave = await countChatMessages(sourceChatId);
+        logChat(`[BRANCH] After saveChat: DB count for new ${newChat.id} = ${countAfterSave}, DB count for source ${sourceChatId} = ${sourceCountAfterSave}`);
+
+        logChat(`[BRANCH] Before loadChat: current chat id = ${state.currentChat.id}, messages count = ${Object.keys(state.currentChat.messages).length}`);
+        setState('assets', 'chats', newChat.id, newChat);
 
         await CurrentChat.loadChat(newChat.id);
+
+        logChat(`[BRANCH] After loadChat: current chat id = ${state.currentChat.id}, messages count = ${Object.keys(state.currentChat.messages).length}`);
+        const countAfterLoad = await countChatMessages(newChat.id);
+        const sourceCountAfterLoad = await countChatMessages(sourceChatId);
+        logChat(`[BRANCH] After loadChat: DB count for new ${newChat.id} = ${countAfterLoad}, DB count for source ${sourceChatId} = ${sourceCountAfterLoad}`);
     }
 }

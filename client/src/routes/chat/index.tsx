@@ -155,6 +155,14 @@ function ConversationView(props: { onBack: () => void }) {
    */
   const [pinnedIds, setPinnedIds] = createSignal<string[] | null>(null)
 
+  // Drop back to follow-latest whenever the active chat changes. The pinned ids
+  // are message ids from the previously-loaded chat; looking them up in the new
+  // chat's messages record would all miss and render the list as empty.
+  createEffect(() => {
+    state.currentChat.id
+    setPinnedIds(null)
+  })
+
   const sortByCreatedAt = (a: ChatMessageType, b: ChatMessageType) =>
     (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 

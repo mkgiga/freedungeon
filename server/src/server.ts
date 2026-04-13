@@ -5,7 +5,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { getConnInfo } from "hono/bun";
 import { log } from './logger';
-import { initDb, saveStateToDb, loadStateFromDb } from './db';
+import { initDb, saveStateToDb, loadStateFromDb, db } from './db';
+import { sql } from 'kysely';
 import './macro.ts';
 import { loadPreferences, savePreferences } from './preferences';
 import { Server, Socket } from "socket.io";
@@ -83,12 +84,36 @@ function start() {
         const loaded = await loadStateFromDb();
         setState('assets', loaded.assets);
         setState('userPreferences', loadPreferences());
+        await logChatMessageCounts();
         bootstrapGenerationSync();
         await initProcessHandlers();
         await initHttp();
         await initWebSocket();
         await listen();
     })();
+}
+
+async function logChatMessageCounts() {
+    const rows = await db.selectFrom('chat_messages')
+        .select(['chat_id', db.fn.count<number>('id').as('count')])
+        .groupBy('chat_id')
+        .execute();
+    if (rows.length === 0) {
+        console.log('[STARTUP] chat_messages table is empty.');
+        return;
+    }
+    console.log(`[STARTUP] chat_messages counts per chat:`);
+    for (const row of rows) {
+        console.log(`[STARTUP]   ${row.chat_id}: ${row.count}`);
+    }
+}
+
+async function checkpointWal() {
+    try {
+        await sql`PRAGMA wal_checkpoint(TRUNCATE)`.execute(db);
+    } catch (err) {
+        log.server.error(`WAL checkpoint failed: ${err}`);
+    }
 }
 
 async function listen() {
@@ -161,6 +186,7 @@ async function initProcessHandlers() {
 
         savePreferences(state.userPreferences)
         saveStateToDb({ state })
+        checkpointWal()
         console.log('State saved, exiting now.')
         process.exit(0)
     }
@@ -175,6 +201,7 @@ async function initProcessHandlers() {
         try {
             saveStateToDb({ state })
             savePreferences(state.userPreferences)
+            checkpointWal()
             log.server.info('Auto-save complete.')
         } catch (err) {
             log.server.error(`Auto-save failed: ${err}`)
