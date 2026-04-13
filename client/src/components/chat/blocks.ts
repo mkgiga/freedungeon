@@ -105,6 +105,14 @@ function str(s: string): string {
 
 export function serializeBlocks(blocks: Block[]): string {
     return blocks
+        .filter((b) => {
+            // Empty text/speech blocks would round-trip as `text("");` / `speech("", "")`
+            // and re-render as empty blocks forever. Dropping them lets the user
+            // delete a block by blanking its contenteditable.
+            if (b.type === 'text') return b.content.trim() !== ''
+            if (b.type === 'speech') return b.dialogue.trim() !== ''
+            return true
+        })
         .map((b) => {
             switch (b.type) {
                 case 'text': {
