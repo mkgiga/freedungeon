@@ -299,7 +299,7 @@ export class CurrentChat {
         CurrentChat.pruneFromMessage(messageId, { includeTarget: false });
     }
 
-    static branchFromTargetMessage({messageId, newTitle}: {messageId: string, newTitle: string}) {
+    static async branchFromTargetMessage({messageId, newTitle}: {messageId: string, newTitle: string}) {
         const targetMessage = CurrentChat.getMessage(messageId);
         if (!targetMessage) {
             logChat(`Message with id ${messageId} not found. Cannot branch.`);
@@ -333,6 +333,6 @@ export class CurrentChat {
         saveChat(newChat, newChatMessagesObject);
         logChat(`Branched new chat "${newChat.title}" with id ${newChat.id} from message ${messageId}.`);
 
-        CurrentChat.loadChat(newChat.id);
+        await CurrentChat.loadChat(newChat.id);
     }
 }
