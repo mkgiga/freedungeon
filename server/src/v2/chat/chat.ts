@@ -162,7 +162,7 @@ export const chatRouter = router({
     prompt: procedure
         .input(z.object({ message: z.string() }))
         .mutation(async ({ input }) => {
-            const currentChat = state.currentChat
+            const currentChat = state.currentChat;
             if (!currentChat.id) {
                 throw new Error('No chat loaded')
             }
@@ -171,12 +171,17 @@ export const chatRouter = router({
                 throw new Error('Generation is already in progress. Please wait until the current generation finishes before sending a new message.');
             }
 
-            CurrentChat.prompt({ message: input.message })
+            CurrentChat.prompt({ message: `unformatted(\`${input.message}\`)` });
         }),
 
     cancel: procedure
         .mutation(() => {
-            ChatCompletionManager.cancel()
+            if (!state.isGenerating) {
+                logChat(`No generation in progress. Nothing to cancel.`);
+                return { success: false, message: 'No generation in progress. Nothing to cancel.' };
+            }
+
+            ChatCompletionManager.cancel();
             return { success: true }
         }),
 })
