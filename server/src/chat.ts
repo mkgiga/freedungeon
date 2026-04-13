@@ -1,5 +1,5 @@
 import { bold, brightGreen, ComfyLogger, reset, style, white } from "comfylogger";
-import { db, loadChatById, saveChat } from "./db";
+import { db, loadChatById, saveChat, saveMessage } from "./db";
 import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
@@ -51,6 +51,10 @@ export class CurrentChat {
         setState('currentChat', newChat);
     }
 
+    static getMessage(id: string) {
+        return state.currentChat.messages[id];
+    }
+
     static upsertMessage(message: ChatMessage) {
         const currentChat = state.currentChat;
         if (!currentChat) {
@@ -72,6 +76,7 @@ export class CurrentChat {
             setState('currentChat', 'messages', message.id, message);
         }
 
+        saveMessage(currentChat.messages[message.id]!);
         return currentChat.messages[message.id];
     }
 
@@ -186,5 +191,20 @@ export class CurrentChat {
         });
 
         console.log('(DEBUG) Fetch data:', debugFetchResultData);
+    }
+    
+    static editMessage({ messageId, newContent }: { messageId: string; newContent: string }) {
+        const targetMessage = CurrentChat.getMessage(messageId);
+        if (!targetMessage) {
+            logChat(`Message with id ${messageId} not found. Cannot edit.`);
+            throw new Error(`Message with id ${messageId} not found. Cannot edit.`);
+        }
+
+        logChat(`Editing message with id ${messageId}. New content: ${newContent}`);
+        CurrentChat.upsertMessage({
+            ...targetMessage,
+            content: newContent,
+            updatedAt: Date.now(),
+        });
     }
 }

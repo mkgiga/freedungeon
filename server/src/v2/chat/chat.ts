@@ -170,8 +170,18 @@ export const chatRouter = router({
                 logChat(`Generation is already in progress. Exiting now.`);
                 throw new Error('Generation is already in progress. Please wait until the current generation finishes before sending a new message.');
             }
+            console.log(`unformatted(${JSON.stringify(input.message)});`);
+            CurrentChat.prompt({ message: `unformatted(${JSON.stringify(input.message)});` });
+        }),
 
-            CurrentChat.prompt({ message: `unformatted(\`${input.message}\`)` });
+    updateMessage: procedure
+        .input(z.object({ id: z.string(), content: z.string() }))
+        .mutation(({ input }) => {
+            if (!CurrentChat.getMessage(input.id)) {
+                throw new Error(`Message ${input.id} not found in current chat`)
+            }
+            CurrentChat.editMessage({ messageId: input.id, newContent: input.content })
+            return { success: true }
         }),
 
     cancel: procedure

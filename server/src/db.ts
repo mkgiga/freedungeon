@@ -530,6 +530,14 @@ export function deleteLLMConfig(id: string) {
     db.deleteFrom('llm_configs').where('id', '=', id).execute()
 }
 
+/** Inserts or updates a single chat message row. */
+export function saveMessage(msg: ChatMessage) {
+    db.insertInto('chat_messages')
+        .values({ id: msg.id, ...dehydrateChatMessage(msg) })
+        .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateChatMessage(msg)))
+        .execute()
+}
+
 /**
  * Persists a single chat's row, actor/note refs, and optionally its messages.
  * Called by `saveStateToDb` (without messages, for all chats) and by
