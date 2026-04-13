@@ -9,6 +9,8 @@ import { Text } from '../../components/typography/Text'
 import { Em } from '../../components/typography/Em'
 import { LLMConfigList } from '../../components/llm-configs'
 import { useModal } from '../../components/Modal'
+import { PlayerCharacterPicker } from '../../components/chat/AssetPicker'
+import { ImageIcon } from '../../components/ImageIcon'
 import { LLM_PRESETS } from '@shared/llm-presets'
 
 export const Route = createFileRoute('/preferences/')({
@@ -20,7 +22,6 @@ function RouteComponent() {
   const modal = useModal()
 
   const llmConfigs = () => Object.values(state.assets.llmConfigs ?? {})
-  const actors = () => Object.values(state.assets.actors ?? {})
 
   const addConfig = () => {
     modal.open({
@@ -76,19 +77,29 @@ function RouteComponent() {
 
             <label class="flex flex-col gap-1">
               <Text size="sm" class="opacity-50">Player Character</Text>
-              <select
-                class="p-2 rounded-lg bg-(--bg) border border-[color-mix(in_oklch,var(--text),transparent_85%)]"
-                value={state.userPreferences.playerCharacterId ?? ''}
-                onChange={(e) => {
-                  const val = e.currentTarget.value || null
-                  trpc.preferences.update.mutate({ playerCharacterId: val })
+              <button
+                type="button"
+                class="flex items-center gap-3 p-2 rounded-lg bg-(--bg) text-left hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
+                style={{ border: '1px solid color-mix(in oklch, var(--text), transparent 85%)' }}
+                onClick={() => {
+                  modal.open({
+                    title: 'Player Character',
+                    content: () => <PlayerCharacterPicker onPick={() => modal.close()} />,
+                  })
                 }}
               >
-                <option value="">None</option>
-                <For each={actors()}>
-                  {(actor) => <option value={actor.id}>{actor.name}</option>}
-                </For>
-              </select>
+                {(() => {
+                  const id = state.userPreferences.playerCharacterId
+                  const actor = id ? state.assets.actors?.[id] : null
+                  if (!actor) return <Text class="opacity-50">None</Text>
+                  return (
+                    <>
+                      <ImageIcon url={actor.avatarUrl} size={28} />
+                      <Text>{actor.name}</Text>
+                    </>
+                  )
+                })()}
+              </button>
             </label>
           </div>
         </section>

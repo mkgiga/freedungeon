@@ -886,7 +886,6 @@ button {
   gap: 8px;
   padding: 4px 4px 4px 12px;
   border-radius: 999px;
-  background: var(--bg-2);
   font-size: 0.8125rem;
   max-width: 180px;
 }
