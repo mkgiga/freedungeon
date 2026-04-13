@@ -27,7 +27,7 @@ export const TopBar = (props: TopBarProps) => {
                 <MdFillArrow_back size={24} />
             </button>
         </Show>
-        <Heading level={1} class={`${props.backButton ? '' : 'pl-4'}`}>{props.title}</Heading>
+        <Heading level={1} class={`truncate min-w-0 ${props.backButton ? '' : 'pl-4'}`}>{props.title}</Heading>
         {props.slots?.left}
     </>
     return (
