@@ -40,9 +40,9 @@ export function ActorPicker() {
     }
 
     return (
-        <div class="flex flex-col gap-3 min-h-0 h-full" style={{ 'min-width': 'min(560px, 90vw)' }}>
+        <div class="flex flex-col gap-3 min-h-0 min-w-0 h-full w-full max-w-[520px]">
             <SearchInput placeholder="Search actors…" value={query()} onInput={setQuery} />
-            <div class="overflow-y-auto flex-1">
+            <div class="overflow-y-auto flex-1 min-w-0">
                 <ActorList
                     actors={items()}
                     onActorClick={toggle}
@@ -82,9 +82,9 @@ export function PlayerCharacterPicker(props: { onPick?: () => void }) {
     }
 
     return (
-        <div class="flex flex-col gap-3 min-h-0 h-full" style={{ 'min-width': 'min(560px, 90vw)' }}>
+        <div class="flex flex-col gap-3 min-h-0 min-w-0 h-full w-full max-w-[520px]">
             <SearchInput placeholder="Search actors…" value={query()} onInput={setQuery} />
-            <div class="overflow-y-auto flex-1 flex flex-col gap-2">
+            <div class="overflow-y-auto flex-1 min-w-0 flex flex-col gap-2">
                 <button
                     type="button"
                     onClick={clear}
@@ -125,9 +125,9 @@ export function NotePicker() {
     }
 
     return (
-        <div class="flex flex-col gap-3 min-h-0 h-full" style={{ 'min-width': 'min(560px, 90vw)' }}>
+        <div class="flex flex-col gap-3 min-h-0 min-w-0 h-full w-full max-w-[520px]">
             <SearchInput placeholder="Search notes…" value={query()} onInput={setQuery} />
-            <div class="overflow-y-auto flex-1">
+            <div class="overflow-y-auto flex-1 min-w-0">
                 <NoteList
                     notes={items()}
                     onNoteClick={toggle}

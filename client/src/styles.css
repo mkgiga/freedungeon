@@ -147,6 +147,11 @@ button {
 .resource-table {
   width: 100%;
   border-collapse: collapse;
+  /* `fixed` forces column widths from the first row, so a long unbreakable
+     string (like an LLM endpoint URL) can't blow out the container. Combined
+     with the text-overflow rules on cell content below, long values truncate
+     with an ellipsis instead of wrapping. */
+  table-layout: fixed;
 }
 
 .resource-table thead th {
@@ -193,6 +198,9 @@ button {
 .resource-table-cell-content {
   display: block;
   padding: 12px 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .resource-table-col-name {

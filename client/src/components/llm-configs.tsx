@@ -25,9 +25,6 @@ function LLMConfigListItem(props: {
             <td>
                 <Text font="mono" class="resource-table-cell-content opacity-70">{props.config.model || '—'}</Text>
             </td>
-            <td>
-                <Text size="sm" class="resource-table-cell-content opacity-50">{props.config.endpoint}</Text>
-            </td>
             <Show when={props.actions && props.actions.length > 0}>
                 <td class="resource-table-col-actions" onClick={(e) => e.stopPropagation()}>
                     <Dropdown
@@ -60,13 +57,12 @@ export function LLMConfigList(props: {
                 <tr>
                     <SortHeader label="Name" active={sortKey() === 'name'} dir={sortDir()} onClick={() => toggleSort('name')} />
                     <SortHeader label="Model" active={sortKey() === 'model'} dir={sortDir()} onClick={() => toggleSort('model')} />
-                    <th>Endpoint</th>
                     <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
                 </tr>
             </thead>
             <tbody>
                 <For each={sorted()} fallback={
-                    <tr><td colSpan={4} class="resource-table-empty">No configs yet</td></tr>
+                    <tr><td colSpan={3} class="resource-table-empty">No configs yet</td></tr>
                 }>
                     {(config) => (
                         <LLMConfigListItem

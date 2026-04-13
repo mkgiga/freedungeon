@@ -51,6 +51,7 @@ export function NoteList(props: {
     onNoteClick?: (note: Note) => void
     isSelected?: (note: Note) => boolean
     showType?: boolean
+    hideHeader?: boolean
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Note>('title')
     const showType = () => props.showType ?? true
@@ -59,15 +60,17 @@ export function NoteList(props: {
 
     return (
         <table class="resource-table">
-            <thead>
-                <tr>
-                    <SortHeader label="Title" active={sortKey() === 'title'} dir={sortDir()} onClick={() => toggleSort('title')} />
-                    <Show when={showType()}>
-                        <SortHeader label="Type" active={sortKey() === 'type'} dir={sortDir()} onClick={() => toggleSort('type')} />
-                    </Show>
-                    <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
-                </tr>
-            </thead>
+            <Show when={!props.hideHeader}>
+                <thead>
+                    <tr>
+                        <SortHeader label="Title" active={sortKey() === 'title'} dir={sortDir()} onClick={() => toggleSort('title')} />
+                        <Show when={showType()}>
+                            <SortHeader label="Type" active={sortKey() === 'type'} dir={sortDir()} onClick={() => toggleSort('type')} />
+                        </Show>
+                        <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
+                    </tr>
+                </thead>
+            </Show>
             <tbody>
                 <For each={sorted()} fallback={
                     <tr><td colSpan={3} class="resource-table-empty">No notes yet</td></tr>

@@ -54,6 +54,7 @@ export function ActorList(props: {
     actions?: ActorAction[]
     onActorClick?: (actor: Actor) => void
     isSelected?: (actor: Actor) => boolean
+    hideHeader?: boolean
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Actor>('name')
 
@@ -61,13 +62,15 @@ export function ActorList(props: {
 
     return (
         <table class="resource-table">
-            <thead>
-                <tr>
-                    <th class="resource-table-col-avatar"></th>
-                    <SortHeader label="Name" active={sortKey() === 'name'} dir={sortDir()} onClick={() => toggleSort('name')} />
-                    <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
-                </tr>
-            </thead>
+            <Show when={!props.hideHeader}>
+                <thead>
+                    <tr>
+                        <th class="resource-table-col-avatar"></th>
+                        <SortHeader label="Name" active={sortKey() === 'name'} dir={sortDir()} onClick={() => toggleSort('name')} />
+                        <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
+                    </tr>
+                </thead>
+            </Show>
             <tbody>
                 <For each={sorted()} fallback={
                     <tr><td colSpan={3} class="resource-table-empty">No characters yet</td></tr>

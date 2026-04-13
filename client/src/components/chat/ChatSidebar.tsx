@@ -52,6 +52,7 @@ export function ChatSidebar() {
                 <div class="chat-sidebar-section-body">
                     <ActorList
                         actors={chatActors()}
+                        hideHeader
                         actions={[
                             {
                                 label: 'Remove',
@@ -74,6 +75,7 @@ export function ChatSidebar() {
                     <NoteList
                         notes={chatNotes()}
                         showType={false}
+                        hideHeader
                         actions={[
                             {
                                 label: 'Remove',
