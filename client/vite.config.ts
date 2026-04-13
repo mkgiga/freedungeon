@@ -18,6 +18,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': 'http://localhost:8078/',
+      '/uploads': 'http://localhost:8078/',
     },
   },
   plugins: [
