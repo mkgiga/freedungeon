@@ -3,6 +3,7 @@
     flex-flow: row nowrap;
     justify-content: space-between;
     width: 100%;
+    flex-shrink: 0;
     border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
 }
 
