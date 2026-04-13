@@ -204,6 +204,19 @@ export const chatRouter = router({
             return { success: true }
         }),
 
+    branchFromMessage: procedure
+        .input(z.object({ id: z.string() }))
+        .mutation(async ({ input }) => {
+            if (!CurrentChat.getMessage(input.id)) {
+                throw new Error(`Message ${input.id} not found in current chat`)
+            }
+            await CurrentChat.branchFromTargetMessage({
+                messageId: input.id,
+                newTitle: 'branch',
+            })
+            return { success: true }
+        }),
+
     updateMessage: procedure
         .input(z.object({ id: z.string(), content: z.string() }))
         .mutation(({ input }) => {
