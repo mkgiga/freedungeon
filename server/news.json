@@ -1,13 +1,10 @@
 {
     "news": [
         {
-            "timestamp": "2024-06-01T00:00:00Z",
-            "title": "Test News Item",
+            "timestamp": "2026-04-13T00:00:00Z",
+            "title": "First post",
             "content": [
-                "This is a test paragraph.",
-                "This is another test paragraph.",
-                "This is yet another test paragraph.",
-                "All of this is parsed as inline HTML."
+                "Almost got all the features that were implemented on /mkgiga/minerva!! Feels good"
             ],
             "tags": ["test", "update"]
         }
