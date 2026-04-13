@@ -4,6 +4,7 @@ import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
 import { ChatCompletionManager } from "./llm";
+import { parseMacros } from "./macro";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -157,11 +158,13 @@ export class CurrentChat {
         const allMessages = Object.values(state.currentChat.messages);
         const sortedMessages = allMessages.sort((a, b) => a.createdAt - b.createdAt);
         
-        const systemPrompt = llmConfig.systemPrompt ?? '';
+        let systemPrompt = llmConfig.systemPrompt; 
         if (!systemPrompt) {
             logChat('No system prompt set. Proceeding with empty system prompt — model behavior may drift.');
         }
-        
+
+        systemPrompt = parseMacros(systemPrompt);
+        console.log('Parsed system prompt:', systemPrompt);
         const debugFetchResultData = await ChatCompletionManager.chatCompletion({
             history: sortedMessages.map(m => ({ role: m.role, content: m.content })),
             systemPrompt,
