@@ -8,6 +8,7 @@ import { createStore } from 'solid-js/store'
 import { Heading } from '../../../../components/typography/Heading'
 import { Text } from '../../../../components/typography/Text'
 import { SchemaForm } from '../../../../components/json-ui'
+import { TextEditor } from '../../../../components/TextEditor'
 import type { SchemaField, SchemaFormHooks } from '@shared/schema-ui'
 import { LLM_PRESETS } from '@shared/llm-presets'
 
@@ -36,6 +37,7 @@ function RouteComponent() {
             endpoint: '',
             model: '',
             apiKey: '',
+            systemPrompt: '',
             schema: [] as SchemaField[],
             values: {} as Record<string, any>,
             createdAt: Date.now(),
@@ -60,6 +62,7 @@ function RouteComponent() {
             endpoint: draft.endpoint,
             model: draft.model,
             apiKey: draft.apiKey,
+            systemPrompt: draft.systemPrompt,
             schema: JSON.stringify(draft.schema),
             values: JSON.stringify(draft.values),
         })
@@ -171,6 +174,17 @@ function RouteComponent() {
                             </Show>
                         </label>
                     </div>
+                </section>
+
+                {/* System Prompt */}
+                <section class="mb-6">
+                    <TextEditor
+                        title="System Prompt"
+                        description="Instructions prepended to every chat. Tells the model who it is and how to behave."
+                        value={() => draft.systemPrompt}
+                        onInput={(v) => setDraft('systemPrompt', v)}
+                        readOnly={!edit()}
+                    />
                 </section>
 
                 {/* Model Parameters */}

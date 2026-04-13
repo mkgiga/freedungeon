@@ -156,7 +156,8 @@ export class CurrentChat {
 
         const allMessages = Object.values(state.currentChat.messages);
         const sortedMessages = allMessages.sort((a, b) => a.createdAt - b.createdAt);
-        const systemPrompt = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.values?.systemPrompt ?? '';
+        
+        const systemPrompt = llmConfig.systemPrompt ?? '';
         if (!systemPrompt) {
             logChat('No system prompt set. Proceeding with empty system prompt — model behavior may drift.');
         }

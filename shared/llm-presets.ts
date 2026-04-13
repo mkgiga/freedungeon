@@ -20,19 +20,6 @@ export type LLMPreset = {
     apiKeyLocation: ApiKeyLocation
 }
 
-/**
- * Every LLM config exposes a system prompt. It's user-authored content, not a
- * provider parameter — but modeling it as a schema field means the existing
- * schema-driven edit UI renders it for free.
- */
-const SYSTEM_PROMPT_FIELD: SchemaField = {
-    path: ['systemPrompt'],
-    label: 'System Prompt',
-    description: 'Instructions prepended to every chat. Tells the model who it is and how to behave.',
-    default: '',
-    control: { type: 'text', multiline: true },
-}
-
 export const LLM_PRESETS: Record<string, LLMPreset> = {
     'openai-gpt4o': {
         name: 'OpenAI GPT-4o',
@@ -42,7 +29,6 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
         editable: false,
         apiKeyLocation: { type: 'header', header: 'Authorization', prefix: 'Bearer ' },
         schema: [
-            SYSTEM_PROMPT_FIELD,
             { path: ['temperature'], label: 'Temperature', default: 1, control: { type: 'slider', min: 0, max: 2, step: 0.01 } },
             { path: ['max_tokens'], label: 'Max Tokens', default: 4096, control: { type: 'number', min: 1, max: 128000 } },
             { path: ['top_p'], label: 'Top P', default: 1, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },
@@ -59,7 +45,6 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
         editable: false,
         apiKeyLocation: { type: 'header', header: 'x-api-key' },
         schema: [
-            SYSTEM_PROMPT_FIELD,
             { path: ['temperature'], label: 'Temperature', default: 1, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },
             { path: ['max_tokens'], label: 'Max Tokens', default: 4096, control: { type: 'number', min: 1, max: 200000 } },
             { path: ['top_p'], label: 'Top P', default: 1, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },
@@ -75,7 +60,6 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
         editable: false,
         apiKeyLocation: { type: 'query', param: 'key' },
         schema: [
-            SYSTEM_PROMPT_FIELD,
             {
                 path: ['generationConfig'],
                 label: 'Generation Config',
@@ -156,7 +140,6 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
         editable: true,
         apiKeyLocation: { type: 'header', header: 'Authorization', prefix: 'Bearer ' },
         schema: [
-            SYSTEM_PROMPT_FIELD,
             { path: ['temperature'], label: 'Temperature', default: 1, control: { type: 'slider', min: 0, max: 2, step: 0.01 } },
             { path: ['max_tokens'], label: 'Max Tokens', default: 4096, control: { type: 'number', min: 1 } },
             { path: ['top_p'], label: 'Top P', default: 1, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },

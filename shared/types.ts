@@ -65,6 +65,8 @@ export type LLMConfig = {
     endpoint: string;
     model: string;
     apiKey: string;
+    /** User-authored instructions prepended to every chat. Cross-provider — not a schema field. */
+    systemPrompt: string;
     schema: import('@shared/schema-ui').SchemaField[];
     values: Record<string, any>;
     createdAt: number;

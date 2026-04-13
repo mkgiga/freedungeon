@@ -63,6 +63,7 @@ export interface DB {
         endpoint: string;
         model: string;
         api_key: Generated<string>;
+        system_prompt: Generated<string>;
         schema: string;
         values: string;
         created_at: Generated<number>;
@@ -178,6 +179,7 @@ export async function initDb() {
         .addColumn('endpoint', 'text', (col) => col.notNull())
         .addColumn('model', 'text', (col) => col.notNull())
         .addColumn('api_key', 'text', (col) => col.notNull().defaultTo(''))
+        .addColumn('system_prompt', 'text', (col) => col.notNull().defaultTo(''))
         .addColumn('schema', 'text', (col) => col.notNull().defaultTo('[]'))
         .addColumn('values', 'text', (col) => col.notNull().defaultTo('{}'))
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
@@ -276,6 +278,7 @@ export function hydrateLLMConfig(row: LLMConfigRow): LLMConfig {
         endpoint: row.endpoint,
         model: row.model,
         apiKey: row.api_key,
+        systemPrompt: row.system_prompt,
         schema: JSON.parse(row.schema),
         values: JSON.parse(row.values),
         createdAt: row.created_at,
@@ -290,6 +293,7 @@ export function dehydrateLLMConfig(config: LLMConfig): Omit<Selectable<DB['llm_c
         endpoint: config.endpoint,
         model: config.model,
         api_key: config.apiKey,
+        system_prompt: config.systemPrompt,
         schema: JSON.stringify(config.schema),
         values: JSON.stringify(config.values),
         created_at: config.createdAt,
