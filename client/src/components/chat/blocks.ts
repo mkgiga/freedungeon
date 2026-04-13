@@ -12,6 +12,7 @@ export type PauseBlock = { type: 'pause'; seconds: number }
 export type ImageBlock = { type: 'image'; src: string; from: string; caption?: string }
 export type WebviewBlock = { type: 'webview'; html: string; css?: string; script?: string }
 export type UnformattedBlock = { type: 'unformatted'; content: string }
+export type NoOpContinueBlock = { type: 'noOpContinue' }
 
 export type Block =
     | TextBlock
@@ -20,6 +21,7 @@ export type Block =
     | ImageBlock
     | WebviewBlock
     | UnformattedBlock
+    | NoOpContinueBlock
 
 // ── Parser ──
 
@@ -67,6 +69,9 @@ export function parseBlocks(content: string): Block[] {
         },
         unformatted: (c: string) => {
             blocks.push({ type: 'unformatted', content: c })
+        },
+        noOpContinue: () => {
+            blocks.push({ type: 'noOpContinue' })
         },
     }
 
@@ -146,6 +151,8 @@ export function serializeBlocks(blocks: Block[]): string {
                 }
                 case 'unformatted':
                     return `unformatted(${tpl(b.content)});`
+                case 'noOpContinue':
+                    return `noOpContinue();`
             }
         })
         .join('\n')

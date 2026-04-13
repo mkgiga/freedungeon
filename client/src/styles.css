@@ -782,6 +782,34 @@ button {
   );
 }
 
+/* ── AutoContinue separator block ── */
+
+.chat-block-continue {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 52px;
+  color: var(--primary);
+}
+
+.chat-block-continue-line {
+  flex: 1;
+  height: 1px;
+  background: color-mix(in oklch, var(--primary), transparent 65%);
+}
+
+.chat-block-continue-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
 .chat-block-pause-input {
   width: 48px;
   padding: 2px 4px;
