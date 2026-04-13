@@ -804,8 +804,8 @@ button {
 
 .chat-input-textarea {
   width: 100%;
-  min-height: 60px;
-  max-height: 180px;
+  min-height: 100px;
+  max-height: 240px;
   padding: 10px 12px;
   background: var(--bg-2);
   border: none;
