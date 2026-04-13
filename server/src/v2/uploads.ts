@@ -3,11 +3,9 @@ import path from 'node:path'
 import fs from 'node:fs'
 import sharp from 'sharp'
 import { fileTypeFromBuffer } from 'file-type'
-import config from '../../config.json' with { type: "json" }
 
 const UPLOADS_DIR = path.join(import.meta.dirname, '..', '..', 'data', 'uploads')
 const THUMBS_DIR = path.join(UPLOADS_DIR, 'thumbs')
-const SERVER_ORIGIN = `http://localhost:${config.server.port || 8078}`
 const THUMB_MAX_DIM = 128
 
 function ensureDirs() {
@@ -98,9 +96,9 @@ uploadsRouter.post('/', async (c) => {
     let thumbnailUrl: string | undefined
     if (await isImage(buffer)) {
         await generateThumbnail(buffer, filename)
-        thumbnailUrl = `${SERVER_ORIGIN}/uploads/thumbs/${filename}`
+        thumbnailUrl = `/uploads/thumbs/${filename}`
     }
 
-    const url = `${SERVER_ORIGIN}/uploads/${filename}`
+    const url = `/uploads/${filename}`
     return c.json({ url, thumbnailUrl })
 })
