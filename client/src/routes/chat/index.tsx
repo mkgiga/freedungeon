@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/solid-router'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../../components/TopBar'
-import { createMemo, createSignal, For, onMount, Show, untrack } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onMount, Show, untrack } from 'solid-js'
 import { createViewportObserver } from '@solid-primitives/intersection-observer'
 import { MdFillAdd, MdFillView_sidebar } from 'solid-icons/md'
 import { Text } from '../../components/typography/Text'
@@ -185,6 +185,17 @@ function ConversationView(props: { onBack: () => void }) {
   })
 
   let scrollEl: HTMLDivElement | undefined
+
+  // In follow-latest mode, keep the scroll parked at the bottom whenever the
+  // visible message list changes — covers initial chat open (render starts at
+  // scrollTop=0 otherwise) and streaming new messages.
+  createEffect(() => {
+    if (pinnedIds() !== null) return
+    visibleMessages() // subscribe to changes
+    queueMicrotask(() => {
+      if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight
+    })
+  })
 
   const pinCurrentWindow = () => {
     if (pinnedIds() !== null) return
