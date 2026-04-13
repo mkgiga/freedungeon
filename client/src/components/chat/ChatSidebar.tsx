@@ -73,6 +73,7 @@ export function ChatSidebar() {
                 <div class="chat-sidebar-section-body">
                     <NoteList
                         notes={chatNotes()}
+                        showType={false}
                         actions={[
                             {
                                 label: 'Remove',

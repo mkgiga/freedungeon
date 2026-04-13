@@ -16,15 +16,18 @@ function NoteListItem(props: {
     actions?: NoteAction[]
     onClick?: () => void
     selected?: boolean
+    showType?: boolean
 }) {
     return (
         <tr class="resource-table-row" classList={{ selected: props.selected }} onClick={props.onClick}>
             <td class="resource-table-col-name">
                 <span class="resource-table-cell-content">{props.note.title}</span>
             </td>
-            <td>
-                <span class="resource-table-cell-content opacity-50">{props.note.type || '—'}</span>
-            </td>
+            <Show when={props.showType}>
+                <td>
+                    <span class="resource-table-cell-content opacity-50">{props.note.type || '—'}</span>
+                </td>
+            </Show>
             <Show when={props.actions && props.actions.length > 0}>
                 <td class="resource-table-col-actions" onClick={(e) => e.stopPropagation()}>
                     <Dropdown
@@ -47,8 +50,10 @@ export function NoteList(props: {
     actions?: NoteAction[]
     onNoteClick?: (note: Note) => void
     isSelected?: (note: Note) => boolean
+    showType?: boolean
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Note>('title')
+    const showType = () => props.showType ?? true
 
     const sorted = createMemo(() => sort(props.notes))
 
@@ -57,7 +62,9 @@ export function NoteList(props: {
             <thead>
                 <tr>
                     <SortHeader label="Title" active={sortKey() === 'title'} dir={sortDir()} onClick={() => toggleSort('title')} />
-                    <SortHeader label="Type" active={sortKey() === 'type'} dir={sortDir()} onClick={() => toggleSort('type')} />
+                    <Show when={showType()}>
+                        <SortHeader label="Type" active={sortKey() === 'type'} dir={sortDir()} onClick={() => toggleSort('type')} />
+                    </Show>
                     <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
                 </tr>
             </thead>
@@ -71,6 +78,7 @@ export function NoteList(props: {
                             actions={props.actions}
                             onClick={() => props.onNoteClick?.(note)}
                             selected={props.isSelected?.(note)}
+                            showType={showType()}
                         />
                     )}
                 </For>
