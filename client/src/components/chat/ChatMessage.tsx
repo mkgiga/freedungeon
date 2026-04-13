@@ -58,6 +58,7 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                     items={[
                         { label: 'Regenerate', onClick: () => trpc.chat.regenerateMessage.mutate({ id: props.message.id }) },
                         { label: 'Rewind here', onClick: () => trpc.chat.rewindToMessage.mutate({ id: props.message.id }) },
+                        { label: 'Branch from here', onClick: () => trpc.chat.branchFromMessage.mutate({ id: props.message.id }) },
                         { label: 'Delete', danger: true, onClick: confirmDelete },
                     ]}
                 />
