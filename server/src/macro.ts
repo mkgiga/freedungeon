@@ -76,6 +76,18 @@ registry.set('NOTES', () => {
     return JSON.stringify(result, null, 2)
 })
 
+registry.set('PLAYER_NAME', () => {
+    const playerCharacterId = state.userPreferences.playerCharacterId
+    const pc = state.assets.actors[playerCharacterId!]
+    return pc ? pc.name : 'Player';
+});
+
+registry.set('PLAYER', () => {
+    const playerCharacterId = state.userPreferences.playerCharacterId
+    const customId = playerCharacterId ? (state.assets.actors[playerCharacterId]?.customId || playerCharacterId) : "null";
+    return customId
+});
+
 // ── File-based macros ────────────────────────────────────────────────────────
 
 /** Loads .macro files from the prompts dir into the registry. */

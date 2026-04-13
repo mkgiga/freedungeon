@@ -37,6 +37,9 @@ socket.on('init', (data: AppState) => {
 
 socket.on('state', ({ path, value }: { path: string[], value: any }) => {
   if (!path || path.length === 0 || path.some(p => p == null)) return;
+  if (path[0] === 'isGenerating' || path.includes('isGenerating')) {
+    console.log('[state] isGenerating update received:', { path, value });
+  }
   (_setState as Function)(...path, value);
 });
 

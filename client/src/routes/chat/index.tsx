@@ -305,6 +305,9 @@ function ConversationView(props: { onBack: () => void }) {
       />
 
       <div class="chat-main flex flex-col grow min-h-0 relative">
+        <Show when={state.isGenerating}>
+          <div class="chat-generation-indicator" aria-hidden="true" />
+        </Show>
         <div
           ref={scrollEl}
           class="chat-messages flex-1 overflow-y-auto"

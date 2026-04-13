@@ -1,4 +1,3 @@
-import { createSignal, createRoot, createEffect } from "solid-js"
 import { state, setState } from "./server"
 import type { LLMConfig, LLMProvider } from "@shared/types"
 import type { SchemaField } from "@shared/schema-ui"
@@ -122,17 +121,19 @@ function parseResponse(provider: LLMProvider, data: any): string {
 // ── Chat Completion Manager ──
 
 export class ChatCompletionManager {
-    private static _abortController = createSignal<AbortController | null>(null)
+    private static _abortController: AbortController | null = null
 
     static get abortController(): AbortController | null {
-        return this._abortController[0]()
+        return this._abortController
     }
     static set abortController(v: AbortController | null) {
-        this._abortController[1](v)
+        this._abortController = v
+        // Mirror into the reactive store so the client sees it.
+        setState('isGenerating', v !== null)
     }
 
     static get isGenerating() {
-        return this.abortController !== null
+        return this._abortController !== null
     }
 
     static get currentLLMConfig() {
@@ -232,14 +233,8 @@ export class ChatCompletionManager {
 }
 
 /**
- * Sync `ChatCompletionManager.isGenerating` (signal-backed) into
- * `state.currentChat.isGenerating`. Called once at server startup from
- * `server.ts#start()` so the client sees a real-time generating flag.
+ * No-op kept for backward-compat with `server.ts#start()`. `isGenerating` is
+ * now pushed directly from `ChatCompletionManager.abortController`'s setter —
+ * no reactive bridge needed.
  */
-export function bootstrapGenerationSync() {
-    createRoot(() => {
-        createEffect(() => {
-            setState('isGenerating', ChatCompletionManager.isGenerating)
-        })
-    })
-}
+export function bootstrapGenerationSync() {}
