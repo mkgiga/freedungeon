@@ -17,8 +17,6 @@ export function ChatMessage(props: { message: ChatMessageType }) {
         const newBlocks = current.map((b, i) => (i === index ? updated : b))
         const newContent = serializeBlocks(newBlocks)
         if (newContent === props.message.content) return
-        // The chat.updateMessage tRPC endpoint will be defined by the user.
-        // @ts-expect-error — endpoint not yet declared on appRouter
         trpc.chat.updateMessage.mutate({ id: props.message.id, content: newContent })
     }
 
