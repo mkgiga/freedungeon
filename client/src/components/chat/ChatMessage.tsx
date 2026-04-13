@@ -1,7 +1,12 @@
 import { createMemo, For, Match, Switch } from 'solid-js'
+import { MdFillMore_horiz } from 'solid-icons/md'
 import type { ChatMessage as ChatMessageType } from '@shared/types'
 import { parseBlocks, serializeBlocks, type Block } from './blocks'
 import { trpc } from '../../trpc'
+import { Dropdown } from '../Dropdown'
+import { useModal } from '../Modal'
+import { Text } from '../typography/Text'
+import { Em } from '../typography/Em'
 import { SpeechBlock } from './blocks/SpeechBlock'
 import { TextBlock } from './blocks/TextBlock'
 import { ImageBlock } from './blocks/ImageBlock'
@@ -11,6 +16,7 @@ import { UnformattedBlock } from './blocks/UnformattedBlock'
 
 export function ChatMessage(props: { message: ChatMessageType }) {
     const blocks = createMemo(() => parseBlocks(props.message.content))
+    const modal = useModal()
 
     const updateBlock = (index: number, updated: Block) => {
         const current = blocks()
@@ -20,8 +26,41 @@ export function ChatMessage(props: { message: ChatMessageType }) {
         trpc.chat.updateMessage.mutate({ id: props.message.id, content: newContent })
     }
 
+    const confirmDelete = () => {
+        modal.open({
+            title: 'Delete Message',
+            content: () => (
+                <div>
+                    <Text>Are you sure you want to delete this <Em type="danger" bold>message</Em>?</Text>
+                    <div class="modal-confirm-actions">
+                        <button class="modal-btn modal-btn-cancel" onClick={() => modal.close()}>Cancel</button>
+                        <button
+                            class="modal-btn modal-btn-confirm"
+                            onClick={() => {
+                                trpc.chat.deleteMessage.mutate({ id: props.message.id })
+                                modal.close()
+                            }}
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            ),
+        })
+    }
+
     return (
         <div class="chat-message">
+            <div class="chat-message-actions">
+                <Dropdown
+                    trigger={<MdFillMore_horiz size={18} />}
+                    items={[
+                        { label: 'Regenerate', onClick: () => trpc.chat.regenerateMessage.mutate({ id: props.message.id }) },
+                        { label: 'Rewind here', onClick: () => trpc.chat.rewindToMessage.mutate({ id: props.message.id }) },
+                        { label: 'Delete', danger: true, onClick: confirmDelete },
+                    ]}
+                />
+            </div>
             <For each={blocks()}>
                 {(block, i) => (
                     <Switch>

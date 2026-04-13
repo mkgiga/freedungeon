@@ -14,7 +14,8 @@ import { ChatList } from '../../components/chats'
 import { Em } from '../../components/typography/Em'
 import type { Chat, ChatMessage as ChatMessageType } from '@shared/types'
 
-const PAGE_SIZE = 30
+const PAGE_SIZE = 30        // how many messages to load per scroll-trigger
+const WINDOW_SIZE = 100     // max messages rendered to the DOM at once
 const BOTTOM_THRESHOLD = 50 // px from bottom to count as "at bottom"
 const TOP_THRESHOLD = 100   // px from top to trigger load more history
 
@@ -210,7 +211,8 @@ function ConversationView(props: { onBack: () => void }) {
       .slice(-PAGE_SIZE)
       .map(m => m.id)
     if (older.length === 0) return
-    setPinnedIds([...older, ...current])
+    // Cap window by dropping items off the bottom (newest) when prepending older.
+    setPinnedIds([...older, ...current].slice(0, WINDOW_SIZE))
   }
 
   const loadMoreForward = () => {
@@ -224,7 +226,8 @@ function ConversationView(props: { onBack: () => void }) {
       .slice(0, PAGE_SIZE)
       .map(m => m.id)
     if (newer.length === 0) return
-    setPinnedIds([...current, ...newer])
+    // Cap window by dropping items off the top (oldest) when appending newer.
+    setPinnedIds([...current, ...newer].slice(-WINDOW_SIZE))
   }
 
   const pinnedWindowHasLatest = () => {

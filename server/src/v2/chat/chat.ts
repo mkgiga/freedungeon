@@ -174,6 +174,36 @@ export const chatRouter = router({
             CurrentChat.prompt({ message: `unformatted(${JSON.stringify(input.message)});` });
         }),
 
+    deleteMessage: procedure
+        .input(z.object({ id: z.string() }))
+        .mutation(({ input }) => {
+            if (!CurrentChat.getMessage(input.id)) {
+                throw new Error(`Message ${input.id} not found in current chat`)
+            }
+            CurrentChat.deleteMessage(input.id)
+            return { success: true }
+        }),
+
+    regenerateMessage: procedure
+        .input(z.object({ id: z.string() }))
+        .mutation(async ({ input }) => {
+            if (!CurrentChat.getMessage(input.id)) {
+                throw new Error(`Message ${input.id} not found in current chat`)
+            }
+            await CurrentChat.regenerateMessage(input.id)
+            return { success: true }
+        }),
+
+    rewindToMessage: procedure
+        .input(z.object({ id: z.string() }))
+        .mutation(({ input }) => {
+            if (!CurrentChat.getMessage(input.id)) {
+                throw new Error(`Message ${input.id} not found in current chat`)
+            }
+            CurrentChat.rewindToMessage(input.id)
+            return { success: true }
+        }),
+
     updateMessage: procedure
         .input(z.object({ id: z.string(), content: z.string() }))
         .mutation(({ input }) => {

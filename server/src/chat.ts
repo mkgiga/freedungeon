@@ -118,71 +118,55 @@ export class CurrentChat {
         saveChat(chat, currentChat.messages);
     }
 
-    static async prompt({message}: {message: string}) {
-        
-        logChat(`User: ${message}`);
-
+    /**
+     * Single "generate next assistant turn" primitive used by both `prompt`
+     * (normal user-initiated send) and `regenerateMessage` (retry flow).
+     *
+     * Reads the current chat's messages as the history — callers are responsible
+     * for having the in-memory state in the shape they want to send to the LLM
+     * (appending, pruning, etc.) before invoking this.
+     */
+    private static async generateResponse() {
         if (!state.currentChat.id) {
-            logChat('No active chat. Please create or load a chat before sending a message.');
-            throw new Error('No active chat. Please create or load a chat before sending a message.');
+            logChat('No active chat. Cannot generate a response.');
+            throw new Error('No active chat. Cannot generate a response.');
         }
 
-        // Guard against multiple simultaneous generations
         if (ChatCompletionManager.isGenerating) {
-            logChat('Already generating a response. Please wait for it to finish before sending another message.');
+            logChat('Already generating a response. Please wait for it to finish.');
             return;
         }
 
         const llmConfig = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!];
-        
         if (!llmConfig) {
-            logChat('No active LLM config selected. Cannot send message.');
+            logChat('No active LLM config selected. Cannot generate a response.');
             return;
         }
-        
-        const upsertResult = CurrentChat.upsertMessage({
-            id: nanoid(),
-            role: 'user' as const,
-            content: message,
-            chatId: state.currentChat.id,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            metadata: {
-                // what actor the user was playing as when they sent this message, if any
-                // might be used for context later
-                actorId: state.userPreferences.playerCharacterId,
-            }
-        });
 
-        if (!upsertResult) {
-            logChat('Failed to add user message to chat history.');
-            throw new Error('Failed to add user message to chat history.');
-        }
-        
+        const history = Object.values(state.currentChat.messages)
+            .sort((a, b) => (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+            .map(m => ({ role: m.role, content: m.content }));
 
-        const allMessages = Object.values(state.currentChat.messages);
-        const sortedMessages = allMessages.sort((a, b) => a.createdAt - b.createdAt);
-        
-        let systemPrompt = llmConfig.systemPrompt; 
+        let systemPrompt = llmConfig.systemPrompt ?? '';
         if (!systemPrompt) {
             logChat('No system prompt set. Proceeding with empty system prompt — model behavior may drift.');
         }
-
         systemPrompt = parseMacros(systemPrompt);
         console.log('Parsed system prompt:', systemPrompt);
+
+        const chatId = state.currentChat.id;
         const debugFetchResultData = await ChatCompletionManager.chatCompletion({
-            history: sortedMessages.map(m => ({ role: m.role, content: m.content })),
+            history,
             systemPrompt,
             onComplete: (response) => {
                 if (!state.currentChat.id) {
                     logChat('No active chat. Cannot add assistant response to chat history.');
-                    throw new Error('No active chat. Cannot add assistant response to chat history.');
+                    return;
                 }
-
                 CurrentChat.upsertMessage({
                     id: nanoid(),
                     role: 'assistant',
-                    chatId: state.currentChat.id,
+                    chatId,
                     content: response,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
@@ -192,19 +176,126 @@ export class CurrentChat {
 
         console.log('(DEBUG) Fetch data:', debugFetchResultData);
     }
+
+    static async prompt({ message }: { message: string }) {
+        logChat(`User: ${message}`);
+
+        if (!state.currentChat.id) {
+            logChat('No active chat. Please create or load a chat before sending a message.');
+            throw new Error('No active chat. Please create or load a chat before sending a message.');
+        }
+
+        CurrentChat.upsertMessage({
+            id: nanoid(),
+            role: 'user' as const,
+            content: message,
+            chatId: state.currentChat.id,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            metadata: {
+                // what actor the user was playing as when they sent this message, if any
+                actorId: state.userPreferences.playerCharacterId,
+            }
+        });
+
+        await CurrentChat.generateResponse();
+    }
     
     static editMessage({ messageId, newContent }: { messageId: string; newContent: string }) {
+        
         const targetMessage = CurrentChat.getMessage(messageId);
+
         if (!targetMessage) {
             logChat(`Message with id ${messageId} not found. Cannot edit.`);
             throw new Error(`Message with id ${messageId} not found. Cannot edit.`);
         }
 
         logChat(`Editing message with id ${messageId}. New content: ${newContent}`);
+
         CurrentChat.upsertMessage({
             ...targetMessage,
             content: newContent,
             updatedAt: Date.now(),
         });
+    }
+
+    static buildHistoryBeforeMessage(messageId: string, includeTarget = false): ChatMessage[] {
+        const currentChat = state.currentChat;
+        const targetMessage = currentChat.messages[messageId];
+        
+        if (!targetMessage) {
+            logChat(`Message with id ${messageId} not found. Cannot build history.`);
+            throw new Error(`Message with id ${messageId} not found. Cannot build history.`);
+        }
+
+        const allMessages = Object.values(currentChat.messages);
+        const sortedMessages = allMessages.sort((a, b) => a.createdAt - b.createdAt);
+        const targetIndex = sortedMessages.findIndex(msg => msg.id === messageId);
+        
+        if (targetIndex === -1) {
+            logChat(`Message with id ${messageId} not found in sorted messages. Cannot build history.`);
+            throw new Error(`Message with id ${messageId} not found in sorted messages. Cannot build history.`);
+        }
+
+        return sortedMessages.slice(0, targetIndex + (includeTarget ? 1 : 0));
+    }
+
+    /**
+     * Deletes messages from a target forward to the end of the chat. Shared by
+     * `regenerateMessage` (prune + re-prompt) and `rewindToMessage` (prune only).
+     *
+     * `includeTarget` controls whether the target itself is also deleted:
+     *   - true  → target + all messages after it are deleted
+     *   - false → only messages strictly after the target are deleted
+     */
+    static pruneFromMessage(messageId: string, { includeTarget }: { includeTarget: boolean }) {
+        const targetMessage = CurrentChat.getMessage(messageId);
+        if (!targetMessage) {
+            logChat(`Message with id ${messageId} not found. Cannot prune.`);
+            throw new Error(`Message with id ${messageId} not found. Cannot prune.`);
+        }
+
+        const sorted = Object.values(state.currentChat.messages)
+            .sort((a, b) => (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        const targetIdx = sorted.findIndex(m => m.id === messageId);
+        if (targetIdx === -1) return;
+
+        const dropFrom = includeTarget ? targetIdx : targetIdx + 1;
+        for (const msg of sorted.slice(dropFrom)) {
+            CurrentChat.deleteMessage(msg.id);
+        }
+    }
+
+    /**
+     * Regenerates the assistant reply that followed (or replaced) a message.
+     *
+     * Semantics:
+     *   - Assistant target: drop it + everything after, then generate from what's left.
+     *   - User target: drop everything after (the stale reply + follow-ups), then
+     *     generate using history ending in this user turn.
+     *
+     * Uses the same `generateResponse` primitive as `prompt`.
+     */
+    static async regenerateMessage(messageId: string) {
+        const targetMessage = CurrentChat.getMessage(messageId);
+        if (!targetMessage) {
+            logChat(`Message with id ${messageId} not found. Cannot regenerate.`);
+            throw new Error(`Message with id ${messageId} not found. Cannot regenerate.`);
+        }
+
+        CurrentChat.pruneFromMessage(messageId, {
+            includeTarget: targetMessage.role === 'assistant',
+        });
+
+        await CurrentChat.generateResponse();
+    }
+
+    /**
+     * Rewinds the chat to a specific message: keeps everything up to and including
+     * the target, deletes all subsequent messages. No LLM call — the user stops
+     * "here" and can resume from this point by sending a new message.
+     */
+    static rewindToMessage(messageId: string) {
+        CurrentChat.pruneFromMessage(messageId, { includeTarget: false });
     }
 }

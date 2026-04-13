@@ -30,8 +30,23 @@ export function ChatInput() {
 
     const handleStop = () => trpc.chat.cancel.mutate()
 
+    const latestMessageId = () => {
+        const msgs = Object.values(state.currentChat.messages ?? {})
+        if (msgs.length === 0) return null
+        const latest = msgs.reduce((a, b) =>
+            (a.createdAt - b.createdAt) > 0 ? a
+            : (a.createdAt - b.createdAt) < 0 ? b
+            : (a.id > b.id ? a : b)
+        )
+        return latest.id
+    }
+
     const handleContinue = () => console.log('[ChatInput] continue')
-    const handleRegenerate = () => console.log('[ChatInput] regenerate')
+    const handleRegenerate = () => {
+        const id = latestMessageId()
+        if (!id) return
+        trpc.chat.regenerateMessage.mutate({ id })
+    }
     const handleFastForward = () => console.log('[ChatInput] fast-forward')
     const handlePrompt = () => console.log('[ChatInput] prompt')
 
