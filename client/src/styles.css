@@ -720,15 +720,6 @@ button {
   padding-left: 52px; /* align with speech block content */
 }
 
-.chat-block-text-icon {
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  opacity: 0.5;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--bg-2);
-}
-
 .chat-block-text-content {
   flex: 1;
   font-size: 0.9375rem;

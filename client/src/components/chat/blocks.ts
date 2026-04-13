@@ -1,6 +1,6 @@
 // ── Block types ──
 
-export type TextBlock = { type: 'text'; content: string; icon?: string }
+export type TextBlock = { type: 'text'; content: string }
 export type SpeechBlock = {
     type: 'speech'
     actorId?: string
@@ -29,8 +29,8 @@ export function parseBlocks(content: string): Block[] {
     const blocks: Block[] = []
 
     const api = {
-        text: (c: string, opts?: { icon?: string }) => {
-            blocks.push({ type: 'text', content: c, ...(opts?.icon ? { icon: opts.icon } : {}) })
+        text: (c: string) => {
+            blocks.push({ type: 'text', content: c })
         },
         speech: (...args: any[]) => {
             if (typeof args[1] === 'string') {
@@ -120,10 +120,8 @@ export function serializeBlocks(blocks: Block[]): string {
         })
         .map((b) => {
             switch (b.type) {
-                case 'text': {
-                    const opts = b.icon ? `, { icon: ${str(b.icon)} }` : ''
-                    return `text(${tpl(b.content)}${opts});`
-                }
+                case 'text':
+                    return `text(${tpl(b.content)});`
                 case 'speech': {
                     const dialogue = tpl(b.dialogue)
                     if (b.actorId) {

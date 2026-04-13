@@ -49,7 +49,7 @@ Strings may use double quotes or template literals (backticks). Each statement =
 
 | Block | Signature | Description |
 |:------|:----------|:------------|
-| `text` | `text(content, { icon? })` | Narration. Supports rendering references to actors as inline rich text like `<@id_here>` (same as Discord's user mention syntax). The `icon` field of the second argument should be a valid Lucide Icons icon name that is normally rendered using the `data-lucide` attribute, e.g. `{ icon: "webhook-off" }` |
+| `text` | `text(content)` | Narration. Supports rendering references to actors as inline rich text like `<@id_here>` (same as Discord's user mention syntax). |
 | `speech` | `speech(id, dialogue, { name?, expression? })` | Dialogue for a predefined actor. `name` overrides the display name. `expression` must match an entry from the actor's expressions list. |
 | | `speech(dialogue, { name })` | Dialogue for an ad-hoc/unnamed actor. |
 | `pause` | `pause(seconds)` | Timed delay between blocks (int or float). |
