@@ -1,4 +1,4 @@
-import { createMemo, Show } from 'solid-js'
+import { createMemo } from 'solid-js'
 import type { SpeechBlock as SpeechBlockType } from '../blocks'
 import { state } from '../../../state'
 import { ImageIcon } from '../../ImageIcon'
@@ -64,9 +64,6 @@ export function SpeechBlock(props: {
                     initial={props.block.dialogue}
                     onCommit={(dialogue) => props.onUpdate({ ...props.block, dialogue })}
                 />
-                <Show when={props.block.expression}>
-                    <div class="chat-block-expression-badge">{props.block.expression}</div>
-                </Show>
             </div>
         </div>
     )
