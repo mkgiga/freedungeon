@@ -663,6 +663,7 @@ button {
 /* ── Pause Block ── */
 
 .chat-block-pause {
+  display: none;
   flex-direction: row;
   align-items: center;
   gap: 8px;
