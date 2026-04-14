@@ -4,6 +4,7 @@ node_modules
 # output
 out
 dist
+client/
 *.tgz
 
 # code coverage

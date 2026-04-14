@@ -14,11 +14,16 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(serverPkg.version),
   },
+  build: {
+    outDir: '../server/client/dist',
+    emptyOutDir: true,
+  },
   server: {
     port: 5173,
     proxy: {
       '/api': 'http://localhost:8078/',
       '/uploads': 'http://localhost:8078/',
+      '/trpc': 'http://localhost:8078/',
     },
   },
   plugins: [

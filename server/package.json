@@ -9,6 +9,7 @@
   "scripts": {
     "start": "bun src/server.ts",
     "dev": "bun --watch src/server.ts",
+    "build:client": "cd ../client && bun run build",
     "seed:chat": "bun run scripts/seed-test-chat.ts"
   },
   "peerDependencies": {

@@ -78,7 +78,7 @@ function RouteComponent() {
           setPreview(URL.createObjectURL(file))
           const formData = new FormData()
           formData.append('file', file)
-          const res = await fetch('http://localhost:8078/uploads', {
+          const res = await fetch('/uploads', {
             method: 'POST',
             body: formData,
           })
@@ -160,7 +160,7 @@ function RouteComponent() {
                   if (!file) return
                   const formData = new FormData()
                   formData.append('file', file)
-                  const res = await fetch('http://localhost:8078/uploads', {
+                  const res = await fetch('/uploads', {
                     method: 'POST',
                     body: formData,
                   })

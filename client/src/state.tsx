@@ -2,7 +2,11 @@ import { createStore, produce } from 'solid-js/store';
 import { io } from 'socket.io-client';
 import type { AppState, CurrentChatState } from '@shared/types';
 
-const socket = io('http://localhost:8079');
+// Socket.io runs on a dedicated port alongside the HTTP server. Use whatever
+// host the page itself came from so this works over LAN too (localhost on the
+// client device won't reach the server machine).
+const SOCKET_PORT = 8079
+const socket = io(`${window.location.protocol}//${window.location.hostname}:${SOCKET_PORT}`);
 const [state, _setState] = createStore<AppState>({
   assets: {
     actors: {},

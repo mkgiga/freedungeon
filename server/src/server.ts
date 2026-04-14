@@ -3,7 +3,7 @@ import { createStore, produce } from "solid-js/store";
 import { isPrivateIP } from './utils/net';
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { getConnInfo } from "hono/bun";
+import { getConnInfo, serveStatic } from "hono/bun";
 import { log } from './logger';
 import { initDb, saveStateToDb, loadStateFromDb, db } from './db';
 import { sql } from 'kysely';
@@ -119,6 +119,13 @@ async function checkpointWal() {
 async function listen() {
     app.route('/uploads', uploadsRouter);
     app.use('/trpc/*', trpcServer({ router: appRouter }));
+
+    // Serve the built client from server/client/dist. Requests that match a
+    // real file (/, /assets/..., /favicon.svg, ...) resolve to that file;
+    // anything else falls through to index.html so client-side routing works.
+    app.use('/*', serveStatic({ root: './client/dist' }));
+    app.get('*', serveStatic({ path: './client/dist/index.html' }));
+
     Bun.serve({
         port: config.server.port || 8078,
         hostname: config.server.hostname || "0.0.0.0",
