@@ -36,3 +36,4 @@ skills-lock.json
 server/data/
 server/data/db/
 server/data/preferences.json
+server/debug/
