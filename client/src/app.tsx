@@ -4,6 +4,7 @@ import { MetaProvider } from '@solidjs/meta'
 import { routeTree } from './routeTree.gen'
 import { ModalProvider } from './components/Modal'
 import { DrawerProvider } from './components/Drawer'
+import { BottomSheetProvider } from './components/BottomSheet'
 import { ToastProvider } from './components/Toast'
 import { BottomNav } from './components/BottomNav'
 import { activeTab, setActiveTab, type Tab } from './tab-state'
@@ -46,18 +47,20 @@ export function App() {
         <MetaProvider>
             <ModalProvider>
                 <DrawerProvider>
-                    <ToastProvider>
-                        <main>
-                            <For each={TABS}>
-                                {(tab) => (
-                                    <div class="tab-pane" classList={{ hidden: activeTab() !== tab }}>
-                                        <RouterProvider router={routers[tab]} />
-                                    </div>
-                                )}
-                            </For>
-                        </main>
-                        <BottomNav activeTab={activeTab()} onChange={setActiveTab} />
-                    </ToastProvider>
+                    <BottomSheetProvider>
+                        <ToastProvider>
+                            <main>
+                                <For each={TABS}>
+                                    {(tab) => (
+                                        <div class="tab-pane" classList={{ hidden: activeTab() !== tab }}>
+                                            <RouterProvider router={routers[tab]} />
+                                        </div>
+                                    )}
+                                </For>
+                            </main>
+                            <BottomNav activeTab={activeTab()} onChange={setActiveTab} />
+                        </ToastProvider>
+                    </BottomSheetProvider>
                 </DrawerProvider>
             </ModalProvider>
         </MetaProvider>
