@@ -15,7 +15,11 @@ export function setCurrentTurnResult(r: TurnResult | null) { currentTurnResult =
 export function getCurrentTurnResult() { return currentTurnResult; }
 
 export function section(name: string, body: string): string {
-    return `<!--[section:${name}]-->\n${body}\n<!--[/section:${name}]-->`;
+    const commented = body
+        .split('\n')
+        .map(l => l.length > 0 ? `/// ${l}` : '///')
+        .join('\n');
+    return `/// --- ${name} ---\n${commented}`;
 }
 
 function sortMessages(messages: ChatMessage[]): ChatMessage[] {
@@ -92,7 +96,9 @@ export function buildHistoryForLLM(
         if (prevAssistantEffects.length > 0) {
             parts.push(section('last-assistant-effects', prevAssistantEffects.join('\n')));
         }
-        parts.push(section('user-input', m.content));
+        // user-input is raw JS — no comment wrapper so the LLM sees it as
+        // executable content, not contextual notes.
+        parts.push(m.content);
         if (thisUserEffects.length > 0) {
             parts.push(section('user-effects', thisUserEffects.join('\n')));
         }
