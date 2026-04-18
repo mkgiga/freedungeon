@@ -54,13 +54,19 @@ html {
 /* Firefox — one-shot declarative styling */
 html {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--text), transparent 80%) transparent;
+  scrollbar-color: color-mix(in oklch, var(--text), transparent 80%) none;
+  scrollbar-track-color: transparent;
+}
+
+::-webkit-scrollbar-track-piece:start {
+    background: transparent url('images/backgrounds/scrollbar.png') repeat-y !important;
 }
 
 /* WebKit / Blink (Chrome, Edge, Safari) — more knobs */
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+  background: transparent;
 }
 
 *::-webkit-scrollbar-track {
@@ -71,6 +77,11 @@ html {
   background: color-mix(in oklch, var(--text), transparent 80%);
   border-radius: 4px;
   transition: background 150ms ease;
+  animation: scrollbar-thumb-in 150ms ease both forwards;
+}
+@keyframes scrollbar-thumb-in {
+  from { background: red; }
+  to { background: color-mix(in oklch, var(--text), transparent 80%); }
 }
 
 *::-webkit-scrollbar-thumb:hover {
@@ -113,7 +124,7 @@ p { margin: 0; line-height: 1.5; }
 
 .text-mono {
   font-family: 'Courier New', monospace;
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
 }
 
 .text-emphasis        { color: var(--primary); }
@@ -265,7 +276,7 @@ button {
 
 .modal-container {
   background: var(--bg);
-  border: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+  border: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
   border-radius: 12px;
   min-width: 320px;
   max-width: 90vw;
@@ -293,7 +304,7 @@ button {
     max-width: 90vw;
     max-height: 90vh;
     border-radius: 12px;
-    border: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+    border: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
   }
 }
 
@@ -382,7 +393,7 @@ button {
 
 .drawer-container {
   background: var(--bg);
-  border-left: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+  border-left: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
   width: 340px;
   max-width: 100vw;
   height: 100dvh;
@@ -433,7 +444,7 @@ button {
   align-items: center;
   justify-content: space-between;
   padding: 16px 16px 8px 16px;
-  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
 }
 
 .chat-sidebar-section-body {
@@ -588,13 +599,20 @@ button {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 16px;
-  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 92%);
+  padding-top: 12px;
+  padding-bottom: 12px;
+  padding-right: 16px;
+  padding-left: 0px;
+  border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
   /* Skip paint + layout for messages scrolled off-screen. Browser measures on
      first reveal and remembers; the 100px is a one-time fallback for
      messages that haven't been rendered yet. */
   content-visibility: auto;
   contain-intrinsic-size: auto 100px;
+
+  :has(.chat-block-continue) + & {
+    border-top: none;
+  } 
 }
 
 .chat-messages-sentinel {
@@ -626,8 +644,6 @@ button {
   outline: none;
   white-space: pre-wrap;
   word-break: break-word;
-  padding: 2px 4px;
-  margin: -2px -4px;
   border-radius: 4px;
   transition: background-color 120ms;
 }
@@ -656,6 +672,10 @@ button {
   flex-direction: row;
   gap: 12px;
   align-items: flex-start;
+  margin-top: 8px;  
+  &:not(:last-of-type) {
+    margin-bottom: 8px;
+  }
 }
 
 .chat-block-avatar {
@@ -663,11 +683,18 @@ button {
   width: 40px;
   height: 40px;
   padding: 0;
-  border-radius: 8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
   overflow: hidden;
   background: var(--bg-2);
   cursor: pointer;
   transition: transform 120ms;
+  
+  /* Override .image-icon styles when used as a chat block avatar */
+  & .image-icon {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
 }
 
 .chat-block-avatar:hover:not(:disabled) {
@@ -701,12 +728,13 @@ button {
 .chat-block-name {
   font-weight: 700;
   font-size: var(--text-md);
-  line-height: 1.3;
+  line-height: 1;
 }
 
 .chat-block-dialogue {
   font-size: var(--text-md);
   line-height: 1.5;
+  font-weight: 500;
 }
 
 .chat-block-expression-badge {
@@ -724,6 +752,7 @@ button {
   align-items: flex-start;
   gap: 8px;
   padding-left: 52px; /* align with speech block content */
+  
 }
 
 .chat-block-text-content {
@@ -781,12 +810,18 @@ button {
 
 /* ── AutoContinue separator block ── */
 
+.chat-message:has(.chat-block-continue) {
+  border-top: none;
+  width: 100%;
+  padding-right: 0;
+}
+
 .chat-block-continue {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 12px;
-  padding: 8px 52px;
+  padding: 8px -16px;
   color: var(--primary);
 }
 
@@ -812,7 +847,7 @@ button {
   padding: 2px 4px;
   border-radius: 4px;
   background: transparent;
-  border: 1px solid color-mix(in oklch, var(--text), transparent 80%);
+  border: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
   color: inherit;
   font-size: var(--text-xs);
   text-align: right;
@@ -846,7 +881,7 @@ button {
 
 .chat-block-unformatted-content {
   font-family: 'Courier New', monospace;
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   opacity: 0.6;
   white-space: pre-wrap;
 }
@@ -857,7 +892,7 @@ button {
   display: flex;
   flex-direction: column;
   padding: 0;
-  border-top: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+  border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
   background: var(--bg);
 }
 
@@ -865,7 +900,7 @@ button {
   display: flex;
   align-items: center;
   gap: 4px;
-  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
 }
 
 .chat-input-spacer {
@@ -925,12 +960,6 @@ button {
 .chat-input-row {
   display: flex;
   align-items: stretch;
-  background: var(--bg-2);
-}
-
-.chat-input-row .chat-input-textarea {
-  flex: 1;
-  min-width: 0;
 }
 
 .chat-input-row .chat-input-btn-send {
@@ -947,7 +976,7 @@ button {
   min-height: 100px;
   max-height: 240px;
   padding: 10px 12px;
-  background: var(--bg-2);
+  background: var(--bg);
   border: none;
   color: var(--text);
   font-family: var(--font-sans);
@@ -955,6 +984,8 @@ button {
   line-height: 1.5;
   resize: vertical;
   outline: none;
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Expression Picker ── */
@@ -963,7 +994,7 @@ button {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 12px;
-  flex: 1;
+  flex: 1 0;
   min-height: 0;
   overflow-y: auto;
 }
@@ -979,6 +1010,7 @@ button {
   background: var(--bg-2);
   cursor: pointer;
   transition: border-color 120ms, transform 120ms;
+  flex-shrink: 0;
 }
 
 .expression-picker-item:hover {

@@ -145,7 +145,7 @@ function RouteComponent() {
         }}
       />
 
-      <div class="flex-1 overflow-y-auto p-4">
+      <div class="flex-1 overflow-y-auto overflow-x-hidden p-4">
         {/* Header card — avatar + name + ID */}
         <section class="flex items-start gap-4 mb-6">
           <div
@@ -232,7 +232,7 @@ function RouteComponent() {
           <Show when={Object.keys(draft.expressions ?? {}).length > 0} fallback={
             <Text size="sm" class="opacity-50 mb-3">No expressions added yet.</Text>
           }>
-            <table class="w-full text-sm mb-3">
+            <table class="w-full text-sm">
               <thead>
                 <tr class="border-b border-[color-mix(in_oklch,var(--text),transparent_85%)]">
                   <th class="text-left py-2">Preview</th>
@@ -273,7 +273,7 @@ function RouteComponent() {
           </Show>
           <Show when={edit()}>
             <button
-              class="w-full p-3 rounded-lg border border-dashed border-[color-mix(in_oklch,var(--text),transparent_70%)] text-sm font-semibold opacity-70 hover:opacity-100"
+              class="mt-2 p-2 w-full flex items-center justify-center rounded-lg border-2! border-dashed! border-[color-mix(in_oklch,var(--text),transparent_70%)]!"
               onClick={addExpression}
             >
               Add Expression
