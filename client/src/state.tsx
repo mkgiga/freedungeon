@@ -41,10 +41,15 @@ socket.on('init', (data: AppState) => {
 
 socket.on('state', ({ path, value }: { path: string[], value: any }) => {
   if (!path || path.length === 0 || path.some(p => p == null)) return;
-  if (path[0] === 'isGenerating' || path.includes('isGenerating')) {
-    console.log('[state] isGenerating update received:', { path, value });
+  const valueSummary = value === null || typeof value !== 'object'
+    ? value
+    : Array.isArray(value) ? `[array len=${value.length}]` : `{${Object.keys(value).join(',')}}`;
+  console.log('[CLIENT/recv state]', path, valueSummary);
+  try {
+    (_setState as Function)(...path, value);
+  } catch (e) {
+    console.error('[CLIENT/setState THREW]', path, e);
   }
-  (_setState as Function)(...path, value);
 });
 
 socket.on('delete', ({ path, key }: { path: string[], key: string }) => {

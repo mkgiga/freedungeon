@@ -163,6 +163,21 @@ function ConversationView(props: { onBack: () => void }) {
     setPinnedIds(null)
   })
 
+  // If any pinned id gets deleted from the store (rewind, regenerate, delete),
+  // drop back to follow-latest. Pinned mode reads specific ids and never touches
+  // Object.values, so new inserts after a stale deletion wouldn't invalidate the
+  // memo — the window would silently stop reflecting reality.
+  createEffect(() => {
+    const pinned = pinnedIds()
+    if (pinned === null) return
+    for (const id of pinned) {
+      if (!state.currentChat.messages[id]) {
+        setPinnedIds(null)
+        return
+      }
+    }
+  })
+
   const sortByCreatedAt = (a: ChatMessageType, b: ChatMessageType) =>
     (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 
@@ -187,9 +202,9 @@ function ConversationView(props: { onBack: () => void }) {
       }
       return result
     }
-    return Object.values(state.currentChat.messages ?? {})
-      .sort(sortByCreatedAt)
-      .slice(-PAGE_SIZE)
+    const all = Object.values(state.currentChat.messages ?? {})
+    const sliced = all.sort(sortByCreatedAt).slice(-PAGE_SIZE)
+    return sliced
   })
 
   let scrollEl: HTMLDivElement | undefined
