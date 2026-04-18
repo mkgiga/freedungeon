@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { notification } from './notifications';
 import { nanoid } from 'nanoid';
 import { bootstrapGenerationSync } from './llm';
+import { createInitialContext } from './game-state/scope';
 
 export const app = new Hono();
 export const httpServer = createServer();
@@ -47,6 +48,7 @@ export const [state, _setState] = createStore({
             notes: [],
         },
         messages: {},
+        gameState: createInitialContext(),
         createdAt: null,
         updatedAt: null,
     } as CurrentChatState,

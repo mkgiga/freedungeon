@@ -5,6 +5,8 @@ import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
 import { ChatCompletionManager } from "./llm";
 import { parseMacros } from "./macro";
+import { runTurn, setCurrentTurnResult, buildHistoryForLLM } from "./game-state";
+import { createInitialContext } from "./game-state/scope";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -37,6 +39,8 @@ export class CurrentChat {
         const loadedChat = await loadChatById(id);
         if (loadedChat) {
             setState('currentChat', loadedChat);
+            const refreshed = runTurn(Object.values(loadedChat.messages));
+            setState('currentChat', 'gameState', refreshed.ctx);
         } else {
             logChat(`Failed to load chat with id ${id}`);
             throw new Error(`Failed to load chat with id ${id}`);
@@ -52,6 +56,7 @@ export class CurrentChat {
                 notes: [],
             },
             messages: {},
+            gameState: createInitialContext(),
             createdAt: Date.now(),
             updatedAt: Date.now(),
         }
@@ -151,38 +156,56 @@ export class CurrentChat {
             return;
         }
 
-        const history = Object.values(state.currentChat.messages)
-            .sort((a, b) => (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-            .map(m => ({ role: m.role, content: m.content }));
+        const rawMessages = Object.values(state.currentChat.messages);
 
-        let systemPrompt = llmConfig.systemPrompt ?? '';
-        if (!systemPrompt) {
-            logChat('No system prompt set. Proceeding with empty system prompt — model behavior may drift.');
+        // Run the deterministic game-state turn: replay every message's function
+        // calls from a fresh initial ctx, collect per-message effect strings,
+        // and produce the transient prompt-injection strings.
+        const turnResult = runTurn(rawMessages);
+
+        // Mirror ctx into currentChat so clients receive it over socket.io
+        // for HUD/inventory rendering. Never persisted to the DB — it's
+        // always reconstructed from chat messages.
+        setState('currentChat', 'gameState', turnResult.ctx);
+
+        // Expose the turn result to the GAME_STATE macro for the duration of
+        // this prompt build.
+        setCurrentTurnResult(turnResult);
+
+        try {
+            let systemPrompt = llmConfig.systemPrompt ?? '';
+            if (!systemPrompt) {
+                logChat('No system prompt set. Proceeding with empty system prompt — model behavior may drift.');
+            }
+            systemPrompt = parseMacros(systemPrompt);
+            console.log('Parsed system prompt:', systemPrompt);
+
+            const history = buildHistoryForLLM(rawMessages, turnResult);
+
+            const chatId = state.currentChat.id;
+            const debugFetchResultData = await ChatCompletionManager.chatCompletion({
+                history,
+                systemPrompt,
+                onComplete: (response) => {
+                    if (!state.currentChat.id) {
+                        logChat('No active chat. Cannot add assistant response to chat history.');
+                        return;
+                    }
+                    CurrentChat.upsertMessage({
+                        id: nanoid(),
+                        role: 'assistant',
+                        chatId,
+                        content: response,
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
+                    });
+                },
+            });
+
+            console.log('(DEBUG) Fetch data:', debugFetchResultData);
+        } finally {
+            setCurrentTurnResult(null);
         }
-        systemPrompt = parseMacros(systemPrompt);
-        console.log('Parsed system prompt:', systemPrompt);
-
-        const chatId = state.currentChat.id;
-        const debugFetchResultData = await ChatCompletionManager.chatCompletion({
-            history,
-            systemPrompt,
-            onComplete: (response) => {
-                if (!state.currentChat.id) {
-                    logChat('No active chat. Cannot add assistant response to chat history.');
-                    return;
-                }
-                CurrentChat.upsertMessage({
-                    id: nanoid(),
-                    role: 'assistant',
-                    chatId,
-                    content: response,
-                    createdAt: Date.now(),
-                    updatedAt: Date.now(),
-                });
-            },
-        });
-
-        console.log('(DEBUG) Fetch data:', debugFetchResultData);
     }
 
     static async prompt({ message }: { message: string }) {

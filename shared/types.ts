@@ -19,6 +19,11 @@ export type AppState = {
     userPreferences: UserPreferences;
 }
 
+export type GameStateContext = {
+    inventory: Record<string, number>;
+    hp: number;
+}
+
 export type AppNotification = {
     id: string;
     title: string;
@@ -94,6 +99,13 @@ export type CurrentChatState = {
     };
     /** Keyed by message id. Render order is determined by `createdAt`. */
     messages: Record<string, ChatMessage>;
+    /**
+     * Derived game state, recomputed from this chat's messages by the server's
+     * game-state executor on every prompt and on chat load. Mirrored into
+     * currentChat so clients can render HUD/inventory. Never persisted — it's
+     * always reconstructed from message history.
+     */
+    gameState: GameStateContext;
     createdAt: number | null;
     updatedAt: number | null;
 }

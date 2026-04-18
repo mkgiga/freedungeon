@@ -1,6 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import { state } from "./server"
+import { getCurrentTurnResult } from "./game-state"
 
 const promptsDir = path.join(import.meta.dirname, 'prompts')
 
@@ -86,6 +87,10 @@ registry.set('PLAYER', () => {
     const playerCharacterId = state.userPreferences.playerCharacterId
     const customId = playerCharacterId ? (state.assets.actors[playerCharacterId]?.customId || playerCharacterId) : "null";
     return customId
+});
+
+registry.set('GAME_STATE', () => {
+    return getCurrentTurnResult()?.systemPromptGameState ?? '';
 });
 
 // ── File-based macros ────────────────────────────────────────────────────────
