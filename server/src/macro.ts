@@ -142,10 +142,18 @@ function evaluate(text: string, ctx: EvalContext): string {
         const char = text[i]
 
         // ── Escape handling ─────────────────────────────────────────────────
+        // Only `\{`, `\<`, and `\\` are treated as escapes — those are the
+        // only characters that actually introduce macro syntax. Any other
+        // backslash is preserved verbatim so JSON strings (and any other
+        // content carrying backslash escapes like `\n`, `\"`) pass through
+        // re-evaluation unchanged.
         if (char === '\\' && i + 1 < len) {
-            result += text[i + 1]
-            i += 2
-            continue
+            const next = text[i + 1]
+            if (next === '{' || next === '<' || next === '\\') {
+                result += next
+                i += 2
+                continue
+            }
         }
 
         // ── Macro call: {{ @name(args) }} ───────────────────────────────────

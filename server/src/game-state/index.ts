@@ -88,13 +88,15 @@ export function buildHistoryForLLM(
             prev?.role === 'assistant' ? (turn.messageResults.get(prev.id) ?? []) : [];
         const thisUserEffects = turn.messageResults.get(m.id) ?? [];
 
-        const parts: string[] = [
-            section('last-assistant-effects', prevAssistantEffects.join('\n')),
-            section('user-input', m.content),
-            section('user-effects', thisUserEffects.join('\n')),
-        ];
-
-        if (i === lastUserIdx) {
+        const parts: string[] = [];
+        if (prevAssistantEffects.length > 0) {
+            parts.push(section('last-assistant-effects', prevAssistantEffects.join('\n')));
+        }
+        parts.push(section('user-input', m.content));
+        if (thisUserEffects.length > 0) {
+            parts.push(section('user-effects', thisUserEffects.join('\n')));
+        }
+        if (i === lastUserIdx && turn.mostRecentUserMessageState.trim().length > 0) {
             parts.push(section('current-game-state', turn.mostRecentUserMessageState));
         }
 
