@@ -7,6 +7,7 @@ import { ChatCompletionManager } from "./llm";
 import { parseMacros } from "./macro";
 import { runTurn, setCurrentTurnResult, buildHistoryForLLM } from "./game-state";
 import { createInitialContext } from "./game-state/scope";
+import { writeDebug, writeDebugMd, formatRequestAsText } from "./game-state/debug";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -182,6 +183,19 @@ export class CurrentChat {
 
             const history = buildHistoryForLLM(rawMessages, turnResult);
 
+            {
+                const requestDump = {
+                    systemPrompt,
+                    history,
+                    llmConfig: {
+                        name: llmConfig.name,
+                        provider: llmConfig.provider,
+                        model: llmConfig.model,
+                    },
+                };
+                writeDebugMd('chat-completion-request', formatRequestAsText(requestDump));
+            }
+
             const chatId = state.currentChat.id;
             const debugFetchResultData = await ChatCompletionManager.chatCompletion({
                 history,
@@ -198,6 +212,20 @@ export class CurrentChat {
                         content: response,
                         createdAt: Date.now(),
                         updatedAt: Date.now(),
+                    });
+
+                    // Recompute the turn over the now-augmented message list so
+                    // the client HUD reflects any game-state effects the
+                    // assistant's response just produced.
+                    const postResponseTurn = runTurn(Object.values(state.currentChat.messages));
+                    setState('currentChat', 'gameState', postResponseTurn.ctx);
+
+                    writeDebugMd('chat-completion-response', response);
+                    writeDebug('game-state', {
+                        ctx: postResponseTurn.ctx,
+                        messageResults: postResponseTurn.messageResults,
+                        systemPromptGameState: postResponseTurn.systemPromptGameState,
+                        mostRecentUserMessageState: postResponseTurn.mostRecentUserMessageState,
                     });
                 },
             });
