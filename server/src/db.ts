@@ -427,7 +427,7 @@ export async function loadChatById(chatId: string) {
         messages: messagesRecord,
         // Placeholder — CurrentChat.loadChat recomputes this from messages via
         // runTurn immediately after setState('currentChat', loadedChat).
-        gameState: { inventory: {}, hp: 100 },
+        gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } } },
         createdAt: hydratedChat.createdAt,
         updatedAt: hydratedChat.updatedAt,
     } as typeof state.currentChat;
@@ -500,7 +500,7 @@ export async function loadStateFromDb(): Promise<AppState> {
             title: '',
             assets: { actors: [], notes: [] },
             messages: {},
-            gameState: { inventory: {}, hp: 100 },
+            gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } } },
             createdAt: null,
             updatedAt: null,
         },

@@ -22,7 +22,7 @@ const [state, _setState] = createStore<AppState>({
       notes: [],
     },
     messages: {},
-    gameState: { inventory: {}, hp: 100 },
+    gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } } },
     createdAt: null,
     updatedAt: null,
   } as CurrentChatState,

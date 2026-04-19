@@ -21,6 +21,17 @@ export type AppState = {
 
 export type GameStateContext = {
     inventory: Record<string, number>;
+    scene: {
+        actors: {
+            /** Actors present in the current scene — rendered in the prompt string. */
+            active: Record<string, ActorGameState>;
+            /** Actors that have left the scene — retained so HP persists if reintroduced. */
+            offscreen: Record<string, ActorGameState>;
+        };
+    };
+}
+
+export type ActorGameState = {
     hp: number;
 }
 
