@@ -43,8 +43,14 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         // ── Display-only (mirror client/src/components/chat/blocks.ts) ────
         unformatted: (_text: string) => {},
         text: (_text: string) => {},
-        speech: (customId: string, _text: string, _opts?: object) => {
-            ensureActive(ctx, customId);
+        speech: (customIdOrDialogue: string, textOrOpts?: string | object, _opts?: object) => {
+            // Two forms:
+            //   predefined: speech(customId, dialogue, opts?)   — arg 2 is a string
+            //   ad-hoc:     speech(dialogue, { name })          — arg 2 is an object
+            // Only the predefined form carries a customId worth tracking.
+            if (typeof textOrOpts === 'string') {
+                ensureActive(ctx, customIdOrDialogue);
+            }
         },
         pause: (_seconds: number) => {},
         image: (_opts: object) => {},
