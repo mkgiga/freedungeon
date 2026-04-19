@@ -83,7 +83,7 @@ registry.set('PLAYER_NAME', () => {
     return pc ? pc.name : 'Player';
 });
 
-registry.set('PLAYER', () => {
+registry.set('PLAYER_ID', () => {
     const playerCharacterId = state.userPreferences.playerCharacterId
     const customId = playerCharacterId ? (state.assets.actors[playerCharacterId]?.customId || playerCharacterId) : "null";
     return customId
