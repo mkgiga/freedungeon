@@ -28,6 +28,7 @@ export interface DB {
         title: Generated<string>;
         type: Generated<string>;
         content: Generated<string>;
+        emoji: string | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
@@ -129,9 +130,18 @@ export async function initDb() {
         .addColumn('title', 'text', (col) => col.notNull().defaultTo('Untitled Note'))
         .addColumn('type', 'text', (col) => col.notNull().defaultTo(''))
         .addColumn('content', 'text', (col) => col.notNull().defaultTo(''))
+        .addColumn('emoji', 'text')
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .execute();
+
+    // Self-healing migration: add `emoji` column to existing notes tables that
+    // predate it. `createTable().ifNotExists()` is a no-op if the table already
+    // exists, so new columns don't reach old DBs without an explicit ALTER.
+    const notesCols = await sql<{ name: string }>`PRAGMA table_info(notes)`.execute(db);
+    if (!notesCols.rows.some(r => r.name === 'emoji')) {
+        await db.schema.alterTable('notes').addColumn('emoji', 'text').execute();
+    }
 
     await db.schema
         .createTable('chats')
@@ -244,6 +254,7 @@ export function hydrateNote(row: NoteRow): Note {
         title: row.title,
         type: row.type,
         content: row.content,
+        emoji: row.emoji ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -332,6 +343,7 @@ export function dehydrateNote(note: Note): Omit<Selectable<DB['notes']>, 'id'> {
         title: note.title,
         type: note.type,
         content: note.content,
+        emoji: note.emoji ?? null,
         created_at: note.createdAt,
         updated_at: note.updatedAt,
     };

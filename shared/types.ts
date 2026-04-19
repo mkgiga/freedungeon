@@ -68,6 +68,7 @@ export type Note = {
     title: string;
     type: string;
     content: string;
+    emoji?: string;
     createdAt: number;
     updatedAt: number;
 }

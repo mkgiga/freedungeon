@@ -20,6 +20,11 @@ function NoteListItem(props: {
 }) {
     return (
         <tr class="resource-table-row" classList={{ selected: props.selected }} onClick={props.onClick}>
+            <td class="resource-table-col-emoji">
+                <Show when={props.note.emoji} fallback={<span class="opacity-30">📝</span>}>
+                    <span>{props.note.emoji}</span>
+                </Show>
+            </td>
             <td class="resource-table-col-name">
                 <span class="resource-table-cell-content">{props.note.title}</span>
             </td>
@@ -63,6 +68,7 @@ export function NoteList(props: {
             <Show when={!props.hideHeader}>
                 <thead>
                     <tr>
+                        <th class="resource-table-col-emoji"></th>
                         <SortHeader label="Title" active={sortKey() === 'title'} dir={sortDir()} onClick={() => toggleSort('title')} />
                         <Show when={showType()}>
                             <SortHeader label="Type" active={sortKey() === 'type'} dir={sortDir()} onClick={() => toggleSort('type')} />
@@ -73,7 +79,7 @@ export function NoteList(props: {
             </Show>
             <tbody>
                 <For each={sorted()} fallback={
-                    <tr><td colSpan={3} class="resource-table-empty">No notes yet</td></tr>
+                    <tr><td colSpan={4} class="resource-table-empty">No notes yet</td></tr>
                 }>
                     {(note) => (
                         <NoteListItem

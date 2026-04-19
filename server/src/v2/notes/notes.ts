@@ -23,6 +23,7 @@ export const notesRouter = router({
             title: z.string().min(1),
             type: z.string().optional().default(''),
             content: z.string().optional().default(''),
+            emoji: z.string().optional(),
         }))
         .mutation(({ input }) => {
             const now = Date.now()
@@ -35,6 +36,7 @@ export const notesRouter = router({
                     title: input.title,
                     type: input.type,
                     content: input.content,
+                    emoji: input.emoji,
                     updatedAt: now,
                 })
                 return state.assets.notes[id]
@@ -46,6 +48,7 @@ export const notesRouter = router({
                 title: input.title,
                 type: input.type,
                 content: input.content,
+                emoji: input.emoji,
                 createdAt: now,
                 updatedAt: now,
             }

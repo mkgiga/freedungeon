@@ -12,6 +12,7 @@
         "@tanstack/solid-router-devtools": "latest",
         "@trpc/client": "^11.16.0",
         "nanoid": "^5.1.7",
+        "solid-emoji-picker": "^0.3.0",
         "solid-icons": "^1.2.0",
         "solid-js": "^1.9.11",
         "tailwindcss": "^4.1.18",
@@ -469,6 +470,8 @@
     "seroval-plugins": ["seroval-plugins@1.5.1", "", { "peerDependencies": { "seroval": "^1.0" } }, "sha512-4FbuZ/TMl02sqv0RTFexu0SP6V+ywaIe5bAWCCEik0fk17BhALgwvUDVF7e3Uvf9pxmwCEJsRPmlkUE6HdzLAw=="],
 
     "shell-quote": ["shell-quote@1.8.3", "", {}, "sha512-ObmnIF4hXNg1BqhnHmgbDETF8dLPCggZWBjkQfhZpbszZnYur5DUljTcCHii5LC3J5E0yeO/1LIMyH+UvHQgyw=="],
+
+    "solid-emoji-picker": ["solid-emoji-picker@0.3.0", "", { "peerDependencies": { "solid-js": "^1.2" } }, "sha512-wUntdHCfI9wNlRFu9mMUxUT/BkhR1RRmkfbPjPeNWXqDKqQIiVjQ3GzVkaU9KY3GrYuQRyQDGuf88f0FFGK2lw=="],
 
     "solid-icons": ["solid-icons@1.2.0", "", { "peerDependencies": { "solid-js": "*" } }, "sha512-yjQxWQMi9l19P5Af9vjsvalTMDFPDL4XD6etrUdNxNVhFp1bMYF0SFwUa5VYDfJ7u0SF3Qkz/F7BZxqcLUwklw=="],
 
