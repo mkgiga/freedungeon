@@ -11,6 +11,7 @@ import { ChatInput } from '../../components/chat/ChatInput'
 import { ChatSidebar } from '../../components/chat/ChatSidebar'
 import { useDrawer } from '../../components/Drawer'
 import { useModal } from '../../components/Modal'
+import { GameStateActorStatus } from '../../components/GameStateActorStatus'
 import { ChatList } from '../../components/chats'
 import { Em } from '../../components/typography/Em'
 import type { Chat, ChatMessage as ChatMessageType } from '@shared/types'
@@ -140,6 +141,14 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
 
 function ConversationView(props: { onBack: () => void }) {
   const drawer = useDrawer()
+  const modal = useModal()
+
+  const resolveActorName = (customId: string) => {
+    for (const a of Object.values(state.assets.actors)) {
+      if (a.customId === customId) return a.name
+    }
+    return customId
+  }
 
   /**
    * Pagination model:
@@ -319,6 +328,29 @@ function ConversationView(props: { onBack: () => void }) {
         title={state.currentChat.title || 'Chat'}
         backButton={props.onBack}
         slots={{
+          center: (
+            <div class="chat-topbar-actors">
+              <For each={Object.entries(state.currentChat.gameState.scene.actors.active)}>
+                {([customId, actorState]) => (
+                  <GameStateActorStatus
+                    customId={customId}
+                    hp={actorState.hp}
+                    variant="compact"
+                    onClick={() => modal.open({
+                      title: resolveActorName(customId),
+                      content: () => (
+                        <GameStateActorStatus
+                          customId={customId}
+                          hp={actorState.hp}
+                          variant="presentation"
+                        />
+                      ),
+                    })}
+                  />
+                )}
+              </For>
+            </div>
+          ),
           right: (
             <button onClick={openSidebar}>
               <MdFillView_sidebar size={32} />
