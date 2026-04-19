@@ -231,6 +231,8 @@ export class CurrentChat {
             });
 
             console.log('(DEBUG) Fetch data:', debugFetchResultData);
+            // @ts-ignore
+            console.log(debugFetchResultData.usageMetadata?.promptTokensDetails || '');
         } finally {
             setCurrentTurnResult(null);
         }
