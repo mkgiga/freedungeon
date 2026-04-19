@@ -340,7 +340,12 @@ function ConversationView(props: { onBack: () => void }) {
             <>
               <Spacer dir={'horizontal'} size={'md'} />
               <div class="chat-topbar-actors">
-                <For each={Object.entries(state.currentChat.gameState.scene.actors.active)}>
+                <For each={Object.entries(state.currentChat.gameState.scene.actors.active).sort(([idA], [idB]) => {
+                  const hasAvatarA = Boolean(state.assets.actors[idA]?.avatarUrl?.length)
+                  const hasAvatarB = Boolean(state.assets.actors[idB]?.avatarUrl?.length)
+                  if (hasAvatarA !== hasAvatarB) return hasAvatarA ? -1 : 1
+                  return resolveActorName(idA).localeCompare(resolveActorName(idB))
+                })}>
                   {([customId, actorState]) => (
                     /* Only render NPCs here - the player character is rendered elsewhere */
                     <Show when={customId !== resolvePlayerActor()?.customId}>
