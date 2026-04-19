@@ -1687,3 +1687,67 @@ menu#main-nav {
     }
   }
 }
+
+/* ── Chat TopBar actor row ── */
+
+.chat-topbar-actors {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+
+.chat-topbar-actors::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── GameStateActorStatus — HP bars ── */
+
+.hp-bar {
+  background: color-mix(in oklch, var(--text), transparent 85%);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.hp-bar-horizontal { height: 8px;  width: 100%; }
+.hp-bar-vertical   { width: 6px;   height: 100%; min-height: 44px; }
+
+.hp-bar-fill {
+  background: oklch(62% 0.21 25);
+  transition: width 200ms ease, height 200ms ease;
+}
+
+.hp-bar-horizontal .hp-bar-fill { height: 100%; }
+.hp-bar-vertical   .hp-bar-fill { width: 100%; position: absolute; bottom: 0; }
+
+.game-state-actor-compact {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.game-state-actor-compact-hp {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  text-shadow: 0 0 2px #000;
+  color: #fff;
+  pointer-events: none;
+}
+
+.game-state-actor-presentation {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
