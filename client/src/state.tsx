@@ -21,6 +21,7 @@ const [state, _setState] = createStore<AppState>({
       actors: [],
       notes: [],
     },
+    hotbarNotes: {},
     messages: {},
     gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } } },
     createdAt: null,

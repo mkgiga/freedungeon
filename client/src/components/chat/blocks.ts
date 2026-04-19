@@ -13,8 +13,16 @@ export type ImageBlock = { type: 'image'; src: string; from: string; caption?: s
 export type WebviewBlock = { type: 'webview'; html: string; css?: string; script?: string }
 export type UnformattedBlock = { type: 'unformatted'; content: string }
 export type NoOpContinueBlock = { type: 'noOpContinue' }
+export type EnterActorsBlock = { type: 'enterActors'; actors: string[] }
+export type LeaveActorsBlock = { type: 'leaveActors'; actors: string[] }
+export type SetHpBlock = { type: 'setHp'; actorId: string; value: number }
+export type DamageBlock = { type: 'damage'; actorId: string; amount: number }
+export type HealBlock = { type: 'heal'; actorId: string; amount: number }
+export type GiveItemBlock = { type: 'giveItem'; name: string; qty: number }
+export type TakeItemBlock = { type: 'takeItem'; name: string; qty: number }
 
 export type Block =
+    // Rendering commands
     | TextBlock
     | SpeechBlock
     | PauseBlock
@@ -22,6 +30,15 @@ export type Block =
     | WebviewBlock
     | UnformattedBlock
     | NoOpContinueBlock
+    // State-mutating commands
+    | EnterActorsBlock
+    | LeaveActorsBlock
+    | SetHpBlock
+    | DamageBlock
+    | HealBlock
+    | GiveItemBlock
+    | TakeItemBlock
+
 
 // ── Parser ──
 
@@ -72,6 +89,27 @@ export function parseBlocks(content: string): Block[] {
         },
         noOpContinue: () => {
             blocks.push({ type: 'noOpContinue' })
+        },
+        enterActors: (actors: Array<string>) => {
+            blocks.push({ type: 'enterActors', actors })
+        },
+        leaveActors: (actors: Array<string>) => {
+            blocks.push({ type: 'leaveActors', actors })
+        },
+        setHp: (actorId: string, value: number) => {
+            blocks.push({ type: 'setHp', actorId, value })
+        },
+        damage: (actorId: string, amount: number) => {
+            blocks.push({ type: 'damage', actorId, amount })
+        },
+        heal: (actorId: string, amount: number) => {
+            blocks.push({ type: 'heal', actorId, amount })
+        },
+        giveItem: (name: string, qty: number) => {
+            blocks.push({ type: 'giveItem', name, qty })
+        },
+        takeItem: (name: string, qty: number) => {
+            blocks.push({ type: 'takeItem', name, qty })
         },
     }
 

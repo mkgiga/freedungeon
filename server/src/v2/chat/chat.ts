@@ -30,6 +30,7 @@ export const chatRouter = router({
                 id: newId,
                 title: input.title,
                 assets: { actors: [], notes: [] },
+                hotbarNotes: {},
                 createdAt: now,
                 updatedAt: now,
             }
@@ -43,6 +44,7 @@ export const chatRouter = router({
                 id: newId,
                 title: chat.title,
                 assets: { actors: [], notes: [] },
+                hotbarNotes: {},
                 messages: {},
                 createdAt: now,
                 updatedAt: now,
@@ -136,6 +138,44 @@ export const chatRouter = router({
             return { success: true }
         }),
 
+    setHotbarNote: procedure
+        .input(z.object({ noteId: z.string(), enabled: z.boolean() }))
+        .mutation(({ input }) => {
+            const chatId = state.currentChat.id
+            if (!chatId) throw new Error('No chat loaded')
+            if (!state.assets.notes[input.noteId]) throw new Error('Note not found')
+
+            const entry = { enabled: input.enabled }
+            setState('currentChat', 'hotbarNotes', input.noteId, entry)
+            setState('assets', 'chats', chatId, 'hotbarNotes', input.noteId, entry)
+            return { success: true }
+        }),
+
+    toggleHotbarNote: procedure
+        .input(z.object({ noteId: z.string() }))
+        .mutation(({ input }) => {
+            const chatId = state.currentChat.id
+            if (!chatId) throw new Error('No chat loaded')
+            if (!state.assets.notes[input.noteId]) throw new Error('Note not found')
+
+            const existing = state.currentChat.hotbarNotes[input.noteId]
+            const entry = { enabled: existing ? !existing.enabled : true }
+            setState('currentChat', 'hotbarNotes', input.noteId, entry)
+            setState('assets', 'chats', chatId, 'hotbarNotes', input.noteId, entry)
+            return { success: true }
+        }),
+
+    removeHotbarNote: procedure
+        .input(z.object({ noteId: z.string() }))
+        .mutation(({ input }) => {
+            const chatId = state.currentChat.id
+            if (!chatId) throw new Error('No chat loaded')
+
+            deleteState('currentChat', 'hotbarNotes', input.noteId)
+            deleteState('assets', 'chats', chatId, 'hotbarNotes', input.noteId)
+            return { success: true }
+        }),
+
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
@@ -150,6 +190,7 @@ export const chatRouter = router({
                     id: null,
                     title: '',
                     assets: { actors: [], notes: [] },
+                    hotbarNotes: {},
                     messages: {},
                     createdAt: null,
                     updatedAt: null,

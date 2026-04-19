@@ -259,6 +259,11 @@ button {
   margin-bottom: 12px;
 }
 
+/* Hide section headers whose item grid was emptied by the filter. */
+.emoji-section:has(.emoji-items:empty) {
+  display: none;
+}
+
 .emoji-section-title {
   display: block;
   font-size: var(--text-xs);
@@ -1789,6 +1794,55 @@ menu#main-nav {
   height: calc(100% - 8px);
   aspect-ratio: 1 / 1;
   align-self: center;
+}
+
+/* ── Chat Hotbar (lives inside the chat-input toolbar — quick note toggles) ── */
+
+.chat-hotbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 4px;
+  border-left: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  margin-left: 4px;
+  padding-left: 8px;
+}
+
+.chat-hotbar::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-hotbar-item {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  border-radius: 8px;
+  background: transparent;
+  opacity: 0.4;
+  transition: background 120ms, opacity 120ms;
+  cursor: pointer;
+}
+
+.chat-hotbar-item:hover {
+  background: var(--bg-2);
+}
+
+.chat-hotbar-item.is-enabled {
+  background: color-mix(in oklch, var(--primary), transparent 75%);
+  opacity: 1;
+}
+
+.chat-hotbar-item.is-enabled:hover {
+  background: color-mix(in oklch, var(--primary), transparent 65%);
 }
 
 .chat-topbar-actors::-webkit-scrollbar {

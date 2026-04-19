@@ -72,6 +72,9 @@ registry.set('NOTES', () => {
     for (const id of currentChat.assets.notes) {
         const note = state.assets.notes[id]
         if (!note) continue
+        // Hotbar-disabled notes are suppressed from the LLM prompt.
+        const hot = currentChat.hotbarNotes[id]
+        if (hot && hot.enabled === false) continue
         result.push({ title: note.title, type: note.type, content: note.content })
     }
     return JSON.stringify(result, null, 2)

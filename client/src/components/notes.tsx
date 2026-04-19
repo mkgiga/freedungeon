@@ -9,6 +9,8 @@ export type NoteAction = {
     callback: (note: Note) => void
     danger?: boolean
     icon?: JSXElement
+    /** If provided, action is only rendered for notes where this returns true. */
+    show?: (note: Note) => boolean
 }
 
 function NoteListItem(props: {
@@ -37,12 +39,14 @@ function NoteListItem(props: {
                 <td class="resource-table-col-actions" onClick={(e) => e.stopPropagation()}>
                     <Dropdown
                         trigger={<MdFillMore_horiz size={20} />}
-                        items={props.actions!.map(a => ({
-                            label: a.label,
-                            icon: a.icon,
-                            danger: a.danger,
-                            onClick: () => a.callback(props.note),
-                        }))}
+                        items={props.actions!
+                            .filter(a => !a.show || a.show(props.note))
+                            .map(a => ({
+                                label: a.label,
+                                icon: a.icon,
+                                danger: a.danger,
+                                onClick: () => a.callback(props.note),
+                            }))}
                     />
                 </td>
             </Show>

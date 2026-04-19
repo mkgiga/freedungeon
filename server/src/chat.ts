@@ -56,6 +56,7 @@ export class CurrentChat {
                 actors: [],
                 notes: [],
             },
+            hotbarNotes: {},
             messages: {},
             gameState: createInitialContext(),
             createdAt: Date.now(),
@@ -386,6 +387,12 @@ export class CurrentChat {
                 actors: [...state.currentChat.assets.actors],
                 notes: [...state.currentChat.assets.notes],
             },
+            // Clone hotbarNotes so the branched chat has its own entries.
+            // saveChat writes fresh nanoid() junction rows scoped to newChat.id,
+            // so there's no cross-referencing with the source chat's rows.
+            hotbarNotes: Object.fromEntries(
+                Object.entries(state.currentChat.hotbarNotes).map(([id, v]) => [id, { ...v }])
+            ),
             createdAt: Date.now(),
             updatedAt: Date.now(),
         };

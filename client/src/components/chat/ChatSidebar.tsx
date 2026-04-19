@@ -78,6 +78,16 @@ export function ChatSidebar() {
                         hideHeader
                         actions={[
                             {
+                                label: 'Add to Hotbar',
+                                show: (note) => !state.currentChat.hotbarNotes[note.id],
+                                callback: (note) => trpc.chat.setHotbarNote.mutate({ noteId: note.id, enabled: true }),
+                            },
+                            {
+                                label: 'Remove from Hotbar',
+                                show: (note) => Boolean(state.currentChat.hotbarNotes[note.id]),
+                                callback: (note) => trpc.chat.removeHotbarNote.mutate({ noteId: note.id }),
+                            },
+                            {
                                 label: 'Remove',
                                 danger: true,
                                 callback: (note) => trpc.chat.removeNote.mutate({ noteId: note.id }),

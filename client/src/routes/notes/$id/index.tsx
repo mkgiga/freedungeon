@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/solid-router'
 import { state } from '../../../state'
 import { trpc } from '../../../trpc'
 import { TopBar } from '../../../components/TopBar'
-import { Show, Suspense } from 'solid-js'
+import { Show, Suspense, createSignal } from 'solid-js'
 import { MdFillCheck } from 'solid-icons/md'
 import { createStore } from 'solid-js/store'
 import { useModal } from '../../../components/Modal'
@@ -11,6 +11,18 @@ import { Text } from '../../../components/typography/Text'
 import { TextEditor } from '../../../components/TextEditor'
 import { Loader } from '../../../components/Loader'
 import { EmojiPicker } from 'solid-emoji-picker'
+import emojiKeywords from 'emojilib'
+
+// Normalize away the U+FE0F variation selector so keyword lookups line up
+// regardless of whether each side uses fully-qualified or unqualified forms.
+const stripVS = (s: string) => s.replace(/\uFE0F/g, '')
+const keywordsByEmoji: Record<string, string[]> = (() => {
+  const out: Record<string, string[]> = {}
+  for (const [k, v] of Object.entries(emojiKeywords as Record<string, string[]>)) {
+    out[stripVS(k)] = v
+  }
+  return out
+})()
 
 export const Route = createFileRoute('/notes/$id/')({
   component: RouteComponent,
@@ -64,23 +76,47 @@ function RouteComponent() {
   }
 
   const openEmojiPicker = () => {
+    const [query, setQuery] = createSignal('')
+    const matches = (emoji: { name: string; slug: string; emoji: string }) => {
+      const q = query().trim().toLowerCase()
+      if (!q) return true
+      // AND-match each whitespace-separated term against name, slug, and the
+      // keyword list from emojilib (e.g. ❤️ → ["heart","love","like","valentines"]).
+      const terms = q.split(/\s+/)
+      const keywords = keywordsByEmoji[stripVS(emoji.emoji)] ?? []
+      const haystack = `${emoji.name.toLowerCase()} ${emoji.slug} ${keywords.join(' ')}`
+      return terms.every(t => haystack.includes(t))
+    }
     modal.open({
       title: 'Pick an icon',
       content: () => (
-        <div class="flex flex-col gap-2">
-          <Show when={draft.emoji}>
-            <button
-              class="self-end text-sm opacity-70 hover:opacity-100 px-2 py-1 rounded"
-              onClick={() => { setDraft('emoji', undefined); modal.close() }}
-            >
-              Clear
-            </button>
-          </Show>
+        <div class="flex flex-col gap-2 min-w-[320px]">
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search emoji…"
+              autofocus
+              value={query()}
+              onInput={(e) => setQuery(e.currentTarget.value)}
+              class="flex-1 bg-transparent border border-[color-mix(in_oklch,var(--text),transparent_70%)] rounded px-2 py-1 outline-none focus:ring focus:ring-(--primary)"
+            />
+            <Show when={draft.emoji}>
+              <button
+                class="text-sm opacity-70 hover:opacity-100 px-2 py-1 rounded"
+                onClick={() => { setDraft('emoji', undefined); modal.close() }}
+              >
+                Clear
+              </button>
+            </Show>
+          </div>
           <Suspense fallback={<div class="flex justify-center p-8"><Loader size={24} /></div>}>
-            <EmojiPicker onEmojiClick={(item) => {
-              setDraft('emoji', item.emoji)
-              modal.close()
-            }} />
+            <EmojiPicker
+              filter={matches}
+              onEmojiClick={(item) => {
+                setDraft('emoji', item.emoji)
+                modal.close()
+              }}
+            />
           </Suspense>
         </div>
       ),

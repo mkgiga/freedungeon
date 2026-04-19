@@ -47,6 +47,7 @@ export const [state, _setState] = createStore({
             actors: [],
             notes: [],
         },
+        hotbarNotes: {},
         messages: {},
         gameState: createInitialContext(),
         createdAt: null,

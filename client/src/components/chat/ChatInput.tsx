@@ -15,6 +15,7 @@ import {
     MdFillPerson,
 } from 'solid-icons/md'
 import { GameStateActorStatus } from '../GameStateActorStatus'
+import { ChatHotbar } from './ChatHotbar'
 
 export function ChatInput() {
     const [message, setMessage] = createSignal('')
@@ -71,6 +72,7 @@ export function ChatInput() {
                 <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
                     <MdFillFast_forward size={20} />
                 </button>
+                <ChatHotbar />
                 <div class="chat-input-spacer" />
                 <Show
                     when={currentActor()}

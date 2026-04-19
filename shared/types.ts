@@ -97,6 +97,7 @@ export type Chat = {
         actors: string[];
         notes: string[];
     };
+    hotbarNotes: Record<string, { enabled: boolean }>;
     createdAt: number;
     updatedAt: number;
 }
@@ -109,6 +110,11 @@ export type CurrentChatState = {
         actors: string[];
         notes: string[];
     };
+    /**
+     * Per-note quick-control map. Mirrors `Chat.hotbarNotes` for the loaded chat.
+     * `enabled: false` suppresses the note from `{{ NOTES() }}` macro output.
+     */
+    hotbarNotes: Record<string, { enabled: boolean }>;
     /** Keyed by message id. Render order is determined by `createdAt`. */
     messages: Record<string, ChatMessage>;
     /**

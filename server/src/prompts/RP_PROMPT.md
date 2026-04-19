@@ -64,20 +64,20 @@ Strings may use double quotes or template literals (backticks). Commands fall in
 | `pause` | `pause(seconds)` | Timed delay between blocks (int or float). |
 | `image` | `image({ src, from, caption? })` | Display an image from an actor's image gallery. `src` = exact filename from the actor's `<images>` list, `from` = actor ID. Use the `description` attribute on each `<image>` to pick the right one. Never fabricate filenames. |
 | `webview` | `webview(html, { css?, script? })` | Render a sandboxed HTML iframe. |
-| `unformatted` | `unformatted(content)` | Raw unprocessed text input from the other agent. |
+| `unformatted` | `unformatted(content)` | Raw unprocessed text input from the other agent. **Do not mirror this command in your output.** |
 | `noOpContinue` | `noOpContinue()` | Idle marker — the other agent is still active but took no action. |
 
 ## 【State Commands】
 
-Actors live in `scene.actors.active` (currently on-screen) or `scene.actors.offscreen` (left but remembered). Actors are keyed by their `customId`. Moving an actor to offscreen preserves their HP; reintroducing them later restores it.
+Actors live in `scene.actors.active` (currently on-screen) or `scene.actors.offscreen` (left but remembered). Actors are keyed by their `id`. Moving an actor to offscreen preserves their HP; reintroducing them later restores it.
 
 | Command | Signature | Description |
 |:--------|:----------|:------------|
-| `enterActors` | `enterActors(...customIds)` | Move one or more actors into the active scene. Restores HP from offscreen if they were there; otherwise starts at HP 100. No-op if already active. |
-| `leaveActors` | `leaveActors(...customIds)` | Move one or more actors from active to offscreen, preserving HP. |
-| `setHp` | `setHp(customId, value)` | Set an actor's HP. Auto-creates in the active scene if the actor wasn't tracked anywhere. |
-| `damage` | `damage(customId, amount)` | Subtract HP (clamped at 0). No-op if the actor isn't tracked in either bucket. |
-| `heal` | `heal(customId, amount)` | Add HP. No-op if the actor isn't tracked. |
+| `enterActors` | `enterActors(...ids)` | Move one or more actors into the active scene. Restores HP from offscreen if they were there; otherwise starts at HP 100. No-op if already active. |
+| `leaveActors` | `leaveActors(...ids)` | Move one or more actors from active to offscreen, preserving HP. |
+| `setHp` | `setHp(id, value)` | Set an actor's HP. Auto-creates in the active scene if the actor wasn't tracked anywhere. |
+| `damage` | `damage(id, amount)` | Subtract HP (clamped at 0). No-op if the actor isn't tracked in either bucket. |
+| `heal` | `heal(id, amount)` | Add HP. No-op if the actor isn't tracked. |
 | `giveItem` | `giveItem(name, qty?)` | Add `qty` (default 1) of an item to the party inventory. |
 | `takeItem` | `takeItem(name, qty?)` | Remove up to `qty` (default 1) of an item from the party inventory. |
 
