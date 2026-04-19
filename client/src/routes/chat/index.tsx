@@ -15,6 +15,7 @@ import { GameStateActorStatus } from '../../components/GameStateActorStatus'
 import { ChatList } from '../../components/chats'
 import { Em } from '../../components/typography/Em'
 import type { Chat, ChatMessage as ChatMessageType } from '@shared/types'
+import { Spacer } from '../../components/Spacer'
 
 const PAGE_SIZE = 30    // how many messages to load per sentinel-trigger
 const WINDOW_SIZE = 100 // max messages rendered to the DOM at once
@@ -148,6 +149,12 @@ function ConversationView(props: { onBack: () => void }) {
       if (a.customId === customId) return a.name
     }
     return customId
+  }
+
+  const resolvePlayerActor = () => {
+    const playerId = state.userPreferences.playerCharacterId
+    if (!playerId) return null
+    return state.assets.actors?.[playerId] ?? null
   }
 
   /**
@@ -327,33 +334,40 @@ function ConversationView(props: { onBack: () => void }) {
       <TopBar
         title={state.currentChat.title || 'Chat'}
         backButton={props.onBack}
+        height="60px"
         slots={{
-          center: (
-            <div class="chat-topbar-actors">
-              <For each={Object.entries(state.currentChat.gameState.scene.actors.active)}>
-                {([customId, actorState]) => (
-                  <GameStateActorStatus
-                    customId={customId}
-                    hp={actorState.hp}
-                    variant="compact"
-                    onClick={() => modal.open({
-                      title: resolveActorName(customId),
-                      content: () => (
-                        <GameStateActorStatus
-                          customId={customId}
-                          hp={actorState.hp}
-                          variant="presentation"
-                        />
-                      ),
-                    })}
-                  />
-                )}
-              </For>
-            </div>
+          left: (
+            <>
+              <Spacer dir={'horizontal'} size={'md'} />
+              <div class="chat-topbar-actors">
+                <For each={Object.entries(state.currentChat.gameState.scene.actors.active)}>
+                  {([customId, actorState]) => (
+                    /* Only render NPCs here - the player character is rendered elsewhere */
+                    <Show when={customId !== resolvePlayerActor()?.customId}>
+                      <GameStateActorStatus
+                        customId={customId}
+                        hp={actorState.hp}
+                        variant="compact"
+                        onClick={() => modal.open({
+                          title: resolveActorName(customId),
+                          content: () => (
+                            <GameStateActorStatus
+                              customId={customId}
+                              hp={actorState.hp}
+                              variant="presentation"
+                            />
+                          ),
+                        })}
+                      />
+                    </Show>
+                  )}
+                </For>
+              </div>
+            </>
           ),
           right: (
             <button onClick={openSidebar}>
-              <MdFillView_sidebar size={32} />
+              <MdFillView_sidebar size={48} />
             </button>
           ),
         }}

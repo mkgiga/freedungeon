@@ -14,6 +14,7 @@ import {
     MdFillStop,
     MdFillPerson,
 } from 'solid-icons/md'
+import { GameStateActorStatus } from '../GameStateActorStatus'
 
 export function ChatInput() {
     const [message, setMessage] = createSignal('')
@@ -91,8 +92,11 @@ export function ChatInput() {
                             onClick={openPlayerCharacterPicker}
                             title="Change player character"
                         >
-                            <Text size="sm">{actor().name}</Text>
-                            <ImageIcon url={actor().avatarUrl} size={28} />
+                            <GameStateActorStatus
+                                customId={actor().customId}
+                                hp={state.currentChat.gameState.scene.actors.active[actor().customId]?.hp}
+                                variant="small"
+                            />
                         </button>
                     )}
                 </Show>

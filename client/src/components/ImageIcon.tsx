@@ -10,11 +10,16 @@ type ImageIconProps = JSX.HTMLAttributes<HTMLDivElement> & {
 
 export function ImageIcon(props: ImageIconProps) {
     const [local, rest] = splitProps(props, ['size', 'url', 'class', 'placeholder'])
-    const size = () => local.size ?? 40
-    const placeholder = () => local.placeholder ?? <MdFillQuestion_mark size={size()} />
+    // size undefined → fill parent via `.image-icon-autogrow`. size number → inline px.
+    const sizeStyle = () => local.size !== undefined
+        ? { width: `${local.size}px`, height: `${local.size}px` }
+        : undefined
+    const placeholderSize = () => local.size ?? 32
+    const placeholder = () => local.placeholder ?? <MdFillQuestion_mark size={placeholderSize()} />
 
     const className = () => [
         'image-icon',
+        local.size === undefined ? 'image-icon-autogrow' : '',
         local.class,
     ].filter(Boolean).join(' ')
 
@@ -28,11 +33,11 @@ export function ImageIcon(props: ImageIconProps) {
     }, { defer: true }))
 
     return (
-        <div class={className()} style={{ width: `${size()}px`, height: `${size()}px` }} {...rest}>
+        <div class={className()} style={sizeStyle()} {...rest}>
             <Show when={local.url} fallback={placeholder()}>
                 <Show when={status() === 'loaded'} fallback={
                     <Show when={status() !== 'error'} fallback={placeholder()}>
-                        <Loader size={size() * 0.5} />
+                        <Loader size={placeholderSize() * 0.5} />
                     </Show>
                 }>
                     <img src={local.url} class="image-icon-img" alt="" />
