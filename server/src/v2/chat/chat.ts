@@ -22,19 +22,34 @@ export const chatRouter = router({
 
     create: procedure
         .input(z.object({
+            id: z.string().optional(),
             title: z.string().optional().default('Untitled Chat'),
             isTemplate: z.boolean().optional().default(false),
+            avatarUrl: z.string().optional(),
+            bannerUrl: z.string().optional(),
+            description: z.string().optional(),
+            actors: z.array(z.string()).optional().default([]),
+            notes: z.array(z.string()).optional().default([]),
         }))
         .mutation(({ input }) => {
             const now = Date.now()
-            const newId = nanoid()
+
+            // If the client provided an id (optimistic-create pattern), honor it
+            // unless it collides with an existing chat.
+            if (input.id !== undefined && state.assets.chats[input.id]) {
+                throw new Error(`Chat ${input.id} already exists`)
+            }
+            const newId = input.id ?? nanoid()
 
             const chat: Chat = {
                 id: newId,
                 title: input.title,
-                assets: { actors: [], notes: [] },
+                assets: { actors: [...input.actors], notes: [...input.notes] },
                 hotbarNotes: {},
                 isTemplate: input.isTemplate,
+                avatarUrl: input.avatarUrl || undefined,
+                bannerUrl: input.bannerUrl || undefined,
+                description: input.description || undefined,
                 createdAt: now,
                 updatedAt: now,
             }
@@ -48,7 +63,7 @@ export const chatRouter = router({
                 setState('currentChat', {
                     id: newId,
                     title: chat.title,
-                    assets: { actors: [], notes: [] },
+                    assets: { actors: [...chat.assets.actors], notes: [...chat.assets.notes] },
                     hotbarNotes: {},
                     messages: {},
                     createdAt: now,

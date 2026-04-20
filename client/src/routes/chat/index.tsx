@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/solid-router'
-import { generateName } from '../../utils/names'
+import { nanoid } from 'nanoid'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../../components/TopBar'
@@ -58,7 +58,7 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
   }
 
   const editChat = (chat: Chat) => {
-    navigate({ to: '/chat/$id', params: { id: chat.id } })
+    navigate({ to: '/chat/$id', params: { id: chat.id }, search: { new: false, isTemplate: chat.isTemplate } })
   }
 
   const createChat = async () => {
@@ -66,13 +66,11 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
     props.onCreate()
   }
 
-  const createTemplate = async () => {
-    const existingTitles = Object.values(state.assets.chats)
-      .filter(c => c.isTemplate)
-      .map(c => c.title)
-    const title = generateName({ input: 'Template', prefix: 'New', existingNames: existingTitles })
-    const result = await trpc.chat.create.mutate({ title, isTemplate: true })
-    navigate({ to: '/chat/$id', params: { id: result.id } })
+  const createTemplate = () => {
+    // Optimistic-create pattern: generate an id client-side and navigate into
+    // the detail view. The server sees nothing until the user hits Save.
+    const newId = nanoid()
+    navigate({ to: '/chat/$id', params: { id: newId }, search: { new: true, isTemplate: true } })
   }
 
   const saveAsTemplate = async (chat: Chat) => {

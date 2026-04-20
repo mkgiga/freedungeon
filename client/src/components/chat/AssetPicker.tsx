@@ -18,9 +18,14 @@ function SearchInput(props: { placeholder: string; value: string; onInput: (v: s
     )
 }
 
-export function ActorPicker() {
+export function ActorPicker(props: {
+    /** Override the "already added" set. Defaults to state.currentChat.assets.actors. */
+    selected?: () => Set<string>
+    /** Override the toggle side-effect. If supplied, the picker skips the tRPC call. */
+    onToggle?: (actor: Actor) => void
+} = {}) {
     const [query, setQuery] = createSignal('')
-    const added = () => new Set(state.currentChat?.assets?.actors ?? [])
+    const added = () => props.selected?.() ?? new Set(state.currentChat?.assets?.actors ?? [])
 
     const items = createMemo<Actor[]>(() => {
         const q = query().toLowerCase().trim()
@@ -32,6 +37,10 @@ export function ActorPicker() {
     })
 
     const toggle = async (actor: Actor) => {
+        if (props.onToggle) {
+            props.onToggle(actor)
+            return
+        }
         if (added().has(actor.id)) {
             await trpc.chat.removeActor.mutate({ actorId: actor.id })
         } else {
@@ -103,9 +112,14 @@ export function PlayerCharacterPicker(props: { onPick?: () => void }) {
     )
 }
 
-export function NotePicker() {
+export function NotePicker(props: {
+    /** Override the "already added" set. Defaults to state.currentChat.assets.notes. */
+    selected?: () => Set<string>
+    /** Override the toggle side-effect. If supplied, the picker skips the tRPC call. */
+    onToggle?: (note: Note) => void
+} = {}) {
     const [query, setQuery] = createSignal('')
-    const added = () => new Set(state.currentChat?.assets?.notes ?? [])
+    const added = () => props.selected?.() ?? new Set(state.currentChat?.assets?.notes ?? [])
 
     const items = createMemo<Note[]>(() => {
         const q = query().toLowerCase().trim()
@@ -117,6 +131,10 @@ export function NotePicker() {
     })
 
     const toggle = async (note: Note) => {
+        if (props.onToggle) {
+            props.onToggle(note)
+            return
+        }
         if (added().has(note.id)) {
             await trpc.chat.removeNote.mutate({ noteId: note.id })
         } else {
