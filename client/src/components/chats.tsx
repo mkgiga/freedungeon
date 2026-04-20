@@ -4,6 +4,7 @@ import { MdFillChat, MdFillMore_horiz } from "solid-icons/md"
 import { Dropdown } from "./Dropdown"
 import { ImageIcon } from "./ImageIcon"
 import { SortHeader, useSort } from "./ResourceTable"
+import { thumbnailUrl } from "../utils/media"
 
 export type ChatAction = {
     label: string
@@ -45,7 +46,7 @@ function ChatListItem(props: {
         <tr class="resource-table-row chat-list-row" onClick={props.onClick}>
             <td class="resource-table-col-avatar">
                 <ImageIcon
-                    url={props.chat.avatarUrl}
+                    url={thumbnailUrl(props.chat.avatarUrl)}
                     size={40}
                     class="actor-avatar"
                     placeholder={

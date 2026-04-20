@@ -354,6 +354,12 @@ button {
   height: 160px;
   background: var(--bg-2);
   overflow: visible;
+  cursor: pointer;
+}
+
+.chat-detail-banner.is-empty {
+  border: 2px dashed color-mix(in oklch, var(--text), transparent 70%);
+  background: color-mix(in oklch, var(--text), transparent 93%);
 }
 
 .chat-detail-banner-img {
@@ -361,6 +367,32 @@ button {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.chat-detail-banner-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0.7;
+}
+
+.chat-detail-banner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.chat-detail-banner:hover .chat-detail-banner-overlay {
+  opacity: 1;
 }
 
 .chat-detail-avatar {
@@ -373,12 +405,40 @@ button {
   border: 4px solid var(--bg);
   overflow: hidden;
   background: var(--bg-2);
+  cursor: pointer;
 }
 
 .chat-detail-avatar .image-icon {
   border-radius: 50%;
   width: 100% !important;
   height: 100% !important;
+}
+
+.chat-detail-avatar-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--text), transparent 90%);
+  border: 2px dashed color-mix(in oklch, var(--text), transparent 70%);
+}
+
+.chat-detail-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.chat-detail-avatar:hover .chat-detail-avatar-overlay {
+  opacity: 1;
 }
 
 .chat-detail-body {

@@ -1,12 +1,13 @@
 import { createFileRoute, useNavigate } from '@tanstack/solid-router'
 import { Show, createMemo, onMount } from 'solid-js'
 import { createStore } from 'solid-js/store'
-import { MdFillAdd, MdFillCheck } from 'solid-icons/md'
+import { MdFillAdd, MdFillCheck, MdFillUpload } from 'solid-icons/md'
 import { state } from '../../../state'
 import { trpc } from '../../../trpc'
 import { TopBar } from '../../../components/TopBar'
 import { Heading } from '../../../components/typography/Heading'
 import { Text } from '../../../components/typography/Text'
+import { Em } from '../../../components/typography/Em'
 import { ImageIcon } from '../../../components/ImageIcon'
 import { ActorList } from '../../../components/actors'
 import { NoteList } from '../../../components/notes'
@@ -130,6 +131,24 @@ function ChatDetailRoute() {
         })
     }
 
+    const pickAndUpload = (onUploaded: (url: string) => void) => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = 'image/*'
+        input.onchange = async () => {
+            const file = input.files?.[0]
+            if (!file) return
+            const formData = new FormData()
+            formData.append('file', file)
+            const res = await fetch('/uploads', { method: 'POST', body: formData })
+            if (res.ok) {
+                const { url } = await res.json()
+                onUploaded(url)
+            }
+        }
+        input.click()
+    }
+
     const cancel = () => navigate({ to: '/chat' })
 
     const save = async () => {
@@ -175,13 +194,47 @@ function ChatDetailRoute() {
             />
 
             <div class="flex-1 overflow-y-auto">
-                {/* Banner + avatar */}
-                <div class="chat-detail-banner">
-                    <Show when={draft.bannerUrl}>
+                {/* Banner + avatar — click to upload */}
+                <div
+                    class="chat-detail-banner"
+                    classList={{ 'is-empty': !draft.bannerUrl }}
+                    onClick={() => pickAndUpload((url) => setDraft('bannerUrl', url))}
+                    title="Click to change banner"
+                >
+                    <Show when={draft.bannerUrl} fallback={
+                        <div class="chat-detail-banner-empty">
+                            <MdFillUpload size={20} class="opacity-60" />
+                            <Text size="sm" class="opacity-60">Click to upload a banner</Text>
+                        </div>
+                    }>
                         <img src={draft.bannerUrl} alt="" class="chat-detail-banner-img" />
+                        <div class="chat-detail-banner-overlay">
+                            <MdFillUpload size={18} />
+                            <Text size="sm"><Em semibold>Change banner</Em></Text>
+                        </div>
                     </Show>
-                    <div class="chat-detail-avatar">
-                        <ImageIcon url={draft.avatarUrl || undefined} size={96} />
+                    <div
+                        class="chat-detail-avatar"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            pickAndUpload((url) => setDraft('avatarUrl', url))
+                        }}
+                        title="Click to change avatar"
+                    >
+                        <ImageIcon
+                            url={draft.avatarUrl || undefined}
+                            size={96}
+                            placeholder={
+                                <div class="chat-detail-avatar-empty">
+                                    <MdFillUpload size={22} class="opacity-60" />
+                                </div>
+                            }
+                        />
+                        <Show when={draft.avatarUrl}>
+                            <div class="chat-detail-avatar-overlay">
+                                <Text size="sm"><Em semibold>Change</Em></Text>
+                            </div>
+                        </Show>
                     </div>
                 </div>
 
@@ -195,30 +248,6 @@ function ChatDetailRoute() {
                             class="chat-detail-input"
                             onInput={(e) => setDraft('title', e.currentTarget.value)}
                         />
-                    </section>
-
-                    {/* Media URLs */}
-                    <section class="mb-4 grid grid-cols-2 gap-3">
-                        <label class="flex flex-col gap-1">
-                            <Text size="sm" class="opacity-60">Avatar URL</Text>
-                            <input
-                                type="text"
-                                value={draft.avatarUrl}
-                                class="chat-detail-input"
-                                placeholder="https://…"
-                                onInput={(e) => setDraft('avatarUrl', e.currentTarget.value)}
-                            />
-                        </label>
-                        <label class="flex flex-col gap-1">
-                            <Text size="sm" class="opacity-60">Banner URL</Text>
-                            <input
-                                type="text"
-                                value={draft.bannerUrl}
-                                class="chat-detail-input"
-                                placeholder="https://…"
-                                onInput={(e) => setDraft('bannerUrl', e.currentTarget.value)}
-                            />
-                        </label>
                     </section>
 
                     {/* Description */}
