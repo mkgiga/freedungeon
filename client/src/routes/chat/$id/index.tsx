@@ -153,8 +153,9 @@ function ChatDetailRoute() {
 
     const save = async () => {
         if (isNew()) {
+            // Server mints the real id — the route param was only a client-side
+            // nanoid for URL uniqueness while drafting.
             await trpc.chat.create.mutate({
-                id: params().id,
                 title: draft.title,
                 isTemplate: draft.isTemplate,
                 avatarUrl: draft.avatarUrl,

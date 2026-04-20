@@ -22,7 +22,6 @@ export const chatRouter = router({
 
     create: procedure
         .input(z.object({
-            id: z.string().optional(),
             title: z.string().optional().default('Untitled Chat'),
             isTemplate: z.boolean().optional().default(false),
             avatarUrl: z.string().optional(),
@@ -33,13 +32,7 @@ export const chatRouter = router({
         }))
         .mutation(({ input }) => {
             const now = Date.now()
-
-            // If the client provided an id (optimistic-create pattern), honor it
-            // unless it collides with an existing chat.
-            if (input.id !== undefined && state.assets.chats[input.id]) {
-                throw new Error(`Chat ${input.id} already exists`)
-            }
-            const newId = input.id ?? nanoid()
+            const newId = nanoid()
 
             const chat: Chat = {
                 id: newId,
