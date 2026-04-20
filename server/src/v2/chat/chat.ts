@@ -21,7 +21,10 @@ export const chatRouter = router({
         }),
 
     create: procedure
-        .input(z.object({ title: z.string().optional().default('Untitled Chat') }))
+        .input(z.object({
+            title: z.string().optional().default('Untitled Chat'),
+            isTemplate: z.boolean().optional().default(false),
+        }))
         .mutation(({ input }) => {
             const now = Date.now()
             const newId = nanoid()
@@ -31,7 +34,7 @@ export const chatRouter = router({
                 title: input.title,
                 assets: { actors: [], notes: [] },
                 hotbarNotes: {},
-                isTemplate: false,
+                isTemplate: input.isTemplate,
                 createdAt: now,
                 updatedAt: now,
             }
@@ -39,19 +42,69 @@ export const chatRouter = router({
             // Add to in-memory asset library; auto-save handles persistence
             setState('assets', 'chats', newId, chat)
 
-            // Populate currentChat directly from the in-memory chat (no DB round-trip).
-            // The chat doesn't exist in the DB yet — that happens on the next auto-save.
-            setState('currentChat', {
-                id: newId,
-                title: chat.title,
-                assets: { actors: [], notes: [] },
-                hotbarNotes: {},
-                messages: {},
-                createdAt: now,
-                updatedAt: now,
-            })
+            // Populate currentChat only for regular chats — templates are edited
+            // via the detail view, not the conversation view.
+            if (!input.isTemplate) {
+                setState('currentChat', {
+                    id: newId,
+                    title: chat.title,
+                    assets: { actors: [], notes: [] },
+                    hotbarNotes: {},
+                    messages: {},
+                    createdAt: now,
+                    updatedAt: now,
+                })
+            }
 
             return { id: newId }
+        }),
+
+    update: procedure
+        .input(z.object({
+            id: z.string(),
+            patch: z.object({
+                title: z.string().optional(),
+                avatarUrl: z.string().optional(),
+                bannerUrl: z.string().optional(),
+                description: z.string().optional(),
+                actors: z.array(z.string()).optional(),
+                notes: z.array(z.string()).optional(),
+            }),
+        }))
+        .mutation(({ input }) => {
+            const chat = state.assets.chats[input.id]
+            if (!chat) throw new Error(`Chat ${input.id} not found`)
+
+            const now = Date.now()
+            const { title, avatarUrl, bannerUrl, description, actors, notes } = input.patch
+            const isCurrent = state.currentChat.id === input.id
+
+            if (title !== undefined) {
+                setState('assets', 'chats', input.id, 'title', title)
+                if (isCurrent) setState('currentChat', 'title', title)
+            }
+            if (avatarUrl !== undefined) {
+                setState('assets', 'chats', input.id, 'avatarUrl', avatarUrl || undefined)
+            }
+            if (bannerUrl !== undefined) {
+                setState('assets', 'chats', input.id, 'bannerUrl', bannerUrl || undefined)
+            }
+            if (description !== undefined) {
+                setState('assets', 'chats', input.id, 'description', description || undefined)
+            }
+            if (actors !== undefined) {
+                setState('assets', 'chats', input.id, 'assets', 'actors', actors)
+                if (isCurrent) setState('currentChat', 'assets', 'actors', actors)
+            }
+            if (notes !== undefined) {
+                setState('assets', 'chats', input.id, 'assets', 'notes', notes)
+                if (isCurrent) setState('currentChat', 'assets', 'notes', notes)
+            }
+
+            setState('assets', 'chats', input.id, 'updatedAt', now)
+            if (isCurrent) setState('currentChat', 'updatedAt', now)
+
+            return { success: true }
         }),
 
     rename: procedure

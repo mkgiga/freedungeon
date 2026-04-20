@@ -1,4 +1,5 @@
-import { createFileRoute } from '@tanstack/solid-router'
+import { createFileRoute, useNavigate } from '@tanstack/solid-router'
+import { generateName } from '../../utils/names'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../../components/TopBar'
@@ -48,6 +49,7 @@ function RouteComponent() {
 
 function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
   const modal = useModal()
+  const navigate = useNavigate()
   const [tab, setTab] = createSignal<'chats' | 'templates'>('chats')
 
   const openChat = async (chat: Chat) => {
@@ -55,9 +57,22 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
     props.onOpen()
   }
 
+  const editChat = (chat: Chat) => {
+    navigate({ to: '/chat/$id', params: { id: chat.id } })
+  }
+
   const createChat = async () => {
     await trpc.chat.create.mutate({ title: 'Untitled Chat' })
     props.onCreate()
+  }
+
+  const createTemplate = async () => {
+    const existingTitles = Object.values(state.assets.chats)
+      .filter(c => c.isTemplate)
+      .map(c => c.title)
+    const title = generateName({ input: 'Template', prefix: 'New', existingNames: existingTitles })
+    const result = await trpc.chat.create.mutate({ title, isTemplate: true })
+    navigate({ to: '/chat/$id', params: { id: result.id } })
   }
 
   const saveAsTemplate = async (chat: Chat) => {
@@ -134,11 +149,9 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
         title={tab() === 'templates' ? 'Templates' : 'Chats'}
         slots={{
           right: (
-            <Show when={tab() === 'chats'}>
-              <button onClick={createChat}>
-                <MdFillAdd size={32} />
-              </button>
-            </Show>
+            <button onClick={tab() === 'templates' ? createTemplate : createChat}>
+              <MdFillAdd size={32} />
+            </button>
           ),
         }}
       />
@@ -157,16 +170,18 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
       <div class="flex-1 overflow-y-auto">
         <ChatList
           chats={filteredChats()}
-          onChatClick={tab() === 'templates' ? useTemplate : openChat}
+          onChatClick={tab() === 'templates' ? editChat : openChat}
           actions={tab() === 'templates'
             ? [
                 { label: 'Use Template', callback: useTemplate },
+                { label: 'Edit', callback: editChat },
                 { label: 'Open', callback: openChat },
                 { label: 'Rename', callback: renameChat },
                 { label: 'Delete', danger: true, callback: deleteChat },
               ]
             : [
                 { label: 'Open', callback: openChat },
+                { label: 'Edit', callback: editChat },
                 { label: 'Rename', callback: renameChat },
                 { label: 'Save as Template', callback: saveAsTemplate },
                 { label: 'Delete', danger: true, callback: deleteChat },

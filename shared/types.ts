@@ -101,6 +101,13 @@ export type Chat = {
     /** When true, this chat is a reusable template. Templates are filtered out
      *  of the regular chat list and shown in a separate "Templates" tab. */
     isTemplate: boolean;
+    /** Small avatar image shown in the chat list's leading column. */
+    avatarUrl?: string;
+    /** Banner image shown at the top of the chat detail view and as a
+     *  right-anchored gradient background on each chat list row. */
+    bannerUrl?: string;
+    /** Free-form description shown only in the chat detail view. */
+    description?: string;
     createdAt: number;
     updatedAt: number;
 }

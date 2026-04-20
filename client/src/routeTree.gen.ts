@@ -16,6 +16,7 @@ import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as ChatIndexRouteImport } from './routes/chat/index'
 import { Route as ActorsIndexRouteImport } from './routes/actors/index'
 import { Route as NotesIdIndexRouteImport } from './routes/notes/$id/index'
+import { Route as ChatIdIndexRouteImport } from './routes/chat/$id/index'
 import { Route as ActorsIdIndexRouteImport } from './routes/actors/$id/index'
 import { Route as PreferencesLlmConfigsIdIndexRouteImport } from './routes/preferences/llm-configs/$id/index'
 
@@ -54,6 +55,11 @@ const NotesIdIndexRoute = NotesIdIndexRouteImport.update({
   path: '/notes/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatIdIndexRoute = ChatIdIndexRouteImport.update({
+  id: '/chat/$id/',
+  path: '/chat/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ActorsIdIndexRoute = ActorsIdIndexRouteImport.update({
   id: '/actors/$id/',
   path: '/actors/$id/',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/notes/': typeof NotesIndexRoute
   '/preferences/': typeof PreferencesIndexRoute
   '/actors/$id/': typeof ActorsIdIndexRoute
+  '/chat/$id/': typeof ChatIdIndexRoute
   '/notes/$id/': typeof NotesIdIndexRoute
   '/preferences/llm-configs/$id/': typeof PreferencesLlmConfigsIdIndexRoute
 }
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/notes': typeof NotesIndexRoute
   '/preferences': typeof PreferencesIndexRoute
   '/actors/$id': typeof ActorsIdIndexRoute
+  '/chat/$id': typeof ChatIdIndexRoute
   '/notes/$id': typeof NotesIdIndexRoute
   '/preferences/llm-configs/$id': typeof PreferencesLlmConfigsIdIndexRoute
 }
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/notes/': typeof NotesIndexRoute
   '/preferences/': typeof PreferencesIndexRoute
   '/actors/$id/': typeof ActorsIdIndexRoute
+  '/chat/$id/': typeof ChatIdIndexRoute
   '/notes/$id/': typeof NotesIdIndexRoute
   '/preferences/llm-configs/$id/': typeof PreferencesLlmConfigsIdIndexRoute
 }
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/notes/'
     | '/preferences/'
     | '/actors/$id/'
+    | '/chat/$id/'
     | '/notes/$id/'
     | '/preferences/llm-configs/$id/'
   fileRoutesByTo: FileRoutesByTo
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/preferences'
     | '/actors/$id'
+    | '/chat/$id'
     | '/notes/$id'
     | '/preferences/llm-configs/$id'
   id:
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/notes/'
     | '/preferences/'
     | '/actors/$id/'
+    | '/chat/$id/'
     | '/notes/$id/'
     | '/preferences/llm-configs/$id/'
   fileRoutesById: FileRoutesById
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   NotesIndexRoute: typeof NotesIndexRoute
   PreferencesIndexRoute: typeof PreferencesIndexRoute
   ActorsIdIndexRoute: typeof ActorsIdIndexRoute
+  ChatIdIndexRoute: typeof ChatIdIndexRoute
   NotesIdIndexRoute: typeof NotesIdIndexRoute
   PreferencesLlmConfigsIdIndexRoute: typeof PreferencesLlmConfigsIdIndexRoute
 }
@@ -199,6 +212,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof NotesIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/$id/': {
+      id: '/chat/$id/'
+      path: '/chat/$id'
+      fullPath: '/chat/$id/'
+      preLoaderRoute: typeof ChatIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/actors/$id/': {
       id: '/actors/$id/'
       path: '/actors/$id'
@@ -224,6 +244,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotesIndexRoute: NotesIndexRoute,
   PreferencesIndexRoute: PreferencesIndexRoute,
   ActorsIdIndexRoute: ActorsIdIndexRoute,
+  ChatIdIndexRoute: ChatIdIndexRoute,
   NotesIdIndexRoute: NotesIdIndexRoute,
   PreferencesLlmConfigsIdIndexRoute: PreferencesLlmConfigsIdIndexRoute,
 }

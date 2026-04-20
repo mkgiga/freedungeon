@@ -1,7 +1,8 @@
 import type { Chat } from "@shared/types"
 import { createMemo, For, Show, type JSXElement } from "solid-js"
-import { MdFillMore_horiz } from "solid-icons/md"
+import { MdFillChat, MdFillMore_horiz } from "solid-icons/md"
 import { Dropdown } from "./Dropdown"
+import { ImageIcon } from "./ImageIcon"
 import { SortHeader, useSort } from "./ResourceTable"
 
 export type ChatAction = {
@@ -28,9 +29,33 @@ function ChatListItem(props: {
     actions?: ChatAction[]
     onClick?: () => void
 }) {
+    const bannerStyle = () => props.chat.bannerUrl
+        ? {
+            'background-image': `url(${JSON.stringify(props.chat.bannerUrl)})`,
+            'background-size': 'cover',
+            'background-position': 'right center',
+            'background-repeat': 'no-repeat',
+            // Fades to transparent toward the middle-left, solid on the right.
+            '-webkit-mask-image': 'linear-gradient(to left, black 0%, transparent 55%)',
+            'mask-image': 'linear-gradient(to left, black 0%, transparent 55%)',
+        }
+        : undefined
+
     return (
-        <tr class="resource-table-row" onClick={props.onClick}>
-            <td class="resource-table-col-name">
+        <tr class="resource-table-row chat-list-row" onClick={props.onClick}>
+            <td class="resource-table-col-avatar">
+                <ImageIcon
+                    url={props.chat.avatarUrl}
+                    size={40}
+                    class="actor-avatar"
+                    placeholder={
+                        <div class="actor-avatar-fallback">
+                            <MdFillChat size={20} />
+                        </div>
+                    }
+                />
+            </td>
+            <td class="resource-table-col-name chat-list-row-banner" style={bannerStyle()}>
                 <span class="resource-table-cell-content">{props.chat.title}</span>
             </td>
             <td>
@@ -66,6 +91,7 @@ export function ChatList(props: {
         <table class="resource-table">
             <thead>
                 <tr>
+                    <th class="resource-table-col-avatar"></th>
                     <SortHeader label="Title" active={sortKey() === 'title'} dir={sortDir()} onClick={() => toggleSort('title')} />
                     <SortHeader label="Updated" active={sortKey() === 'updatedAt'} dir={sortDir()} onClick={() => toggleSort('updatedAt')} />
                     <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
@@ -73,7 +99,7 @@ export function ChatList(props: {
             </thead>
             <tbody>
                 <For each={sorted()} fallback={
-                    <tr><td colSpan={3} class="resource-table-empty">No chats yet</td></tr>
+                    <tr><td colSpan={4} class="resource-table-empty">No chats yet</td></tr>
                 }>
                     {(chat) => (
                         <ChatListItem

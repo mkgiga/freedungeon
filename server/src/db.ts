@@ -52,6 +52,9 @@ export interface DB {
         id: string;
         title: Generated<string>;
         is_template: Generated<number>;
+        avatar_url: string | null;
+        banner_url: string | null;
+        description: string | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
@@ -156,17 +159,27 @@ export async function initDb() {
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('title', 'text', (col) => col.notNull().defaultTo('Untitled Chat'))
         .addColumn('is_template', 'integer', (col) => col.notNull().defaultTo(0))
+        .addColumn('avatar_url', 'text')
+        .addColumn('banner_url', 'text')
+        .addColumn('description', 'text')
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .execute();
 
-    // Self-healing migration: add `is_template` to pre-existing chats tables.
+    // Self-healing migrations: add new columns to pre-existing chats tables.
     const chatCols = await sql<{ name: string }>`PRAGMA table_info(chats)`.execute(db);
-    if (!chatCols.rows.some(r => r.name === 'is_template')) {
-        await db.schema
-            .alterTable('chats')
-            .addColumn('is_template', 'integer', (col) => col.notNull().defaultTo(0))
-            .execute();
+    const haveChatCol = (name: string) => chatCols.rows.some(r => r.name === name);
+    if (!haveChatCol('is_template')) {
+        await db.schema.alterTable('chats').addColumn('is_template', 'integer', (col) => col.notNull().defaultTo(0)).execute();
+    }
+    if (!haveChatCol('avatar_url')) {
+        await db.schema.alterTable('chats').addColumn('avatar_url', 'text').execute();
+    }
+    if (!haveChatCol('banner_url')) {
+        await db.schema.alterTable('chats').addColumn('banner_url', 'text').execute();
+    }
+    if (!haveChatCol('description')) {
+        await db.schema.alterTable('chats').addColumn('description', 'text').execute();
     }
 
     await db.schema
@@ -303,6 +316,9 @@ export function hydrateChat(row: ChatRow) {
         id: row.id,
         title: row.title,
         isTemplate: row.is_template !== 0,
+        avatarUrl: row.avatar_url ?? undefined,
+        bannerUrl: row.banner_url ?? undefined,
+        description: row.description ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -527,6 +543,9 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
             },
             hotbarNotes,
             isTemplate: row.is_template !== 0,
+            avatarUrl: row.avatar_url ?? undefined,
+            bannerUrl: row.banner_url ?? undefined,
+            description: row.description ?? undefined,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         };
@@ -611,6 +630,9 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
     const row = {
         title: chat.title,
         is_template: chat.isTemplate ? 1 : 0,
+        avatar_url: chat.avatarUrl ?? null,
+        banner_url: chat.bannerUrl ?? null,
+        description: chat.description ?? null,
         created_at: chat.createdAt,
         updated_at: chat.updatedAt,
     }
