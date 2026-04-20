@@ -51,6 +51,7 @@ export interface DB {
     chats: {
         id: string;
         title: Generated<string>;
+        is_template: Generated<number>;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
@@ -154,9 +155,19 @@ export async function initDb() {
         .ifNotExists()
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('title', 'text', (col) => col.notNull().defaultTo('Untitled Chat'))
+        .addColumn('is_template', 'integer', (col) => col.notNull().defaultTo(0))
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .execute();
+
+    // Self-healing migration: add `is_template` to pre-existing chats tables.
+    const chatCols = await sql<{ name: string }>`PRAGMA table_info(chats)`.execute(db);
+    if (!chatCols.rows.some(r => r.name === 'is_template')) {
+        await db.schema
+            .alterTable('chats')
+            .addColumn('is_template', 'integer', (col) => col.notNull().defaultTo(0))
+            .execute();
+    }
 
     await db.schema
         .createTable('chat_actor_refs')
@@ -291,6 +302,7 @@ export function hydrateChat(row: ChatRow) {
     return {
         id: row.id,
         title: row.title,
+        isTemplate: row.is_template !== 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -514,6 +526,7 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
                 notes: noteRefs.filter(r => r.chat_id === row.id).map(r => r.note_id),
             },
             hotbarNotes,
+            isTemplate: row.is_template !== 0,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         };
@@ -597,6 +610,7 @@ export function saveMessage(msg: ChatMessage) {
 export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
     const row = {
         title: chat.title,
+        is_template: chat.isTemplate ? 1 : 0,
         created_at: chat.createdAt,
         updated_at: chat.updatedAt,
     }

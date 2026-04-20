@@ -48,6 +48,7 @@ function RouteComponent() {
 
 function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
   const modal = useModal()
+  const [tab, setTab] = createSignal<'chats' | 'templates'>('chats')
 
   const openChat = async (chat: Chat) => {
     await trpc.chat.load.mutate({ id: chat.id })
@@ -57,6 +58,20 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
   const createChat = async () => {
     await trpc.chat.create.mutate({ title: 'Untitled Chat' })
     props.onCreate()
+  }
+
+  const saveAsTemplate = async (chat: Chat) => {
+    await trpc.chat.saveAsTemplate.mutate({ sourceChatId: chat.id })
+  }
+
+  const useTemplate = async (template: Chat) => {
+    await trpc.chat.useTemplate.mutate({ templateId: template.id })
+    props.onOpen()
+  }
+
+  const filteredChats = () => {
+    const all = Object.values(state.assets.chats ?? {})
+    return all.filter(c => tab() === 'templates' ? c.isTemplate : !c.isTemplate)
   }
 
   const renameChat = (chat: Chat) => {
@@ -116,24 +131,47 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
   return (
     <>
       <TopBar
-        title="Chats"
+        title={tab() === 'templates' ? 'Templates' : 'Chats'}
         slots={{
           right: (
-            <button onClick={createChat}>
-              <MdFillAdd size={32} />
-            </button>
+            <Show when={tab() === 'chats'}>
+              <button onClick={createChat}>
+                <MdFillAdd size={32} />
+              </button>
+            </Show>
           ),
         }}
       />
+      <div class="chat-list-tabs">
+        <button
+          class="chat-list-tab"
+          classList={{ 'is-active': tab() === 'chats' }}
+          onClick={() => setTab('chats')}
+        >Chats</button>
+        <button
+          class="chat-list-tab"
+          classList={{ 'is-active': tab() === 'templates' }}
+          onClick={() => setTab('templates')}
+        >Templates</button>
+      </div>
       <div class="flex-1 overflow-y-auto">
         <ChatList
-          chats={Object.values(state.assets.chats ?? {})}
-          onChatClick={openChat}
-          actions={[
-            { label: 'Open', callback: openChat },
-            { label: 'Rename', callback: renameChat },
-            { label: 'Delete', danger: true, callback: deleteChat },
-          ]}
+          chats={filteredChats()}
+          onChatClick={tab() === 'templates' ? useTemplate : openChat}
+          actions={tab() === 'templates'
+            ? [
+                { label: 'Use Template', callback: useTemplate },
+                { label: 'Open', callback: openChat },
+                { label: 'Rename', callback: renameChat },
+                { label: 'Delete', danger: true, callback: deleteChat },
+              ]
+            : [
+                { label: 'Open', callback: openChat },
+                { label: 'Rename', callback: renameChat },
+                { label: 'Save as Template', callback: saveAsTemplate },
+                { label: 'Delete', danger: true, callback: deleteChat },
+              ]
+          }
         />
       </div>
     </>

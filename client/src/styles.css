@@ -339,6 +339,36 @@ button {
   font-size: var(--text-sm);
 }
 
+/* ── Chat list tab pills (Chats / Templates) ── */
+
+.chat-list-tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  padding: 8px 16px;
+  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+.chat-list-tab {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 120ms, background-color 120ms;
+}
+
+.chat-list-tab:hover {
+  opacity: 0.9;
+  background-color: var(--bg-2);
+}
+
+.chat-list-tab.is-active {
+  opacity: 1;
+  background-color: color-mix(in oklch, var(--primary), transparent 78%);
+  color: var(--text);
+}
+
 /* ── Modal ── */
 
 .modal-overlay {

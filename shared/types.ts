@@ -98,6 +98,9 @@ export type Chat = {
         notes: string[];
     };
     hotbarNotes: Record<string, { enabled: boolean }>;
+    /** When true, this chat is a reusable template. Templates are filtered out
+     *  of the regular chat list and shown in a separate "Templates" tab. */
+    isTemplate: boolean;
     createdAt: number;
     updatedAt: number;
 }

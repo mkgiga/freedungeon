@@ -31,6 +31,7 @@ export const chatRouter = router({
                 title: input.title,
                 assets: { actors: [], notes: [] },
                 hotbarNotes: {},
+                isTemplate: false,
                 createdAt: now,
                 updatedAt: now,
             }
@@ -174,6 +175,28 @@ export const chatRouter = router({
             deleteState('currentChat', 'hotbarNotes', input.noteId)
             deleteState('assets', 'chats', chatId, 'hotbarNotes', input.noteId)
             return { success: true }
+        }),
+
+    saveAsTemplate: procedure
+        .input(z.object({ sourceChatId: z.string(), newTitle: z.string().optional() }))
+        .mutation(async ({ input }) => {
+            const source = state.assets.chats[input.sourceChatId]
+            if (!source) throw new Error('Source chat not found')
+            const title = input.newTitle ?? `Template: ${source.title}`
+            const id = await CurrentChat.cloneChat(input.sourceChatId, { newTitle: title, asTemplate: true })
+            return { id }
+        }),
+
+    useTemplate: procedure
+        .input(z.object({ templateId: z.string(), newTitle: z.string().optional() }))
+        .mutation(async ({ input }) => {
+            const source = state.assets.chats[input.templateId]
+            if (!source) throw new Error('Template not found')
+            if (!source.isTemplate) throw new Error('Chat is not a template')
+            const title = input.newTitle ?? source.title
+            const id = await CurrentChat.cloneChat(input.templateId, { newTitle: title, asTemplate: false })
+            await CurrentChat.loadChat(id)
+            return { id }
         }),
 
     delete: procedure

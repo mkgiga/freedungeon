@@ -393,6 +393,9 @@ export class CurrentChat {
             hotbarNotes: Object.fromEntries(
                 Object.entries(state.currentChat.hotbarNotes).map(([id, v]) => [id, { ...v }])
             ),
+            // Branching a template produces a regular chat — you shouldn't need to
+            // clear the flag manually when you start a new chat from a template.
+            isTemplate: false,
             createdAt: Date.now(),
             updatedAt: Date.now(),
         };
@@ -427,5 +430,55 @@ export class CurrentChat {
         const countAfterLoad = await countChatMessages(newChat.id);
         const sourceCountAfterLoad = await countChatMessages(sourceChatId);
         logChat(`[BRANCH] After loadChat: DB count for new ${newChat.id} = ${countAfterLoad}, DB count for source ${sourceChatId} = ${sourceCountAfterLoad}`);
+    }
+
+    /**
+     * Duplicates an entire chat (metadata + asset refs + hotbar slots + all messages)
+     * with fresh ids. Used by "Save as Template" and "Use Template" flows.
+     *
+     * Does NOT load the new chat into currentChat — the caller decides whether to.
+     * Source can be any chat (not just the currently-loaded one); messages are
+     * fetched from the DB via `loadChatById`.
+     */
+    static async cloneChat(sourceChatId: string, { newTitle, asTemplate }: { newTitle: string, asTemplate: boolean }): Promise<string> {
+        const sourceMeta = state.assets.chats[sourceChatId];
+        if (!sourceMeta) throw new Error(`Source chat ${sourceChatId} not found`);
+
+        const source = await loadChatById(sourceChatId);
+        const newId = nanoid();
+        const now = Date.now();
+
+        const newChat: Chat = {
+            id: newId,
+            title: newTitle,
+            assets: {
+                actors: [...sourceMeta.assets.actors],
+                notes: [...sourceMeta.assets.notes],
+            },
+            hotbarNotes: Object.fromEntries(
+                Object.entries(sourceMeta.hotbarNotes).map(([id, v]) => [id, { ...v }])
+            ),
+            isTemplate: asTemplate,
+            createdAt: now,
+            updatedAt: now,
+        };
+
+        const newMessages: Record<string, ChatMessage> = {};
+        for (const m of Object.values(source.messages)) {
+            const msgId = nanoid();
+            newMessages[msgId] = {
+                ...m,
+                id: msgId,
+                chatId: newId,
+                // Preserve original timestamps to maintain ordering.
+                createdAt: m.createdAt,
+                updatedAt: m.updatedAt,
+            };
+        }
+
+        saveChat(newChat, newMessages);
+        setState('assets', 'chats', newId, newChat);
+        logChat(`Cloned chat ${sourceChatId} → ${newId} (asTemplate=${asTemplate}, ${Object.keys(newMessages).length} messages).`);
+        return newId;
     }
 }
