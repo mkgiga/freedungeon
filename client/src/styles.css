@@ -1027,11 +1027,17 @@ button {
   display: flex;
 }
 
+/* Shared indent for non-speech blocks so they align with speech block text.
+ * Should equal .chat-block-avatar width + .chat-block-speech gap. */
+:root {
+  --chat-block-indent: 76px;
+}
+
 .chat-block-speech {
   flex-direction: row;
   gap: 12px;
   align-items: flex-start;
-  margin-top: 8px;  
+  margin-top: 8px;
   &:not(:last-of-type) {
     margin-bottom: 8px;
   }
@@ -1039,13 +1045,13 @@ button {
 
 .chat-block-avatar {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 64px;
+  height: 64px;
   padding: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   overflow: hidden;
-  background: var(--bg-2);
+  background: var(--bg-1);
   cursor: pointer;
   transition: transform 120ms;
   
@@ -1053,6 +1059,8 @@ button {
   & .image-icon {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
+    width: 100% !important;
+    height: 100% !important;
   }
 }
 
@@ -1065,8 +1073,8 @@ button {
 }
 
 .chat-block-avatar-fallback {
-  width: 40px;
-  height: 40px;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1110,8 +1118,7 @@ button {
   flex-direction: row;
   align-items: flex-start;
   gap: 8px;
-  padding-left: 52px; /* align with speech block content */
-  
+  padding-left: var(--chat-block-indent); /* align with speech block content */
 }
 
 .chat-block-text-content {
@@ -1127,7 +1134,7 @@ button {
 .chat-block-image {
   flex-direction: column;
   gap: 4px;
-  padding-left: 52px;
+  padding-left: var(--chat-block-indent);
 }
 
 .chat-block-image img {
@@ -1150,7 +1157,7 @@ button {
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  padding: 8px 52px;
+  padding: 8px var(--chat-block-indent);
   opacity: 0.5;
   font-size: var(--text-xs);
 }
@@ -1235,7 +1242,7 @@ button {
 /* ── Unformatted Block ── */
 
 .chat-block-unformatted {
-  padding-left: 52px;
+  padding-left: var(--chat-block-indent);
 }
 
 .chat-block-unformatted-content {
