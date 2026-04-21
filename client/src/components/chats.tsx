@@ -4,7 +4,6 @@ import { MdFillChat, MdFillMore_horiz } from "solid-icons/md"
 import { Dropdown } from "./Dropdown"
 import { ImageIcon } from "./ImageIcon"
 import { SortHeader, useSort } from "./ResourceTable"
-import { thumbnailUrl } from "../utils/media"
 
 export type ChatAction = {
     label: string
@@ -30,23 +29,19 @@ function ChatListItem(props: {
     actions?: ChatAction[]
     onClick?: () => void
 }) {
-    const bannerStyle = () => props.chat.bannerUrl
-        ? {
-            'background-image': `url(${JSON.stringify(props.chat.bannerUrl)})`,
-            'background-size': 'cover',
-            'background-position': 'right center',
-            'background-repeat': 'no-repeat',
-            // Fades to transparent toward the middle-left, solid on the right.
-            '-webkit-mask-image': 'linear-gradient(to left, black 0%, transparent 55%)',
-            'mask-image': 'linear-gradient(to left, black 0%, transparent 55%)',
-        }
+    // The banner renders as a row-level ::before pseudo-element pulling its
+    // URL from this custom property. Keeping it as a var instead of inline
+    // background-image lets the CSS own the sizing/mask logic and also lets
+    // the gradient span all cells rather than being clipped to one <td>.
+    const rowStyle = () => props.chat.bannerUrl
+        ? { '--chat-row-banner': `url(${JSON.stringify(props.chat.bannerUrl)})` }
         : undefined
 
     return (
-        <tr class="resource-table-row chat-list-row" onClick={props.onClick}>
+        <tr class="resource-table-row chat-list-row" style={rowStyle()} onClick={props.onClick}>
             <td class="resource-table-col-avatar">
                 <ImageIcon
-                    url={thumbnailUrl(props.chat.avatarUrl)}
+                    url={props.chat.avatarUrl}
                     size={40}
                     class="actor-avatar"
                     placeholder={
@@ -56,7 +51,7 @@ function ChatListItem(props: {
                     }
                 />
             </td>
-            <td class="resource-table-col-name chat-list-row-banner" style={bannerStyle()}>
+            <td class="resource-table-col-name">
                 <span class="resource-table-cell-content">{props.chat.title}</span>
             </td>
             <td>

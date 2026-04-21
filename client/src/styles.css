@@ -341,9 +341,28 @@ button {
 
 /* ── Chat list rows (banner gradient bg) ── */
 
-.chat-list-row-banner {
-  /* The right-anchored gradient-masked bg-image is applied inline per-row. */
+/* `--chat-row-banner` is set inline per-row when the chat has a bannerUrl.
+ * We render the gradient via ::before so it spans all cells (not just one
+ * <td>) and so the mask affects only the background layer — not the row's
+ * text content. `isolation: isolate` keeps the ::before's negative z-index
+ * from leaking above the table's own layers. */
+.chat-list-row {
   position: relative;
+  isolation: isolate;
+}
+
+.chat-list-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--chat-row-banner);
+  background-size: cover;
+  background-position: right center;
+  background-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(to left, black 0%, transparent 55%);
+  mask-image: linear-gradient(to left, black 0%, transparent 55%);
+  pointer-events: none;
 }
 
 /* ── Chat detail view ── */
