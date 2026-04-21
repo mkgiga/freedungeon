@@ -1,7 +1,5 @@
-import pluralize from 'pluralize'
 import type { GiveItemBlock as GiveItemBlockType } from '../blocks'
-
-const aOrAn = (word: string) => /^[aeiou]/i.test(word) ? 'an' : 'a'
+import { aOrAn, pluralizeItem } from './itemText'
 
 export function GiveItemBlock(props: {
     block: GiveItemBlockType
@@ -11,7 +9,7 @@ export function GiveItemBlock(props: {
     if (props.block.qty === 0) return null
 
     const isOne = () => props.block.qty === 1
-    const word = () => isOne() ? props.block.name : pluralize(props.block.name, props.block.qty)
+    const word = () => isOne() ? props.block.name : pluralizeItem(props.block.name, props.block.qty)
 
     return (
         <div class="chat-block chat-block-event chat-block-giveItem">
