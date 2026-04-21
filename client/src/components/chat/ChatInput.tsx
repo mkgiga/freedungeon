@@ -66,14 +66,6 @@ export function ChatInput() {
     return (
         <div class="chat-input-container">
             <div class="chat-input-toolbar">
-                <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
-                    <MdFillRefresh size={20} />
-                </button>
-                <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
-                    <MdFillFast_forward size={20} />
-                </button>
-                <ChatHotbar />
-                <div class="chat-input-spacer" />
                 <Show
                     when={currentActor()}
                     fallback={
@@ -102,6 +94,14 @@ export function ChatInput() {
                         </button>
                     )}
                 </Show>
+                <div class="chat-input-spacer" />
+                <ChatHotbar />
+                <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
+                    <MdFillRefresh size={20} />
+                </button>
+                <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
+                    <MdFillFast_forward size={20} />
+                </button>
                 <span>{/* empty element to give right padding the same size as the flex gap */}</span>
             </div>
             <div class="chat-input-row">

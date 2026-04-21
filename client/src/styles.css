@@ -2031,9 +2031,9 @@ menu#main-nav {
   overflow-x: auto;
   scrollbar-width: none;
   padding: 0 4px;
-  border-left: 1px solid color-mix(in oklch, var(--text), transparent 85%);
-  margin-left: 4px;
-  padding-left: 8px;
+  border-right: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  margin-right: 4px;
+  padding-right: 8px;
 }
 
 .chat-hotbar::-webkit-scrollbar {
