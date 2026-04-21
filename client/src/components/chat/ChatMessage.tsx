@@ -14,6 +14,8 @@ import { PauseBlock } from './blocks/PauseBlock'
 import { WebviewBlock } from './blocks/WebviewBlock'
 import { UnformattedBlock } from './blocks/UnformattedBlock'
 import { NoOpContinueBlock } from './blocks/NoOpContinueBlock'
+import { DamageBlock } from './blocks/DamageBlock'
+import { HealBlock } from './blocks/HealBlock'
 
 export function ChatMessage(props: { message: ChatMessageType }) {
     const blocks = createMemo(() => parseBlocks(props.message.content))
@@ -105,6 +107,18 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                         <Match when={block.type === 'noOpContinue'}>
                             <NoOpContinueBlock
                                 block={block as Extract<Block, { type: 'noOpContinue' }>}
+                                onUpdate={(b) => updateBlock(i(), b)}
+                            />
+                        </Match>
+                        <Match when={block.type === 'damage'}>
+                            <DamageBlock
+                                block={block as Extract<Block, { type: 'damage' }>}
+                                onUpdate={(b) => updateBlock(i(), b)}
+                            />
+                        </Match>
+                        <Match when={block.type === 'heal'}>
+                            <HealBlock
+                                block={block as Extract<Block, { type: 'heal' }>}
                                 onUpdate={(b) => updateBlock(i(), b)}
                             />
                         </Match>

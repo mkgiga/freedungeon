@@ -1245,6 +1245,42 @@ button {
   padding-left: var(--chat-block-indent);
 }
 
+/* ── Damage / Heal event blocks ── */
+
+.chat-block-event {
+  /* Override .chat-block's `display: flex` — flex collapses whitespace-only
+   * text nodes between children, which would swallow the spaces between the
+   * actor name, the verb, the amount, and the trailing word. */
+  display: block;
+  padding-left: var(--chat-block-indent);
+  font-size: var(--text-sm);
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.chat-block-event-actor {
+  font-weight: 700;
+  font-style: normal;
+  opacity: 0.9;
+}
+
+.chat-block-event-amount {
+  font-weight: 700;
+  font-style: normal;
+  /* Only on the left — the preceding italic verb's slant optically eats into
+   * the bold digits. The trailing side already gets a normal space from the
+   * plain-text " damage." / " health." that follows. */
+  padding-left: 2px;
+}
+
+.chat-block-damage .chat-block-event-amount {
+  color: oklch(65% 0.2 25);
+}
+
+.chat-block-heal .chat-block-event-amount {
+  color: oklch(65% 0.2 150);
+}
+
 .chat-block-unformatted-content {
   font-family: 'Courier New', monospace;
   font-size: var(--text-md);

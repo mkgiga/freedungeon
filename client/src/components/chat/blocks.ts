@@ -189,7 +189,22 @@ export function serializeBlocks(blocks: Block[]): string {
                     return `unformatted(${tpl(b.content)});`
                 case 'noOpContinue':
                     return `noOpContinue();`
+                case 'damage':
+                    return `damage(${str(b.actorId)}, ${b.amount});`
+                case 'heal':
+                    return `heal(${str(b.actorId)}, ${b.amount});`
+                case 'enterActors':
+                    return `enterActors([${b.actors.map(str).join(', ')}]);`
+                case 'leaveActors':
+                    return `leaveActors([${b.actors.map(str).join(', ')}]);`
+                case 'setHp':
+                    return `setHp(${str(b.actorId)}, ${b.value});`
+                case 'giveItem':
+                    return `giveItem(${str(b.name)}, ${b.qty});`
+                case 'takeItem':
+                    return `takeItem(${str(b.name)}, ${b.qty});`
             }
         })
+        .filter(Boolean)
         .join('\n')
 }
