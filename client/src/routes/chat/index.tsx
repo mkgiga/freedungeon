@@ -445,17 +445,6 @@ function ConversationView(props: { onBack: () => void }) {
           >
             {(message) => <ChatMessage message={message} />}
           </For>
-          <Toolbar slots={{
-            left: [
-              <Show when={resolvePlayerActor() !== null}>
-                <GameStateActorStatus
-                  customId={resolvePlayerActor()!.customId}
-                  hp={state.currentChat.gameState.scene.actors.active[resolvePlayerActor()!.customId]?.hp}
-                  variant="small"
-                />
-              </Show>
-            ]
-          }}/>
           <div ref={bottomSentinelRef} class="chat-messages-sentinel" />
         </div>
 
