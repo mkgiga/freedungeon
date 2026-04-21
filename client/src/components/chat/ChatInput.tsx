@@ -19,6 +19,7 @@ import { ChatHotbar } from './ChatHotbar'
 
 export function ChatInput() {
     const [message, setMessage] = createSignal('')
+    const [textareaFocused, setTextareaFocused] = createSignal(false)
     const modal = useModal()
 
     const currentActor = createMemo(() => {
@@ -64,7 +65,12 @@ export function ChatInput() {
     }
 
     return (
-        <div class="chat-input-container">
+        <div class="chat-input-container" classList={{
+            'is-textarea-focused': textareaFocused(),
+            // Empty message AND not generating → FAB would be a no-op on mobile.
+            // We still want to show it during generation since it turns into Stop.
+            'is-empty-message': !state.isGenerating && message().trim() === '',
+        }}>
             <div class="chat-input-toolbar">
                 <Show
                     when={currentActor()}
@@ -110,6 +116,8 @@ export function ChatInput() {
                     placeholder="Type a message..."
                     value={message()}
                     onInput={(e) => setMessage(e.currentTarget.value)}
+                    onFocus={() => setTextareaFocused(true)}
+                    onBlur={() => setTextareaFocused(false)}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                             e.preventDefault()
