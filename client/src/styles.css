@@ -1305,6 +1305,43 @@ button {
   padding-left: 2px;
 }
 
+/* ── Inventory modal ── */
+
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.inventory-row {
+  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 90%);
+}
+
+.inventory-row:last-child {
+  border-bottom: none;
+}
+
+.inventory-col-icon {
+  width: 48px;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1;
+  padding: 10px 0;
+}
+
+.inventory-col-name {
+  padding: 10px 12px;
+  word-break: break-word;
+}
+
+.inventory-col-qty {
+  width: 72px;
+  text-align: right;
+  padding: 10px 12px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
 .chat-block-unformatted-content {
   font-family: 'Courier New', monospace;
   font-size: var(--text-md);

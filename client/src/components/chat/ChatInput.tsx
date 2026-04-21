@@ -13,9 +13,11 @@ import {
     MdFillSend,
     MdFillStop,
     MdFillPerson,
+    MdFillInventory_2,
 } from 'solid-icons/md'
 import { GameStateActorStatus } from '../GameStateActorStatus'
 import { ChatHotbar } from './ChatHotbar'
+import { InventoryModal } from './InventoryModal'
 
 export function ChatInput() {
     const [message, setMessage] = createSignal('')
@@ -32,6 +34,13 @@ export function ChatInput() {
         modal.open({
             title: 'Player Character',
             content: () => <PlayerCharacterPicker onPick={() => modal.close()} />,
+        })
+    }
+
+    const openInventory = () => {
+        modal.open({
+            title: 'Inventory',
+            content: () => <InventoryModal />,
         })
     }
 
@@ -102,6 +111,9 @@ export function ChatInput() {
                 </Show>
                 <div class="chat-input-spacer" />
                 <ChatHotbar />
+                <button class="chat-input-btn" onClick={openInventory} title="Inventory">
+                    <MdFillInventory_2 size={20} />
+                </button>
                 <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
                     <MdFillRefresh size={20} />
                 </button>
