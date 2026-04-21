@@ -1,3 +1,4 @@
+import { Text } from '../../typography/Text'
 import type { TakeItemBlock as TakeItemBlockType } from '../blocks'
 import { aOrAn, pluralizeItem } from './itemText'
 
@@ -11,7 +12,7 @@ export function TakeItemBlock(props: {
     const word = () => isOne() ? props.block.name : pluralizeItem(props.block.name, props.block.qty)
 
     return (
-        <div class="chat-block chat-block-event chat-block-takeItem">
+        <Text size="base" class="chat-block chat-block-event chat-block-takeItem">
             {'You lose '}
             {isOne() ? (
                 <>
@@ -26,6 +27,6 @@ export function TakeItemBlock(props: {
                 </>
             )}
             {'.'}
-        </div>
+        </Text>
     )
 }

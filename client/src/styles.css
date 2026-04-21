@@ -1253,7 +1253,6 @@ button {
    * actor name, the verb, the amount, and the trailing word. */
   display: block;
   padding-left: var(--chat-block-indent);
-  font-size: var(--text-sm);
   opacity: 0.75;
   font-style: italic;
 }

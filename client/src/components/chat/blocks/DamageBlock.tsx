@@ -1,5 +1,6 @@
 import { createMemo } from 'solid-js'
 import { state } from '../../../state'
+import { Text } from '../../typography/Text'
 import type { DamageBlock as DamageBlockType } from '../blocks'
 
 export function DamageBlock(props: {
@@ -13,11 +14,11 @@ export function DamageBlock(props: {
     })
 
     return (
-        <div class="chat-block chat-block-event chat-block-damage">
+        <Text size="base" class="chat-block chat-block-event chat-block-damage">
             <span class="chat-block-event-actor">{actorName()}</span>
             {' takes '}
             <span class="chat-block-event-amount">{props.block.amount}</span>
             {' damage.'}
-        </div>
+        </Text>
     )
 }

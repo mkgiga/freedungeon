@@ -17,6 +17,7 @@ import { ChatList } from '../../components/chats'
 import { Em } from '../../components/typography/Em'
 import type { Chat, ChatMessage as ChatMessageType } from '@shared/types'
 import { Spacer } from '../../components/Spacer'
+import { Toolbar } from '../../components/Toolbar'
 
 const PAGE_SIZE = 30    // how many messages to load per sentinel-trigger
 const WINDOW_SIZE = 100 // max messages rendered to the DOM at once
@@ -444,6 +445,17 @@ function ConversationView(props: { onBack: () => void }) {
           >
             {(message) => <ChatMessage message={message} />}
           </For>
+          <Toolbar slots={{
+            left: [
+              <Show when={resolvePlayerActor() !== null}>
+                <GameStateActorStatus
+                  customId={resolvePlayerActor()!.customId}
+                  hp={state.currentChat.gameState.scene.actors.active[resolvePlayerActor()!.customId]?.hp}
+                  variant="small"
+                />
+              </Show>
+            ]
+          }}/>
           <div ref={bottomSentinelRef} class="chat-messages-sentinel" />
         </div>
 

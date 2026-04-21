@@ -1,5 +1,6 @@
 import { createMemo } from 'solid-js'
 import { state } from '../../../state'
+import { Text } from '../../typography/Text'
 import type { HealBlock as HealBlockType } from '../blocks'
 
 export function HealBlock(props: {
@@ -13,11 +14,11 @@ export function HealBlock(props: {
     })
 
     return (
-        <div class="chat-block chat-block-event chat-block-heal">
+        <Text size="base" class="chat-block chat-block-event chat-block-heal">
             <span class="chat-block-event-actor">{actorName()}</span>
             {' recovers '}
             <span class="chat-block-event-amount">{props.block.amount}</span>
             {' health.'}
-        </div>
+        </Text>
     )
 }
