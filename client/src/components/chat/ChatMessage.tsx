@@ -16,6 +16,8 @@ import { UnformattedBlock } from './blocks/UnformattedBlock'
 import { NoOpContinueBlock } from './blocks/NoOpContinueBlock'
 import { DamageBlock } from './blocks/DamageBlock'
 import { HealBlock } from './blocks/HealBlock'
+import { GiveItemBlock } from './blocks/GiveItemBlock'
+import { TakeItemBlock } from './blocks/TakeItemBlock'
 
 export function ChatMessage(props: { message: ChatMessageType }) {
     const blocks = createMemo(() => parseBlocks(props.message.content))
@@ -119,6 +121,18 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                         <Match when={block.type === 'heal'}>
                             <HealBlock
                                 block={block as Extract<Block, { type: 'heal' }>}
+                                onUpdate={(b) => updateBlock(i(), b)}
+                            />
+                        </Match>
+                        <Match when={block.type === 'giveItem'}>
+                            <GiveItemBlock
+                                block={block as Extract<Block, { type: 'giveItem' }>}
+                                onUpdate={(b) => updateBlock(i(), b)}
+                            />
+                        </Match>
+                        <Match when={block.type === 'takeItem'}>
+                            <TakeItemBlock
+                                block={block as Extract<Block, { type: 'takeItem' }>}
                                 onUpdate={(b) => updateBlock(i(), b)}
                             />
                         </Match>

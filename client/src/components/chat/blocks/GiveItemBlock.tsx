@@ -1,0 +1,34 @@
+import pluralize from 'pluralize'
+import type { GiveItemBlock as GiveItemBlockType } from '../blocks'
+
+const aOrAn = (word: string) => /^[aeiou]/i.test(word) ? 'an' : 'a'
+
+export function GiveItemBlock(props: {
+    block: GiveItemBlockType
+    onUpdate: (block: GiveItemBlockType) => void
+}) {
+    // qty 0 is a no-op — don't clutter the transcript with empty lines.
+    if (props.block.qty === 0) return null
+
+    const isOne = () => props.block.qty === 1
+    const word = () => isOne() ? props.block.name : pluralize(props.block.name, props.block.qty)
+
+    return (
+        <div class="chat-block chat-block-event chat-block-giveItem">
+            {'You receive '}
+            {isOne() ? (
+                <>
+                    {aOrAn(props.block.name) + ' '}
+                    <span class="chat-block-event-item">{word()}</span>
+                </>
+            ) : (
+                <>
+                    <span class="chat-block-event-amount">{props.block.qty}</span>
+                    {' '}
+                    <span class="chat-block-event-item">{word()}</span>
+                </>
+            )}
+            {'.'}
+        </div>
+    )
+}

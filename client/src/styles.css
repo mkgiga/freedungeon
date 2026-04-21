@@ -1281,6 +1281,12 @@ button {
   color: oklch(65% 0.2 150);
 }
 
+.chat-block-event-item {
+  font-weight: 700;
+  font-style: normal;
+  padding-left: 2px;
+}
+
 .chat-block-unformatted-content {
   font-family: 'Courier New', monospace;
   font-size: var(--text-md);
