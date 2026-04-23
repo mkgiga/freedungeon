@@ -4,6 +4,7 @@ import { useFlip } from '../Flip'
 
 type TextSize = 'sm' | 'base' | 'lg'
 type FontStyle = 'sans' | 'serif' | 'mono'
+type TextShadow = 'xs' | 'sm' | 'md'
 
 const sizeMap: Record<TextSize, string> = {
     sm: 'text-caption',
@@ -17,18 +18,26 @@ const fontMap: Record<FontStyle, string> = {
     mono: 'font-mono',
 }
 
+const shadowMap: Record<TextShadow, string> = {
+    xs: 'text-shadow-xs',
+    sm: 'text-shadow-sm',
+    md: 'text-shadow-md',
+}
+
 type TextProps = JSX.HTMLAttributes<HTMLParagraphElement> & {
     size?: TextSize
     font?: FontStyle
+    shadow?: TextShadow
 }
 
 export function Text(props: TextProps) {
-    const [local, rest] = splitProps(props, ['size', 'font', 'class', 'style'])
+    const [local, rest] = splitProps(props, ['size', 'font', 'shadow', 'class', 'style'])
     const flip = useFlip()
 
     const className = () => [
         sizeMap[local.size ?? 'base'],
         local.font ? fontMap[local.font] : '',
+        local.shadow ? shadowMap[local.shadow] : '',
         local.class ?? '',
     ].filter(Boolean).join(' ')
 
