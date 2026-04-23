@@ -18,6 +18,7 @@ import {
 import { GameStateActorStatus } from '../GameStateActorStatus'
 import { ChatHotbar } from './ChatHotbar'
 import { InventoryModal } from './InventoryModal'
+import { Toolbar } from '../Toolbar'
 
 export function ChatInput() {
     const [message, setMessage] = createSignal('')
@@ -57,8 +58,8 @@ export function ChatInput() {
         if (msgs.length === 0) return null
         const latest = msgs.reduce((a, b) =>
             (a.createdAt - b.createdAt) > 0 ? a
-            : (a.createdAt - b.createdAt) < 0 ? b
-            : (a.id > b.id ? a : b)
+                : (a.createdAt - b.createdAt) < 0 ? b
+                    : (a.id > b.id ? a : b)
         )
         return latest.id
     }
@@ -73,49 +74,58 @@ export function ChatInput() {
     }
 
     return (
-        <div class="chat-input-container">
-            <div class="chat-input-toolbar">
-                <Show
-                    when={currentActor()}
-                    fallback={
-                        <button
-                            type="button"
-                            class="chat-input-btn"
-                            onClick={openPlayerCharacterPicker}
-                            title="Set player character"
+        <div class="chat-input-container relative">
+            <Show when={state.currentChat.gameState.scene.actors.active[currentActor()?.customId ?? '']}>
+                <div class="hp-bar" style={{ position: 'absolute', top: "-12px", left: 0, right: 0, height: '12px' }}>
+                    <div class="hp-bar-fill relative" style={{ width: '100%', height: '100%' }}>
+                        <Text size="sm" class="hp-bar-text absolute inset-0 flex items-center justify-center pointer-events-none">
+                            {state.currentChat.gameState.scene.actors.active[currentActor()?.customId ?? '']?.hp ?? 'N/A'}
+                        </Text>
+                    </div>
+                </div>
+            </Show>
+            <Toolbar class="chat-input-toolbar" slots={{
+                left: (
+                    <>
+                        <Show
+                            when={currentActor()}
+                            fallback={
+                                <button
+                                    type="button"
+                                    class="chat-input-btn"
+                                    onClick={openPlayerCharacterPicker}
+                                    title="Set player character"
+                                >
+                                    <MdFillPerson size={20} />
+                                </button>
+                            }
                         >
-                            <MdFillPerson size={20} />
+                            {(actor) => (
+                                <button
+                                    type="button"
+                                    class="chat-input-current-actor"
+                                    onClick={openPlayerCharacterPicker}
+                                    title="Change player character"
+                                >
+                                    <ImageIcon url={actor().avatarUrl} size={64} />
+                                </button>
+                            )}
+                        </Show>
+                        <div class="chat-input-spacer" />
+                        <ChatHotbar />
+                        <button class="chat-input-btn" onClick={openInventory} title="Inventory">
+                            <MdFillInventory_2 size={20} />
                         </button>
-                    }
-                >
-                    {(actor) => (
-                        <button
-                            type="button"
-                            class="chat-input-current-actor"
-                            onClick={openPlayerCharacterPicker}
-                            title="Change player character"
-                        >
-                            <GameStateActorStatus
-                                customId={actor().customId}
-                                hp={state.currentChat.gameState.scene.actors.active[actor().customId]?.hp}
-                                variant="small"
-                            />
+                        <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
+                            <MdFillRefresh size={20} />
                         </button>
-                    )}
-                </Show>
-                <div class="chat-input-spacer" />
-                <ChatHotbar />
-                <button class="chat-input-btn" onClick={openInventory} title="Inventory">
-                    <MdFillInventory_2 size={20} />
-                </button>
-                <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
-                    <MdFillRefresh size={20} />
-                </button>
-                <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
-                    <MdFillFast_forward size={20} />
-                </button>
-                <span>{/* empty element to give right padding the same size as the flex gap */}</span>
-            </div>
+                        <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
+                            <MdFillFast_forward size={20} />
+                        </button>
+                        <span>{/* empty element to give right padding the same size as the flex gap */}</span>
+                    </>)
+                }} />
+
             <div class="chat-input-row">
                 <textarea
                     class="chat-input-textarea"

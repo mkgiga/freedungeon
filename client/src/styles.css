@@ -1409,6 +1409,7 @@ button {
   display: flex;
   font-size: var(--text-sm);
   max-width: 180px;
+  padding: 0 !important;
 
   p {
     white-space: nowrap;
@@ -1439,8 +1440,8 @@ button {
 
 .chat-input-textarea {
   width: 100%;
-  min-height: 100px;
-  max-height: 240px;
+  min-height: 140px;
+  max-height: 280px;
   padding: 10px 12px;
   background: var(--bg);
   border: none;
@@ -2205,7 +2206,7 @@ menu#main-nav {
 }
 
 .hp-bar-fill {
-  background: oklch(62% 0.21 25);
+  background: var(--color-red-400);
 }
 
 .game-state-actor-compact {

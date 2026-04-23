@@ -456,7 +456,7 @@ function ConversationView(props: { onBack: () => void }) {
             {unreadCount()} new — jump to latest
           </button>
         </Show>
-
+        <Spacer dir='vertical' size={24} />
         <ChatInput />
       </div>
     </>
