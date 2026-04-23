@@ -34,7 +34,6 @@
 
 .toolbar-left {
     flex: 0 1 auto;
-    min-width: 0;
     justify-content: flex-start;
 }
 
@@ -44,6 +43,10 @@
 
 .toolbar-right {
     flex: 0 1 auto;
+    /* Allow the right slot to shrink past its intrinsic content width so children
+     * with their own overflow handling (e.g. a scrollable hotbar) can actually
+     * compress. Without this, min-width: auto would lock the slot to its full
+     * content size and push past the toolbar's right edge on narrow viewports. */
     min-width: 0;
     justify-content: flex-end;
 }
