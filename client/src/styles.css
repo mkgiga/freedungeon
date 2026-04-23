@@ -1356,8 +1356,6 @@ button {
   flex-direction: column;
   padding: 0;
   background: var(--bg);
-  /* Anchor for the mobile FAB variant of the send button. */
-  position: relative;
 }
 
 .chat-input-toolbar {
@@ -1454,48 +1452,6 @@ button {
   outline: none;
   flex: 1;
   min-width: 0;
-}
-
-/* ── Mobile: send button floats as a FAB, hides while the textarea is focused ── */
-
-@media (max-width: 768px) {
-  .chat-input-row .chat-input-btn-send {
-    position: absolute;
-    right: 16px;
-    bottom: 16px;
-    width: 56px;
-    height: 56px;
-    padding: 0;
-    border-radius: 50%;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-    z-index: 2;
-    opacity: 1;
-    visibility: visible;
-    transform: scale(1);
-    transition:
-      opacity 180ms ease,
-      transform 180ms ease,
-      visibility 0s linear 0s;
-
-    svg {
-      width: 24px;
-      height: 24px;
-    }
-  }
-
-  .chat-input-container.is-textarea-focused .chat-input-btn-send,
-  .chat-input-container.is-empty-message .chat-input-btn-send {
-    opacity: 0;
-    visibility: hidden;
-    transform: scale(0.85);
-    pointer-events: none;
-    /* Delay the `visibility: hidden` until the opacity fade finishes so the
-     * element stays interactive visually during its own fade-out. */
-    transition:
-      opacity 180ms ease,
-      transform 180ms ease,
-      visibility 0s linear 180ms;
-  }
 }
 
 /* ── Expression Picker ── */
