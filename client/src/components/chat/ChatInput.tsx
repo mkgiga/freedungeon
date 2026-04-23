@@ -30,6 +30,20 @@ export function ChatInput() {
         return state.assets.actors?.[id] ?? null
     })
 
+    const playerHp = createMemo(() => {
+        const actor = currentActor()
+        if (!actor) return null
+        return state.currentChat.gameState.scene.actors.active[actor.customId]?.hp ?? null
+    })
+
+    // Mirrors GameStateActorStatus's percentage math — default max is 100 since
+    // per-actor max HP isn't tracked in the game state today.
+    const hpPct = createMemo(() => {
+        const hp = playerHp()
+        if (hp == null) return 0
+        return Math.max(0, Math.min(100, (hp / 100) * 100))
+    })
+
     const openPlayerCharacterPicker = () => {
         modal.open({
             title: 'Player Character',
@@ -77,11 +91,10 @@ export function ChatInput() {
         <div class="chat-input-container relative">
             <Show when={state.currentChat.gameState.scene.actors.active[currentActor()?.customId ?? '']}>
                 <div class="hp-bar" style={{ position: 'absolute', top: "-12px", left: 0, right: 0, height: '12px' }}>
-                    <div class="hp-bar-fill relative" style={{ width: '100%', height: '100%' }}>
-                        <Text shadow='sm' size="sm" class="hp-bar-text absolute inset-0 flex items-center justify-center pointer-events-none">
-                            {state.currentChat.gameState.scene.actors.active[currentActor()?.customId ?? '']?.hp ?? 'N/A'}
-                        </Text>
-                    </div>
+                    <div class="hp-bar-fill relative" style={{ width: `${hpPct()}%`, height: '100%' }} />
+                    <Text shadow='sm' size="sm" class="hp-bar-text absolute inset-0 flex items-center justify-center pointer-events-none">
+                        {playerHp() ?? 'N/A'}
+                    </Text>
                 </div>
             </Show>
             <Toolbar class="chat-input-toolbar" slots={{
