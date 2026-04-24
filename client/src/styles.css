@@ -216,6 +216,23 @@ button {
   margin: 12px 12px 12px 16px;
 }
 
+/* Group section header inside ActorList — rendered as a full-span <tr> at the
+ * top of each grouped <tbody>. Matches the feel of the existing .text-label
+ * utility so it reads as a quiet separator, not a second header row. */
+.actor-list-group-header td {
+  padding: 12px 16px 4px 16px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+  cursor: default;
+}
+
+.actor-list-group-header:hover {
+  background-color: transparent;
+}
+
 .resource-table-col-emoji {
   width: 40px;
   text-align: center;

@@ -59,6 +59,12 @@ export type Actor = {
     description: string;
     avatarUrl: string;
     expressions: ActorExpressions;
+    /**
+     * Optional user-authored category label. Used to bucket actors in the
+     * character list and as additional search text in pickers. Compared
+     * case-insensitively when grouping.
+     */
+    group?: string;
     createdAt: number;
     updatedAt: number;
 }

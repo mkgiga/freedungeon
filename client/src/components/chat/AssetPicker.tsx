@@ -33,7 +33,8 @@ export function ActorPicker(props: {
             .filter(a => !q
                 || a.name.toLowerCase().includes(q)
                 || a.description.toLowerCase().includes(q)
-                || a.customId.toLowerCase().includes(q))
+                || a.customId.toLowerCase().includes(q)
+                || (a.group ?? '').toLowerCase().includes(q))
     })
 
     const toggle = async (actor: Actor) => {

@@ -37,13 +37,24 @@ function RouteComponent() {
   const serverActor = () => Object.values(state.assets.actors ?? {}).find(a => a.customId === routeId())
   const isNew = () => !serverActor()
 
-  const [draft, setDraft] = createStore(
+  const [draft, setDraft] = createStore<{
+    id: string
+    customId: string
+    name: string
+    description: string
+    avatarUrl: string
+    group?: string
+    expressions: Record<string, string>
+    createdAt: number
+    updatedAt: number
+  }>(
     serverActor() ?? {
       id: '',
       customId: routeId(),
       name: 'New Actor',
       description: '',
       avatarUrl: '',
+      group: undefined,
       expressions: {} as Record<string, string>,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -57,6 +68,7 @@ function RouteComponent() {
       description: draft.description,
       avatarUrl: draft.avatarUrl,
       customId: draft.customId,
+      group: draft.group,
       expressions: draft.expressions as Record<string, string>,
     })
     if (edit()) {
@@ -209,6 +221,18 @@ function RouteComponent() {
                   value={draft.customId}
                   class="font-mono text-sm bg-transparent border-b border-(--primary) outline-none opacity-70 focus:opacity-100"
                   onInput={(e) => setDraft('customId', e.currentTarget.value)}
+                />
+              </Show>
+            </Text>
+            <Text size="sm" class="opacity-50 flex items-center gap-1">
+              Group
+              <Show when={edit()} fallback={<Text size="sm" class="opacity-70">{draft.group ?? '—'}</Text>}>
+                <input
+                  type="text"
+                  value={draft.group ?? ''}
+                  placeholder="e.g. Party, Enemies, NPCs"
+                  class="text-sm bg-transparent border-b border-(--primary) outline-none opacity-70 focus:opacity-100"
+                  onInput={(e) => setDraft('group', e.currentTarget.value || undefined)}
                 />
               </Show>
             </Text>
