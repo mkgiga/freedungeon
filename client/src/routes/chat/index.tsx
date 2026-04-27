@@ -282,11 +282,15 @@ function ConversationView(props: { onBack: () => void }) {
   // In follow-latest mode, keep the scroll parked at the bottom whenever the
   // visible message list changes — covers initial chat open (render starts at
   // scrollTop=0 otherwise) and streaming new messages.
+  // The 1-pixel buffer keeps scrollTop off the exact maximum: iOS Safari treats
+  // an at-extreme scroller as unable to consume touch and routes the gesture to
+  // an ancestor, but the root is position:fixed so the gesture is discarded.
   createEffect(() => {
     if (pinnedIds() !== null) return
     visibleMessages() // subscribe to changes
     queueMicrotask(() => {
-      if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight
+      if (!scrollEl) return
+      scrollEl.scrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight - 1)
     })
   })
 
@@ -299,7 +303,8 @@ function ConversationView(props: { onBack: () => void }) {
   const unpinToLatest = () => {
     setPinnedIds(null)
     queueMicrotask(() => {
-      if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight
+      if (!scrollEl) return
+      scrollEl.scrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight - 1)
     })
   }
 

@@ -959,6 +959,7 @@ button {
 
 .chat-messages {
   padding: 8px 0;
+  overscroll-behavior: contain;
 }
 
 /* Indeterminate sweep bar shown at the top of the chat while the LLM generates. */
