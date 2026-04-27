@@ -154,22 +154,24 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
           ),
         }}
       />
-      <div class="chat-list-tabs">
-        <button
-          class="chat-list-tab"
-          classList={{ 'is-active': tab() === 'chats' }}
-          onClick={() => setTab('chats')}
-        >Chats</button>
-        <button
-          class="chat-list-tab"
-          classList={{ 'is-active': tab() === 'templates' }}
-          onClick={() => setTab('templates')}
-        >Templates</button>
-      </div>
       <div class="flex-1 overflow-y-auto">
         <ChatList
           chats={filteredChats()}
           onChatClick={tab() === 'templates' ? editChat : openChat}
+          toolbar={
+            <>
+              <button
+                class="chat-list-tab"
+                classList={{ 'is-active': tab() === 'chats' }}
+                onClick={() => setTab('chats')}
+              >Chats</button>
+              <button
+                class="chat-list-tab"
+                classList={{ 'is-active': tab() === 'templates' }}
+                onClick={() => setTab('templates')}
+              >Templates</button>
+            </>
+          }
           actions={tab() === 'templates'
             ? [
                 { label: 'Use Template', callback: useTemplate },

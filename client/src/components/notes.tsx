@@ -61,6 +61,9 @@ export function NoteList(props: {
     isSelected?: (note: Note) => boolean
     showType?: boolean
     hideHeader?: boolean
+    /** Optional JSX rendered in a consistent toolbar row above the table
+     *  (typically search inputs, filter pills, etc.). */
+    toolbar?: JSXElement
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Note>('title')
     const showType = () => props.showType ?? true
@@ -68,34 +71,39 @@ export function NoteList(props: {
     const sorted = createMemo(() => sort(props.notes))
 
     return (
-        <table class="resource-table">
-            <Show when={!props.hideHeader}>
-                <thead>
-                    <tr>
-                        <th class="resource-table-col-emoji"></th>
-                        <SortHeader label="Title" active={sortKey() === 'title'} dir={sortDir()} onClick={() => toggleSort('title')} />
-                        <Show when={showType()}>
-                            <SortHeader label="Type" active={sortKey() === 'type'} dir={sortDir()} onClick={() => toggleSort('type')} />
-                        </Show>
-                        <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
-                    </tr>
-                </thead>
+        <div class="resource-list">
+            <Show when={props.toolbar}>
+                <div class="resource-table-toolbar">{props.toolbar}</div>
             </Show>
-            <tbody>
-                <For each={sorted()} fallback={
-                    <tr><td colSpan={4} class="resource-table-empty">No notes yet</td></tr>
-                }>
-                    {(note) => (
-                        <NoteListItem
-                            note={note}
-                            actions={props.actions}
-                            onClick={() => props.onNoteClick?.(note)}
-                            selected={props.isSelected?.(note)}
-                            showType={showType()}
-                        />
-                    )}
-                </For>
-            </tbody>
-        </table>
+            <table class="resource-table">
+                <Show when={!props.hideHeader}>
+                    <thead>
+                        <tr>
+                            <th class="resource-table-col-emoji"></th>
+                            <SortHeader label="Title" active={sortKey() === 'title'} dir={sortDir()} onClick={() => toggleSort('title')} />
+                            <Show when={showType()}>
+                                <SortHeader label="Type" active={sortKey() === 'type'} dir={sortDir()} onClick={() => toggleSort('type')} />
+                            </Show>
+                            <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
+                        </tr>
+                    </thead>
+                </Show>
+                <tbody>
+                    <For each={sorted()} fallback={
+                        <tr><td colSpan={4} class="resource-table-empty">No notes yet</td></tr>
+                    }>
+                        {(note) => (
+                            <NoteListItem
+                                note={note}
+                                actions={props.actions}
+                                onClick={() => props.onNoteClick?.(note)}
+                                selected={props.isSelected?.(note)}
+                                showType={showType()}
+                            />
+                        )}
+                    </For>
+                </tbody>
+            </table>
+        </div>
     )
 }

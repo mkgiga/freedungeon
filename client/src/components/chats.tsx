@@ -54,7 +54,7 @@ function ChatListItem(props: {
             <td class="resource-table-col-name">
                 <span class="resource-table-cell-content">{props.chat.title}</span>
             </td>
-            <td>
+            <td class="resource-table-col-timestamp">
                 <span class="resource-table-cell-content opacity-50">{formatTimestamp(props.chat.updatedAt)}</span>
             </td>
             <Show when={props.actions && props.actions.length > 0}>
@@ -78,34 +78,42 @@ export function ChatList(props: {
     chats: Chat[]
     actions?: ChatAction[]
     onChatClick?: (chat: Chat) => void
+    /** Optional JSX rendered in a consistent toolbar row above the table
+     *  (typically search inputs, filter pills, etc.). */
+    toolbar?: JSXElement
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Chat>('updatedAt', 'desc')
 
     const sorted = createMemo(() => sort(props.chats))
 
     return (
-        <table class="resource-table">
-            <thead>
-                <tr>
-                    <th class="resource-table-col-avatar"></th>
-                    <SortHeader label="Title" active={sortKey() === 'title'} dir={sortDir()} onClick={() => toggleSort('title')} />
-                    <SortHeader label="Updated" active={sortKey() === 'updatedAt'} dir={sortDir()} onClick={() => toggleSort('updatedAt')} />
-                    <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
-                </tr>
-            </thead>
-            <tbody>
-                <For each={sorted()} fallback={
-                    <tr><td colSpan={4} class="resource-table-empty">No chats yet</td></tr>
-                }>
-                    {(chat) => (
-                        <ChatListItem
-                            chat={chat}
-                            actions={props.actions}
-                            onClick={() => props.onChatClick?.(chat)}
-                        />
-                    )}
-                </For>
-            </tbody>
-        </table>
+        <div class="resource-list">
+            <Show when={props.toolbar}>
+                <div class="resource-table-toolbar">{props.toolbar}</div>
+            </Show>
+            <table class="resource-table">
+                <thead>
+                    <tr>
+                        <th class="resource-table-col-avatar"></th>
+                        <SortHeader label="Title" active={sortKey() === 'title'} dir={sortDir()} onClick={() => toggleSort('title')} />
+                        <SortHeader label="Updated" class="resource-table-col-timestamp" active={sortKey() === 'updatedAt'} dir={sortDir()} onClick={() => toggleSort('updatedAt')} />
+                        <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
+                    </tr>
+                </thead>
+                <tbody>
+                    <For each={sorted()} fallback={
+                        <tr><td colSpan={4} class="resource-table-empty">No chats yet</td></tr>
+                    }>
+                        {(chat) => (
+                            <ChatListItem
+                                chat={chat}
+                                actions={props.actions}
+                                onClick={() => props.onChatClick?.(chat)}
+                            />
+                        )}
+                    </For>
+                </tbody>
+            </table>
+        </div>
     )
 }

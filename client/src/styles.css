@@ -342,7 +342,17 @@ button {
 
 .resource-table-col-actions {
   text-align: right;
+  width: 48px;
   height: 1px;
+}
+
+/* Compact column for the "Updated" timestamp in ChatList — gives it just
+ * enough room to fit "X minutes ago" without crowding the title column.
+ * Without this, table-layout: fixed splits the four auto columns equally
+ * and the header labels appear shifted relative to body cells. */
+.resource-table-col-timestamp {
+  width: 110px;
+  white-space: nowrap;
 }
 
 .resource-table-col-actions > div {
@@ -566,15 +576,24 @@ button {
   border-top: 1px solid color-mix(in oklch, var(--text), transparent 88%);
 }
 
-/* ── Chat list tab pills (Chats / Templates) ── */
+/* ── Resource list (shared frame for ActorList / NoteList / ChatList) ── */
 
-.chat-list-tabs {
+.resource-list {
   display: flex;
-  flex-direction: row;
-  gap: 4px;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.resource-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 16px;
   border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
 }
+
+/* ── Chat list tab pills (rendered inside a .resource-table-toolbar) ── */
 
 .chat-list-tab {
   padding: 6px 14px;

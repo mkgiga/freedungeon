@@ -50,15 +50,13 @@ export function ActorPicker(props: {
     }
 
     return (
-        <div class="flex flex-col gap-3 min-h-0 min-w-0 h-full w-full max-w-[520px]">
-            <SearchInput placeholder="Search actors…" value={query()} onInput={setQuery} />
-            <div class="overflow-y-auto flex-1 min-w-0">
-                <ActorList
-                    actors={items()}
-                    onActorClick={toggle}
-                    isSelected={(a) => added().has(a.id)}
-                />
-            </div>
+        <div class="min-h-0 min-w-0 h-full w-full max-w-[520px] overflow-y-auto">
+            <ActorList
+                actors={items()}
+                onActorClick={toggle}
+                isSelected={(a) => added().has(a.id)}
+                toolbar={<SearchInput placeholder="Search actors…" value={query()} onInput={setQuery} />}
+            />
         </div>
     )
 }
@@ -144,15 +142,13 @@ export function NotePicker(props: {
     }
 
     return (
-        <div class="flex flex-col gap-3 min-h-0 min-w-0 h-full w-full max-w-[520px]">
-            <SearchInput placeholder="Search notes…" value={query()} onInput={setQuery} />
-            <div class="overflow-y-auto flex-1 min-w-0">
-                <NoteList
-                    notes={items()}
-                    onNoteClick={toggle}
-                    isSelected={(n) => added().has(n.id)}
-                />
-            </div>
+        <div class="min-h-0 min-w-0 h-full w-full max-w-[520px] overflow-y-auto">
+            <NoteList
+                notes={items()}
+                onNoteClick={toggle}
+                isSelected={(n) => added().has(n.id)}
+                toolbar={<SearchInput placeholder="Search notes…" value={query()} onInput={setQuery} />}
+            />
         </div>
     )
 }

@@ -8,9 +8,12 @@ export function SortHeader(props: {
     active: boolean
     dir: SortDir
     onClick: () => void
+    /** Extra class names applied to the `<th>`, e.g. column-width utilities. */
+    class?: string
 }) {
+    const className = () => ['resource-table-col-sortable', props.class].filter(Boolean).join(' ')
     return (
-        <th class="resource-table-col-sortable" onClick={props.onClick}>
+        <th class={className()} onClick={props.onClick}>
             <span>{props.label}</span>
             <Show when={props.active}>
                 {props.dir === 'asc'
