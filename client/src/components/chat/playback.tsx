@@ -126,16 +126,25 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
     // change in the same batch. Splitting these into two effects could let
     // the messages-detection effect run first and treat freshly-loaded
     // history as "new," kicking off playback for an old message.
+    //
+    // Iteration of `state.currentChat.messages` MUST happen at the top of
+    // the effect (in tracked scope, outside any `untrack`). Solid stores
+    // only register a key-tracking subscription when an object is iterated
+    // — reading the proxy reference alone doesn't subscribe to insertions.
+    // If the iteration sat inside the reseed-branch's `untrack`, after a
+    // chat switch this effect would have no subscription on key additions
+    // and the next assistant message arriving in that chat would never
+    // trigger playback.
     let lastSeenChatId: string | null = null
     createEffect(() => {
-        const cid = state.currentChat.id  // track
-        const messages = state.currentChat.messages  // track
+        const cid = state.currentChat.id
+        const allMessages = Object.values(state.currentChat.messages)
 
         if (cid !== lastSeenChatId) {
             untrack(() => {
                 skipAll()
                 seenAssistantIds.clear()
-                for (const m of Object.values(messages)) {
+                for (const m of allMessages) {
                     if (m.role === 'assistant') seenAssistantIds.add(m.id)
                 }
             })
@@ -146,7 +155,7 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         if (untrack(playingMessageId) !== null) return
 
         let candidate: ChatMessage | null = null
-        for (const m of Object.values(messages)) {
+        for (const m of allMessages) {
             if (m.role !== 'assistant') continue
             if (seenAssistantIds.has(m.id)) continue
             if (!candidate || sortByCreatedAt(m, candidate) > 0) candidate = m
