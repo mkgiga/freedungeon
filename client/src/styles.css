@@ -1212,31 +1212,44 @@ button {
 
 /* ── Pause Block ──
  *
- * Only rendered while the pause is the currently-blocked-on block during
- * playback (the component returns null otherwise). An animated ellipsis
- * cycles ... -> .. -> . -> loop. The dots are always in the DOM and
- * toggled via opacity, so the container width stays constant — no reflow
- * as the visible-dot count changes. */
+ * The outer container is always rendered at 0 height so it holds a flex
+ * slot in the message (preserving the gap above and below) without
+ * contributing any height of its own. The ellipsis is absolutely
+ * positioned and centered on the pause's between-blocks line, so toggling
+ * it visible/hidden never grows or shrinks the message's height — no
+ * layout shift as a pause activates and auto-advances. The dots stay in
+ * the DOM at all times so the ellipsis width is also constant; we only
+ * flip `visibility` and pause the dot animations on inactive pauses. */
 
 .chat-block-pause {
-  display: flex;
-  align-items: center;
-  padding: 6px var(--chat-block-indent);
-  opacity: 0.5;
-  font-size: var(--text-base);
+  position: relative;
+  height: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .chat-block-pause-ellipsis {
+  position: absolute;
+  left: var(--chat-block-indent);
+  top: 0;
+  transform: translateY(-50%);
   display: inline-flex;
   letter-spacing: 0.15em;
   line-height: 1;
+  font-size: var(--text-base);
+  opacity: 0.5;
+  visibility: hidden;
 }
 
-.chat-block-pause-dot:nth-child(2) {
+.chat-block-pause-ellipsis.is-active {
+  visibility: visible;
+}
+
+.chat-block-pause-ellipsis.is-active .chat-block-pause-dot:nth-child(2) {
   animation: chat-pause-dot-2 1.2s linear infinite;
 }
 
-.chat-block-pause-dot:nth-child(3) {
+.chat-block-pause-ellipsis.is-active .chat-block-pause-dot:nth-child(3) {
   animation: chat-pause-dot-3 1.2s linear infinite;
 }
 
