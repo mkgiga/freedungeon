@@ -19,10 +19,12 @@ import { GameStateActorStatus } from '../GameStateActorStatus'
 import { ChatHotbar } from './ChatHotbar'
 import { InventoryModal } from './InventoryModal'
 import { Toolbar } from '../Toolbar'
+import { usePlayback } from './playback'
 
 export function ChatInput() {
     const [message, setMessage] = createSignal('')
     const modal = useModal()
+    const playback = usePlayback()
 
     const currentActor = createMemo(() => {
         const id = state.userPreferences.playerCharacterId
@@ -33,7 +35,7 @@ export function ChatInput() {
     const playerHp = createMemo(() => {
         const actor = currentActor()
         if (!actor) return null
-        return state.currentChat.gameState.scene.actors.active[actor.customId]?.hp ?? null
+        return playback.effectiveGameState().scene.actors.active[actor.customId]?.hp ?? null
     })
 
     // Mirrors GameStateActorStatus's percentage math — default max is 100 since
@@ -54,7 +56,7 @@ export function ChatInput() {
     const openInventory = () => {
         modal.open({
             title: 'Inventory',
-            content: () => <InventoryModal />,
+            content: () => <InventoryModal gameState={() => playback.effectiveGameState()} />,
         })
     }
 
@@ -62,6 +64,9 @@ export function ChatInput() {
         const text = message().trim()
         if (!text) return
         setMessage('')
+        // If a previous assistant turn is mid-playback, commit it instantly
+        // so the new turn lands in a clean state and can start its own playback.
+        playback.skipAll()
         await trpc.chat.prompt.mutate({ message: `unformatted(${JSON.stringify(text)});` })
     }
 
@@ -80,16 +85,18 @@ export function ChatInput() {
     const handleRegenerate = () => {
         const id = latestMessageId()
         if (!id) return
+        playback.skipAll()
         trpc.chat.regenerateMessage.mutate({ id })
     }
 
     const handleContinue = async () => {
+        playback.skipAll()
         await trpc.chat.prompt.mutate({ message: `noOpContinue()` })
     }
 
     return (
         <div class="chat-input-container relative">
-            <Show when={state.currentChat.gameState.scene.actors.active[currentActor()?.customId ?? '']}>
+            <Show when={playback.effectiveGameState().scene.actors.active[currentActor()?.customId ?? '']}>
                 <div class="hp-bar" style={{ position: 'absolute', top: "-12px", left: 0, right: 0, height: '12px' }}>
                     <div class="hp-bar-fill relative" style={{ width: `${hpPct()}%`, height: '100%' }} />
                     <Text shadow='sm' size="sm" class="hp-bar-text absolute inset-0 flex items-center justify-center pointer-events-none">

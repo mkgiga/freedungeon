@@ -20,7 +20,7 @@ import { z } from 'zod';
 import { notification } from './notifications';
 import { nanoid } from 'nanoid';
 import { bootstrapGenerationSync } from './llm';
-import { createInitialContext } from './game-state/scope';
+import { createInitialContext } from './game-state';
 
 export const app = new Hono();
 export const httpServer = createServer();

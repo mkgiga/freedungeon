@@ -18,6 +18,7 @@ import { Em } from '../../components/typography/Em'
 import type { Chat, ChatMessage as ChatMessageType } from '@shared/types'
 import { Spacer } from '../../components/Spacer'
 import { Toolbar } from '../../components/Toolbar'
+import { PlaybackProvider, usePlayback } from '../../components/chat/playback'
 
 const PAGE_SIZE = 30    // how many messages to load per sentinel-trigger
 const WINDOW_SIZE = 100 // max messages rendered to the DOM at once
@@ -195,8 +196,20 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
 }
 
 function ConversationView(props: { onBack: () => void }) {
+  // PlaybackProvider must wrap everything that consumes playback state via
+  // usePlayback() — the top-bar HUD reads `effectiveGameState`, ChatMessage
+  // reads cursor/playingMessageId, and ChatInput calls skipAll() on send.
+  return (
+    <PlaybackProvider>
+      <ConversationViewBody onBack={props.onBack} />
+    </PlaybackProvider>
+  )
+}
+
+function ConversationViewBody(props: { onBack: () => void }) {
   const drawer = useDrawer()
   const modal = useModal()
+  const playback = usePlayback()
 
   const resolveActorName = (customId: string) => {
     for (const a of Object.values(state.assets.actors)) {
@@ -399,7 +412,7 @@ function ConversationView(props: { onBack: () => void }) {
             <>
               <Spacer dir={'horizontal'} size={'md'} />
               <div class="chat-topbar-actors">
-                <For each={Object.entries(state.currentChat.gameState.scene.actors.active).sort(([idA], [idB]) => {
+                <For each={Object.entries(playback.effectiveGameState().scene.actors.active).sort(([idA], [idB]) => {
                   const hasAvatarA = Boolean(state.assets.actors[idA]?.avatarUrl?.length)
                   const hasAvatarB = Boolean(state.assets.actors[idB]?.avatarUrl?.length)
                   if (hasAvatarA !== hasAvatarB) return hasAvatarA ? -1 : 1

@@ -1,4 +1,5 @@
 import type { GameStateContext, ActorGameState } from '@shared/types';
+import type { Block } from '@shared/blocks';
 
 const DEFAULT_ACTOR_HP = 100;
 
@@ -40,7 +41,7 @@ function ensureActive(ctx: GameStateContext, id: string): boolean {
 
 export function createScope({ ctx, arr }: ScopeBinding) {
     return {
-        // ── Display-only (mirror client/src/components/chat/blocks.ts) ────
+        // ── Display-only (mirror shared/blocks.ts) ────────────────────────
         unformatted: (_text: string) => {},
         text: (_text: string) => {},
         speech: (customIdOrDialogue: string, textOrOpts?: string | object, _opts?: object) => {
@@ -108,4 +109,45 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         },
         attack: (_target: string) => {},
     } as const;
+}
+
+/**
+ * Apply a single parsed Block's effect to a context. Used by the client during
+ * progressive playback of an assistant turn: the cursor advances block-by-block
+ * and each step calls this to keep `effectiveGameState` in sync without going
+ * back through `new Function(...)` evaluation. Display-only blocks are no-ops.
+ *
+ * Implementation routes through `createScope` so the per-command logic stays
+ * declared in exactly one place.
+ */
+export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string[]): void {
+    const scope = createScope({ ctx, arr });
+    switch (block.type) {
+        case 'speech':
+            // Only the predefined form (with actorId) ensures the actor is active.
+            if (block.actorId) scope.speech(block.actorId, block.dialogue);
+            return;
+        case 'enterActors':
+            scope.enterActors(...block.actors);
+            return;
+        case 'leaveActors':
+            scope.leaveActors(...block.actors);
+            return;
+        case 'setHp':
+            scope.setHp(block.actorId, block.value);
+            return;
+        case 'damage':
+            scope.damage(block.actorId, block.amount);
+            return;
+        case 'heal':
+            scope.heal(block.actorId, block.amount);
+            return;
+        case 'giveItem':
+            scope.giveItem(block.name, block.qty);
+            return;
+        case 'takeItem':
+            scope.takeItem(block.name, block.qty);
+            return;
+        // text / pause / image / webview / unformatted / noOpContinue: display-only.
+    }
 }

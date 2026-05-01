@@ -1,7 +1,7 @@
-import { createMemo, For, Match, Switch } from 'solid-js'
+import { createMemo, For, Match, Show, Switch } from 'solid-js'
 import { MdFillMore_horiz } from 'solid-icons/md'
 import type { ChatMessage as ChatMessageType } from '@shared/types'
-import { parseBlocks, serializeBlocks, type Block } from './blocks'
+import { parseBlocks, serializeBlocks, isBlockingBlock, type Block } from './blocks'
 import { trpc } from '../../trpc'
 import { Dropdown } from '../Dropdown'
 import { useModal } from '../Modal'
@@ -18,10 +18,33 @@ import { DamageBlock } from './blocks/DamageBlock'
 import { HealBlock } from './blocks/HealBlock'
 import { GiveItemBlock } from './blocks/GiveItemBlock'
 import { TakeItemBlock } from './blocks/TakeItemBlock'
+import { usePlayback } from './playback'
 
 export function ChatMessage(props: { message: ChatMessageType }) {
     const blocks = createMemo(() => parseBlocks(props.message.content))
     const modal = useModal()
+    const playback = usePlayback()
+
+    // While this message is mid-playback, only blocks 0..cursor-1 are visible.
+    // Once playback ends (or for any other message), show the full block list.
+    const visibleBlocks = createMemo<Block[]>(() => {
+        const all = blocks()
+        if (props.message.id !== playback.playingMessageId()) return all
+        return all.slice(0, playback.cursor())
+    })
+
+    // The Next button only shows when we're paused on a non-pause blocking
+    // block (text/speech). Pause blocks auto-advance after their duration —
+    // they show their own ellipsis and don't need a button.
+    const showNextButton = createMemo(() => {
+        if (props.message.id !== playback.playingMessageId()) return false
+        const c = playback.cursor()
+        const all = blocks()
+        if (c <= 0 || c > all.length) return false
+        const lastRevealed = all[c - 1]!
+        if (!isBlockingBlock(lastRevealed)) return false
+        return lastRevealed.type !== 'pause'
+    })
 
     const updateBlock = (index: number, updated: Block) => {
         const current = blocks()
@@ -67,7 +90,7 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                     ]}
                 />
             </div>
-            <For each={blocks()}>
+            <For each={visibleBlocks()}>
                 {(block, i) => (
                     <Switch>
                         <Match when={block.type === 'speech'}>
@@ -92,6 +115,7 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                             <PauseBlock
                                 block={block as Extract<Block, { type: 'pause' }>}
                                 onUpdate={(b) => updateBlock(i(), b)}
+                                isActive={playback.isActiveBlock(props.message.id, i())}
                             />
                         </Match>
                         <Match when={block.type === 'webview'}>
@@ -139,6 +163,11 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                     </Switch>
                 )}
             </For>
+            <Show when={showNextButton()}>
+                <button class="chat-block-next" onClick={() => playback.advance()} type="button">
+                    Next…
+                </button>
+            </Show>
         </div>
     )
 }

@@ -1,11 +1,16 @@
 import { createMemo, For, Show } from 'solid-js'
-import { state } from '../../state'
+import type { GameStateContext } from '@shared/types'
 import { Text } from '../typography/Text'
 import { pickEmojiForItem } from './inventory/itemEmoji'
 
-export function InventoryModal() {
+export function InventoryModal(props: {
+    /** Reactive accessor for the game state to display. Passed in as a prop
+     *  rather than read from context because Modal renders content through a
+     *  Portal whose owner chain doesn't include `PlaybackProvider`. */
+    gameState: () => GameStateContext
+}) {
     const items = createMemo(() =>
-        Object.entries(state.currentChat.gameState.inventory ?? {})
+        Object.entries(props.gameState().inventory ?? {})
             .filter(([, qty]) => qty > 0)
             .sort(([a], [b]) => a.localeCompare(b))
     )

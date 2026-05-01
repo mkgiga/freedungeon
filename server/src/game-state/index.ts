@@ -1,11 +1,9 @@
 import type { ChatMessage, GameStateContext } from '@shared/types';
-import { createScope, createInitialContext } from './scope';
+import { runTurn as runTurnShared, type SharedTurnResult } from '@shared/game-state';
 
-export { createInitialContext } from './scope';
+export { createInitialContext, applyBlockToCtx, executeContent } from '@shared/game-state';
 
-export type TurnResult = {
-    ctx: GameStateContext;
-    messageResults: Map<string, string[]>;
+export type TurnResult = SharedTurnResult & {
     systemPromptGameState: string;
     mostRecentUserMessageState: string;
 };
@@ -28,30 +26,14 @@ function sortMessages(messages: ChatMessage[]): ChatMessage[] {
     );
 }
 
-function executeContent(content: string, scope: Record<string, unknown>): void {
-    const names = Object.keys(scope);
-    const vals = Object.values(scope);
-    try {
-        new Function(...names, `"use strict";\n${content}`)(...vals);
-    } catch (err) {
-        console.warn('[game-state] executor error:', err);
-    }
-}
-
+/**
+ * Server wrapper around the shared turn replay: extends the shared result with
+ * the two transient prompt-injection strings the macro system consumes.
+ */
 export function runTurn(messages: ChatMessage[]): TurnResult {
-    const sorted = sortMessages(messages);
-    const ctx = createInitialContext();
-    const messageResults = new Map<string, string[]>();
-
-    for (const msg of sorted) {
-        const arr: string[] = [];
-        const scope = createScope({ ctx, arr });
-        executeContent(msg.content, scope);
-        messageResults.set(msg.id, arr);
-    }
-
-    const { systemPromptGameState, mostRecentUserMessageState } = formatGameStateAsString(ctx);
-    return { ctx, messageResults, systemPromptGameState, mostRecentUserMessageState };
+    const shared = runTurnShared(messages);
+    const { systemPromptGameState, mostRecentUserMessageState } = formatGameStateAsString(shared.ctx);
+    return { ...shared, systemPromptGameState, mostRecentUserMessageState };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
