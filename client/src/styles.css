@@ -1250,27 +1250,36 @@ button {
   33.33%, 100% { opacity: 0; }
 }
 
-/* ── Next button (visual-novel-style playback) ──
+/* ── Visual-novel playback affordances ──
  *
- * Rendered after the last visible block when playback is paused on a
- * blocking text/speech. Pause blocks auto-advance, so this button never
- * appears below them. */
+ * While a text/speech block is the currently-blocked-on block, its content
+ * is rendered as a plain (non-editable) div with a typewriter reveal driven
+ * by local component state. Tapping the block skips the reveal; tapping
+ * once fully revealed (the triangle is visible) advances playback. The
+ * `chat-block-active` modifier wires up the tap-target affordance and
+ * suppresses any caret/selection styling on the locked text. */
 
-.chat-block-next {
-  align-self: flex-start;
-  margin: 6px var(--chat-block-indent) 4px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--primary), transparent 80%);
-  color: var(--primary);
-  font-size: var(--text-sm);
-  font-weight: 600;
+.chat-block-active {
   cursor: pointer;
-  transition: background-color 120ms, color 120ms;
+}
 
-  &:hover {
-    background: color-mix(in oklch, var(--primary), transparent 65%);
-  }
+.chat-block-text-locked,
+.chat-block-dialogue-locked {
+  caret-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.chat-block-tap-indicator {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--primary);
+  animation: chat-tap-blink 1s steps(2, end) infinite;
+}
+
+@keyframes chat-tap-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
 }
 
 /* ── AutoContinue separator block ── */

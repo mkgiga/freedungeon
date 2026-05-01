@@ -1,7 +1,7 @@
-import { createMemo, For, Match, Show, Switch } from 'solid-js'
+import { createMemo, For, Match, Switch } from 'solid-js'
 import { MdFillMore_horiz } from 'solid-icons/md'
 import type { ChatMessage as ChatMessageType } from '@shared/types'
-import { parseBlocks, serializeBlocks, isBlockingBlock, type Block } from './blocks'
+import { parseBlocks, serializeBlocks, type Block } from './blocks'
 import { trpc } from '../../trpc'
 import { Dropdown } from '../Dropdown'
 import { useModal } from '../Modal'
@@ -31,19 +31,6 @@ export function ChatMessage(props: { message: ChatMessageType }) {
         const all = blocks()
         if (props.message.id !== playback.playingMessageId()) return all
         return all.slice(0, playback.cursor())
-    })
-
-    // The Next button only shows when we're paused on a non-pause blocking
-    // block (text/speech). Pause blocks auto-advance after their duration —
-    // they show their own ellipsis and don't need a button.
-    const showNextButton = createMemo(() => {
-        if (props.message.id !== playback.playingMessageId()) return false
-        const c = playback.cursor()
-        const all = blocks()
-        if (c <= 0 || c > all.length) return false
-        const lastRevealed = all[c - 1]!
-        if (!isBlockingBlock(lastRevealed)) return false
-        return lastRevealed.type !== 'pause'
     })
 
     const updateBlock = (index: number, updated: Block) => {
@@ -97,12 +84,16 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                             <SpeechBlock
                                 block={block as Extract<Block, { type: 'speech' }>}
                                 onUpdate={(b) => updateBlock(i(), b)}
+                                isActive={playback.isActiveBlock(props.message.id, i())}
+                                onAdvance={() => playback.advance()}
                             />
                         </Match>
                         <Match when={block.type === 'text'}>
                             <TextBlock
                                 block={block as Extract<Block, { type: 'text' }>}
                                 onUpdate={(b) => updateBlock(i(), b)}
+                                isActive={playback.isActiveBlock(props.message.id, i())}
+                                onAdvance={() => playback.advance()}
                             />
                         </Match>
                         <Match when={block.type === 'image'}>
@@ -163,11 +154,6 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                     </Switch>
                 )}
             </For>
-            <Show when={showNextButton()}>
-                <button class="chat-block-next" onClick={() => playback.advance()} type="button">
-                    Next…
-                </button>
-            </Show>
         </div>
     )
 }
