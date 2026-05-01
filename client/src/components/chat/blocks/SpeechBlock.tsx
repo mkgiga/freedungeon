@@ -113,6 +113,13 @@ export function SpeechBlock(props: {
                 >
                     <div class="chat-block-dialogue chat-block-dialogue-locked">
                         {props.block.dialogue.slice(0, revealedCount())}
+                        {/* Pending dialogue rendered with `visibility: hidden`
+                         * so it contributes to layout (line wrapping + total
+                         * height) without being painted. The block sits at
+                         * its final size from character 0. */}
+                        <span class="chat-block-dialogue-pending">
+                            {props.block.dialogue.slice(revealedCount())}
+                        </span>
                         <Show when={!isScrolling()}>
                             <span class="chat-block-tap-indicator">▶</span>
                         </Show>

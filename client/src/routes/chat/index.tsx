@@ -298,11 +298,19 @@ function ConversationViewBody(props: { onBack: () => void }) {
   // The 1-pixel buffer keeps scrollTop off the exact maximum: iOS Safari treats
   // an at-extreme scroller as unable to consume touch and routes the gesture to
   // an ancestor, but the root is position:fixed so the gesture is discarded.
+  // While a message is mid-playback we skip the pin entirely. Each playing
+  // message reserves its full final height upfront (visibility:hidden tail of
+  // future blocks in ChatMessage), so pinning to the bottom would land the
+  // user on the empty hidden region below the typewriter. Staying at the
+  // previous scroll position leaves the user just above the new message —
+  // they scroll into it at their own pace, which is the whole point of the
+  // height-reservation design.
   createEffect(() => {
     if (pinnedIds() !== null) return
     visibleMessages() // subscribe to changes
     queueMicrotask(() => {
       if (!scrollEl) return
+      if (playback.playingMessageId() !== null) return
       scrollEl.scrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight - 1)
     })
   })

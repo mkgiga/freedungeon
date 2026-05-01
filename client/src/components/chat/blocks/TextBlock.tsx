@@ -63,6 +63,13 @@ export function TextBlock(props: {
             >
                 <div class="chat-block-text-content chat-block-text-locked">
                     {props.block.content.slice(0, revealedCount())}
+                    {/* Pending text is rendered with `visibility: hidden` so it
+                     * still contributes to layout — the block sits at its
+                     * final wrapped size from character 0 and the surrounding
+                     * message height doesn't grow as the typewriter reveals. */}
+                    <span class="chat-block-text-pending">
+                        {props.block.content.slice(revealedCount())}
+                    </span>
                     <Show when={!isScrolling()}>
                         <span class="chat-block-tap-indicator">▶</span>
                     </Show>

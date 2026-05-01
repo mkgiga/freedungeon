@@ -1270,6 +1270,25 @@ button {
   -webkit-user-select: none;
 }
 
+/* Pending text inside an active text/speech block. Rendered with
+ * visibility:hidden so it still wraps and contributes to the block's height
+ * but isn't painted — the active block is at its final size from character 0
+ * and the typewriter just moves the cut point between visible and hidden. */
+.chat-block-text-pending,
+.chat-block-dialogue-pending {
+  visibility: hidden;
+}
+
+/* Wrapper around a block that hasn't been revealed yet by playback. The
+ * block underneath is rendered at its final size (full text, all DOM)
+ * but `visibility: hidden` keeps it unpainted while preserving layout —
+ * the whole message reserves its final height the moment it arrives, so
+ * the typewriter and cursor advances never reflow surrounding content. */
+.chat-block-future {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .chat-block-tap-indicator {
   display: inline-block;
   margin-left: 4px;

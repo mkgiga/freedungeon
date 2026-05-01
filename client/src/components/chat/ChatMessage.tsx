@@ -25,13 +25,15 @@ export function ChatMessage(props: { message: ChatMessageType }) {
     const modal = useModal()
     const playback = usePlayback()
 
-    // While this message is mid-playback, only blocks 0..cursor-1 are visible.
-    // Once playback ends (or for any other message), show the full block list.
-    const visibleBlocks = createMemo<Block[]>(() => {
-        const all = blocks()
-        if (props.message.id !== playback.playingMessageId()) return all
-        return all.slice(0, playback.cursor())
-    })
+    // Whether a given block index is "in the future" of the current playback —
+    // i.e., this message is the playing one AND the block hasn't been revealed
+    // yet (`i >= cursor`). Future blocks still render to the DOM at their full
+    // height; they just get `visibility: hidden` via .chat-block-future so
+    // they reserve layout space without being painted. The result is a
+    // stable, full-final-height layout for the playing message from the
+    // moment it arrives — no reflow as the typewriter or cursor advances.
+    const isFutureBlock = (i: number) =>
+        props.message.id === playback.playingMessageId() && i >= playback.cursor()
 
     const updateBlock = (index: number, updated: Block) => {
         const current = blocks()
@@ -77,81 +79,83 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                     ]}
                 />
             </div>
-            <For each={visibleBlocks()}>
+            <For each={blocks()}>
                 {(block, i) => (
-                    <Switch>
-                        <Match when={block.type === 'speech'}>
-                            <SpeechBlock
-                                block={block as Extract<Block, { type: 'speech' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                                isActive={playback.isActiveBlock(props.message.id, i())}
-                                onAdvance={() => playback.advance()}
-                            />
-                        </Match>
-                        <Match when={block.type === 'text'}>
-                            <TextBlock
-                                block={block as Extract<Block, { type: 'text' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                                isActive={playback.isActiveBlock(props.message.id, i())}
-                                onAdvance={() => playback.advance()}
-                            />
-                        </Match>
-                        <Match when={block.type === 'image'}>
-                            <ImageBlock
-                                block={block as Extract<Block, { type: 'image' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                            />
-                        </Match>
-                        <Match when={block.type === 'pause'}>
-                            <PauseBlock
-                                block={block as Extract<Block, { type: 'pause' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                                isActive={playback.isActiveBlock(props.message.id, i())}
-                            />
-                        </Match>
-                        <Match when={block.type === 'webview'}>
-                            <WebviewBlock
-                                block={block as Extract<Block, { type: 'webview' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                            />
-                        </Match>
-                        <Match when={block.type === 'unformatted'}>
-                            <UnformattedBlock
-                                block={block as Extract<Block, { type: 'unformatted' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                            />
-                        </Match>
-                        <Match when={block.type === 'noOpContinue'}>
-                            <NoOpContinueBlock
-                                block={block as Extract<Block, { type: 'noOpContinue' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                            />
-                        </Match>
-                        <Match when={block.type === 'damage'}>
-                            <DamageBlock
-                                block={block as Extract<Block, { type: 'damage' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                            />
-                        </Match>
-                        <Match when={block.type === 'heal'}>
-                            <HealBlock
-                                block={block as Extract<Block, { type: 'heal' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                            />
-                        </Match>
-                        <Match when={block.type === 'giveItem'}>
-                            <GiveItemBlock
-                                block={block as Extract<Block, { type: 'giveItem' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                            />
-                        </Match>
-                        <Match when={block.type === 'takeItem'}>
-                            <TakeItemBlock
-                                block={block as Extract<Block, { type: 'takeItem' }>}
-                                onUpdate={(b) => updateBlock(i(), b)}
-                            />
-                        </Match>
-                    </Switch>
+                    <div classList={{ 'chat-block-future': isFutureBlock(i()) }}>
+                        <Switch>
+                            <Match when={block.type === 'speech'}>
+                                <SpeechBlock
+                                    block={block as Extract<Block, { type: 'speech' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                    isActive={playback.isActiveBlock(props.message.id, i())}
+                                    onAdvance={() => playback.advance()}
+                                />
+                            </Match>
+                            <Match when={block.type === 'text'}>
+                                <TextBlock
+                                    block={block as Extract<Block, { type: 'text' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                    isActive={playback.isActiveBlock(props.message.id, i())}
+                                    onAdvance={() => playback.advance()}
+                                />
+                            </Match>
+                            <Match when={block.type === 'image'}>
+                                <ImageBlock
+                                    block={block as Extract<Block, { type: 'image' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'pause'}>
+                                <PauseBlock
+                                    block={block as Extract<Block, { type: 'pause' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                    isActive={playback.isActiveBlock(props.message.id, i())}
+                                />
+                            </Match>
+                            <Match when={block.type === 'webview'}>
+                                <WebviewBlock
+                                    block={block as Extract<Block, { type: 'webview' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'unformatted'}>
+                                <UnformattedBlock
+                                    block={block as Extract<Block, { type: 'unformatted' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'noOpContinue'}>
+                                <NoOpContinueBlock
+                                    block={block as Extract<Block, { type: 'noOpContinue' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'damage'}>
+                                <DamageBlock
+                                    block={block as Extract<Block, { type: 'damage' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'heal'}>
+                                <HealBlock
+                                    block={block as Extract<Block, { type: 'heal' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'giveItem'}>
+                                <GiveItemBlock
+                                    block={block as Extract<Block, { type: 'giveItem' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'takeItem'}>
+                                <TakeItemBlock
+                                    block={block as Extract<Block, { type: 'takeItem' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                        </Switch>
+                    </div>
                 )}
             </For>
         </div>
