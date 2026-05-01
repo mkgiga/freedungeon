@@ -1272,6 +1272,15 @@ button {
  * `chat-block-active` modifier wires up the tap-target affordance and
  * suppresses any caret/selection styling on the locked text. */
 
+/* Whole-message tap target while this message is being played: any tap on
+ * non-interactive content (locked text, whitespace, gaps between blocks)
+ * routes to `playback.tap()` via the message-level click handler. The
+ * per-block `chat-block-active` class is now decorative — kept for any
+ * future styling needs but no longer drives a click handler. */
+.chat-message-playing {
+  cursor: pointer;
+}
+
 .chat-block-active {
   cursor: pointer;
 }

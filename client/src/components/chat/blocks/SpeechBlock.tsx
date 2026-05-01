@@ -1,24 +1,25 @@
-import { createEffect, createMemo, createSignal, on, onCleanup, Show } from 'solid-js'
+import { createMemo, Show } from 'solid-js'
 import type { SpeechBlock as SpeechBlockType } from '../blocks'
 import { state } from '../../../state'
 import { ImageIcon } from '../../ImageIcon'
 import { useModal } from '../../Modal'
 import { openExpressionPicker } from '../ExpressionPicker'
 import { EditableText } from '../EditableText'
-
-const TYPEWRITER_MS_PER_CHAR = 25
+import { usePlayback } from '../playback'
 
 export function SpeechBlock(props: {
     block: SpeechBlockType
     onUpdate: (block: SpeechBlockType) => void
     /** True only while this block is the currently-blocked-on block during
-     *  playback. Drives the typewriter reveal of the dialogue and locks the
-     *  avatar/EditableText so taps act as playback controls. */
+     *  playback. Reveal progress + tap routing are owned by the playback
+     *  context — this component just renders what playback says is visible. */
     isActive?: boolean
-    /** Called when the user taps an active, fully-revealed block. */
+    /** Kept for API compatibility; advance is now driven by the message-level
+     *  click handler in ChatMessage via `playback.tap()`. */
     onAdvance?: () => void
 }) {
     const modal = useModal()
+    const playback = usePlayback()
 
     const actor = createMemo(() => {
         if (!props.block.actorId) return null
@@ -51,42 +52,11 @@ export function SpeechBlock(props: {
         })
     }
 
-    const [revealedCount, setRevealedCount] = createSignal(0)
-
-    // Reset and run the typewriter every time isActive flips true. Same shape
-    // as TextBlock — local UI animation state, only meaningful while active.
-    createEffect(on(() => props.isActive, (active) => {
-        if (!active) return
-        const text = props.block.dialogue
-        setRevealedCount(0)
-        if (text.length === 0) return
-        const timer = setInterval(() => {
-            setRevealedCount(c => {
-                const next = c + 1
-                if (next >= text.length) clearInterval(timer)
-                return next
-            })
-        }, TYPEWRITER_MS_PER_CHAR)
-        onCleanup(() => clearInterval(timer))
-    }))
-
-    const isScrolling = () => props.isActive && revealedCount() < props.block.dialogue.length
-
-    const handleClick = () => {
-        if (!props.isActive) return
-        if (isScrolling()) {
-            setRevealedCount(props.block.dialogue.length)
-        } else {
-            props.onAdvance?.()
-        }
-    }
+    const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : props.block.dialogue.length)
+    const isScrolling = () => props.isActive && playback.isActiveScrolling()
 
     return (
-        <div
-            class="chat-block chat-block-speech"
-            classList={{ 'chat-block-active': props.isActive }}
-            onClick={handleClick}
-        >
+        <div class="chat-block chat-block-speech" classList={{ 'chat-block-active': props.isActive }}>
             <button
                 class="chat-block-avatar"
                 onClick={openPicker}

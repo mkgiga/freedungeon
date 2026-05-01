@@ -35,6 +35,30 @@ export function ChatMessage(props: { message: ChatMessageType }) {
     const isFutureBlock = (i: number) =>
         props.message.id === playback.playingMessageId() && i >= playback.cursor()
 
+    const isPlaying = () => props.message.id === playback.playingMessageId()
+
+    /**
+     * Message-level tap target. While this message is mid-playback, a tap
+     * anywhere in the message routes to `playback.tap()` (skip-scroll if the
+     * typewriter is still going, otherwise advance). Interactive descendants
+     * keep their own behavior:
+     *   - Past blocks' EditableText handles its own focus → editing.
+     *   - Past speech avatars (enabled buttons) open the expression picker.
+     *   - The chat-message-actions dropdown calls `e.stopPropagation()` on
+     *     its trigger, so it never reaches this handler.
+     *
+     * The filter `button:not(:disabled), .editable-text` lets clicks on
+     * interactive elements pass through unhandled, while everything else —
+     * the locked text/dialogue area, whitespace, the speech-block name, the
+     * disabled-while-active avatar — falls through to `tap()`.
+     */
+    const handleMessageClick = (e: MouseEvent) => {
+        if (!isPlaying()) return
+        const target = e.target as HTMLElement | null
+        if (target?.closest('button:not(:disabled), input, textarea, select, .editable-text, a[href]')) return
+        playback.tap()
+    }
+
     const updateBlock = (index: number, updated: Block) => {
         const current = blocks()
         const newBlocks = current.map((b, i) => (i === index ? updated : b))
@@ -67,7 +91,11 @@ export function ChatMessage(props: { message: ChatMessageType }) {
     }
 
     return (
-        <div class="chat-message">
+        <div
+            class="chat-message"
+            classList={{ 'chat-message-playing': isPlaying() }}
+            onClick={handleMessageClick}
+        >
             <div class="chat-message-actions">
                 <Dropdown
                     trigger={<MdFillMore_horiz size={18} />}

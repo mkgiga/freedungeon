@@ -1,56 +1,26 @@
-import { createEffect, createSignal, on, onCleanup, Show } from 'solid-js'
+import { Show } from 'solid-js'
 import type { TextBlock as TextBlockType } from '../blocks'
 import { EditableText } from '../EditableText'
-
-const TYPEWRITER_MS_PER_CHAR = 25
+import { usePlayback } from '../playback'
 
 export function TextBlock(props: {
     block: TextBlockType
     onUpdate: (block: TextBlockType) => void
     /** True only while this block is the currently-blocked-on block during
-     *  playback. Drives the typewriter reveal and locks the EditableText so
-     *  taps act as playback controls instead of entering edit mode. */
+     *  playback. Reveal progress + tap routing are owned by the playback
+     *  context — this component just renders what playback says is visible. */
     isActive?: boolean
-    /** Called when the user taps an active, fully-revealed block. */
+    /** Kept for API compatibility; advance is now driven by the message-level
+     *  click handler in ChatMessage via `playback.tap()`. */
     onAdvance?: () => void
 }) {
-    const [revealedCount, setRevealedCount] = createSignal(0)
+    const playback = usePlayback()
 
-    // Reset and run the typewriter every time isActive flips true. `on` keys
-    // the effect on isActive specifically — content changes while active are
-    // ignored (the assumption is that an in-flight playback owns the text).
-    createEffect(on(() => props.isActive, (active) => {
-        if (!active) return
-        const text = props.block.content
-        setRevealedCount(0)
-        if (text.length === 0) return
-        const timer = setInterval(() => {
-            setRevealedCount(c => {
-                const next = c + 1
-                if (next >= text.length) clearInterval(timer)
-                return next
-            })
-        }, TYPEWRITER_MS_PER_CHAR)
-        onCleanup(() => clearInterval(timer))
-    }))
-
-    const isScrolling = () => props.isActive && revealedCount() < props.block.content.length
-
-    const handleClick = () => {
-        if (!props.isActive) return
-        if (isScrolling()) {
-            setRevealedCount(props.block.content.length)
-        } else {
-            props.onAdvance?.()
-        }
-    }
+    const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : props.block.content.length)
+    const isScrolling = () => props.isActive && playback.isActiveScrolling()
 
     return (
-        <div
-            class="chat-block chat-block-text"
-            classList={{ 'chat-block-active': props.isActive }}
-            onClick={handleClick}
-        >
+        <div class="chat-block chat-block-text" classList={{ 'chat-block-active': props.isActive }}>
             <Show
                 when={props.isActive}
                 fallback={

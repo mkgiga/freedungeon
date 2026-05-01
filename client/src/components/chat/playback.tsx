@@ -23,6 +23,15 @@ type PlaybackApi = {
      *  ctx computed from history + revealed blocks of the playing message.
      *  Otherwise it's the server-authoritative `currentChat.gameState`. */
     effectiveGameState: () => GameStateContext
+    /** Number of characters revealed in the active text/speech block's
+     *  typewriter animation. Reset to 0 each time the active block changes. */
+    activeRevealedCount: () => number
+    /** True while the active block's typewriter is still revealing characters. */
+    isActiveScrolling: () => boolean
+    /** Single tap entry point: skip the active typewriter if it's still
+     *  scrolling, otherwise advance to the next block. Called by the
+     *  message-level click handler in ChatMessage. */
+    tap: () => void
 }
 
 const PlaybackContext = createContext<PlaybackApi | null>(null)
@@ -36,9 +45,19 @@ export function usePlayback(): PlaybackApi {
 const sortByCreatedAt = (a: ChatMessage, b: ChatMessage) =>
     (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 
+const TYPEWRITER_MS_PER_CHAR = 25
+
 export function PlaybackProvider(props: { children: JSX.Element }) {
     const [playingMessageId, setPlayingMessageId] = createSignal<string | null>(null)
     const [cursor, setCursor] = createSignal(0)
+
+    // Typewriter state for the active text/speech block. Lifted up here (vs.
+    // local to each block) so the message-level click handler can drive both
+    // skip-scroll and advance from a single entry point — the block itself no
+    // longer owns timer or click logic. Reset to 0 / "" each time the active
+    // block changes (see autoAdvance).
+    const [activeRevealedCount, setActiveRevealedCount] = createSignal(0)
+    const [activeTypewriterText, setActiveTypewriterText] = createSignal('')
 
     /**
      * Assistant message ids we've already shown (or chosen to skip). On chat
@@ -49,6 +68,7 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
     const seenAssistantIds = new Set<string>()
 
     let pauseTimer: ReturnType<typeof setTimeout> | null = null
+    let typewriterTimer: ReturnType<typeof setInterval> | null = null
 
     const clearPauseTimer = () => {
         if (pauseTimer !== null) {
@@ -56,6 +76,31 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
             pauseTimer = null
         }
     }
+
+    const stopTypewriter = () => {
+        if (typewriterTimer !== null) {
+            clearInterval(typewriterTimer)
+            typewriterTimer = null
+        }
+    }
+
+    const startTypewriter = (text: string) => {
+        stopTypewriter()
+        setActiveTypewriterText(text)
+        setActiveRevealedCount(0)
+        if (text.length === 0) return
+        typewriterTimer = setInterval(() => {
+            setActiveRevealedCount(c => {
+                const next = c + 1
+                if (next >= text.length) stopTypewriter()
+                return next
+            })
+        }, TYPEWRITER_MS_PER_CHAR)
+    }
+
+    const isActiveScrolling = createMemo(() =>
+        activeRevealedCount() < activeTypewriterText().length
+    )
 
     const getPlayingBlocks = (): Block[] | null => {
         const id = untrack(playingMessageId)
@@ -80,6 +125,7 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         const blocks = getPlayingBlocks()
         if (!blocks) {
             setPlayingMessageId(null)
+            stopTypewriter()
             return
         }
 
@@ -94,15 +140,24 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
 
         if (c >= blocks.length) {
             setPlayingMessageId(null)
+            stopTypewriter()
             return
         }
 
-        if (lastRevealed?.type === 'pause') {
+        // Configure per-blocking-type behavior for the new active block.
+        if (lastRevealed?.type === 'text') {
+            startTypewriter(lastRevealed.content)
+        } else if (lastRevealed?.type === 'speech') {
+            startTypewriter(lastRevealed.dialogue)
+        } else if (lastRevealed?.type === 'pause') {
+            stopTypewriter()
             const ms = Math.max(0, lastRevealed.seconds * 1000)
             pauseTimer = setTimeout(() => {
                 pauseTimer = null
                 autoAdvance()
             }, ms)
+        } else {
+            stopTypewriter()
         }
     }
 
@@ -113,11 +168,30 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
 
     const skipAll = () => {
         clearPauseTimer()
+        stopTypewriter()
         const id = untrack(playingMessageId)
         if (id === null) return
         const blocks = getPlayingBlocks()
         setCursor(blocks?.length ?? 0)
         setPlayingMessageId(null)
+    }
+
+    /**
+     * Single tap entry point. While the active typewriter is still scrolling,
+     * tap snaps it to fully revealed (without advancing). Once revealed, tap
+     * advances to the next block. Pause and other non-typewriter blocking
+     * blocks have `isActiveScrolling() === false`, so tap on them advances
+     * immediately — that's the right semantics: the user wants to skip the
+     * pause if they tap during it.
+     */
+    const tap = () => {
+        if (untrack(playingMessageId) === null) return
+        if (untrack(isActiveScrolling)) {
+            stopTypewriter()
+            setActiveRevealedCount(untrack(activeTypewriterText).length)
+        } else {
+            advance()
+        }
     }
 
     // Combined effect: handles both chat-switch reseed and new-message
@@ -168,7 +242,10 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         autoAdvance()
     })
 
-    onCleanup(() => clearPauseTimer())
+    onCleanup(() => {
+        clearPauseTimer()
+        stopTypewriter()
+    })
 
     /**
      * The playback-aware game state. Reruns shared `runTurn` over messages
@@ -213,6 +290,9 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         skipAll,
         isActiveBlock,
         effectiveGameState,
+        activeRevealedCount,
+        isActiveScrolling,
+        tap,
     }
 
     return (
