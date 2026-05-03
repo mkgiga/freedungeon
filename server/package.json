@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@hono/trpc-server": "^0.4.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@trpc/client": "^11.16.0",
     "@trpc/server": "^11.16.0",
     "ai": "^6.0.146",
