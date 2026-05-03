@@ -12,6 +12,7 @@ import { useModal } from '../../components/Modal'
 import { PlayerCharacterPicker } from '../../components/chat/AssetPicker'
 import { ImageIcon } from '../../components/ImageIcon'
 import { LLM_PRESETS } from '@shared/llm-presets'
+import { installAvailable, isStandalone, triggerInstall } from '../../pwa-install'
 
 export const Route = createFileRoute('/preferences/')({
   component: RouteComponent,
@@ -103,6 +104,28 @@ function RouteComponent() {
             </label>
           </div>
         </section>
+
+        {/* Install as App (mobile only, hidden when already installed) */}
+        <Show when={!isStandalone()}>
+          <section class="mb-8 md:hidden">
+            <Heading level={2} class="mb-4">Install</Heading>
+            <div class="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={!installAvailable()}
+                class="p-3 rounded-lg bg-(--bg) border border-[color-mix(in_oklch,var(--text),transparent_85%)] hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)] disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                onClick={() => { triggerInstall() }}
+              >
+                <Text><Em semibold>Install as App</Em></Text>
+              </button>
+              <Show when={!installAvailable()}>
+                <Text size="sm" class="opacity-50">
+                  Install isn't available right now. The site must be served over HTTPS and the browser needs a moment to evaluate eligibility — try interacting with the app for a few seconds, then come back. iOS users: use Safari's Share menu → Add to Home Screen.
+                </Text>
+              </Show>
+            </div>
+          </section>
+        </Show>
 
         {/* LLM Configs */}
         <section>
