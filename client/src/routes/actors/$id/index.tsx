@@ -15,7 +15,7 @@ import { ImageIcon } from '../../../components/ImageIcon'
 import { useMediaViewer } from '../../../components/MediaViewer'
 import { MdFillUpload } from 'solid-icons/md'
 
-import { createStore } from 'solid-js/store'
+import { createStore, produce } from 'solid-js/store'
 import { useModal } from '../../../components/Modal'
 
 export const Route = createFileRoute('/actors/$id/')({
@@ -281,8 +281,9 @@ function RouteComponent() {
                                 label: 'Remove',
                                 danger: true,
                                 onClick: () => {
-                                  const { [name]: _, ...rest } = draft.expressions
-                                  setDraft('expressions', rest)
+                                  setDraft('expressions', produce((exprs: Record<string, string>) => {
+                                    delete exprs[name]
+                                  }))
                                 },
                               },
                             ]}
