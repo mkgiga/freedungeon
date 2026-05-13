@@ -17,9 +17,14 @@ type EvalContext = {
     stack: Set<string>
     /** Named arguments accessible via <[$name]> inside the current macro's template. */
     args: Record<string, unknown>
+    /**
+     * Lazily-built scope objects keyed by name (e.g. `Player`). Populated on
+     * first reference within an evaluation. A fresh empty object is created
+     * for each top-level `parseMacros` call, so any accidental mutation
+     * during one prompt cannot leak into the next.
+     */
+    scopes: Record<string, unknown>
 }
-
-const EMPTY_CONTEXT: EvalContext = { stack: new Set(), args: {} }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Macro registry
@@ -80,21 +85,39 @@ registry.set('NOTES', () => {
     return JSON.stringify(result, null, 2)
 })
 
-registry.set('PLAYER_NAME', () => {
-    const playerCharacterId = state.userPreferences.playerCharacterId
-    const pc = state.assets.actors[playerCharacterId!]
-    return pc ? pc.name : 'Player';
-});
-
-registry.set('PLAYER_ID', () => {
-    const playerCharacterId = state.userPreferences.playerCharacterId
-    const customId = playerCharacterId ? (state.assets.actors[playerCharacterId]?.customId || playerCharacterId) : "null";
-    return customId
-});
-
 registry.set('GAME_STATE', () => {
     return getCurrentTurnResult()?.systemPromptGameState ?? '';
 });
+
+// ── Scope builders ───────────────────────────────────────────────────────────
+//
+// Scopes are named values accessible without parens: `{{ @Player }}` or
+// `{{ @Player.id }}`. They differ from registry macros (which are functions
+// called with `()`): scopes resolve to a single object whose fields can be
+// walked via dotted paths.
+//
+// A builder is invoked the first time its scope is referenced within an
+// EvalContext, and the resulting object is cached on `ctx.scopes` for the
+// rest of that evaluation. Because each `parseMacros` call starts with a
+// fresh `scopes: {}`, builders are re-run for every prompt — there is no
+// process-wide cache for the scope object to mutate.
+
+type ScopeBuilder = () => unknown
+
+const scopeBuilders = new Map<string, ScopeBuilder>()
+
+scopeBuilders.set('Player', () => {
+    const playerCharacterId = state.userPreferences.playerCharacterId
+    if (playerCharacterId === null) return null
+    const pc = state.assets.actors[playerCharacterId]
+    if (!pc) return null
+    return {
+        id: pc.customId || pc.id,
+        name: pc.name,
+        description: pc.description,
+        expressions: Object.keys(pc.expressions),
+    }
+})
 
 // ── File-based macros ────────────────────────────────────────────────────────
 
@@ -118,7 +141,7 @@ function createTemplateMacro(name: string, template: string): Macro {
         // Evaluate the template as a macro body; the args become <[$name]> locals.
         // Self-reference is silently rendered as empty (allows a macro file to
         // contain its own usage examples without infinite recursion).
-        const ctx: EvalContext = { stack: new Set([name]), args }
+        const ctx: EvalContext = { stack: new Set([name]), args, scopes: {} }
         return evaluate(template, ctx)
     }
 }
@@ -129,7 +152,7 @@ function createTemplateMacro(name: string, template: string): Macro {
 
 /** Parse and expand all macros + variable substitutions in the given text. */
 export function parseMacros(raw: string): string {
-    return evaluate(raw, EMPTY_CONTEXT)
+    return evaluate(raw, { stack: new Set(), args: {}, scopes: {} })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -191,7 +214,7 @@ function evaluate(text: string, ctx: EvalContext): string {
 // ── Macro call evaluation ────────────────────────────────────────────────────
 
 function evaluateMacroCall(inner: string, ctx: EvalContext): string {
-    // inner looks like: " @name(args) " (whitespace stripped below)
+    // inner looks like: " @name(args) " or " @Scope.path " (whitespace stripped below)
     const trimmed = inner.trim()
 
     // Must start with @
@@ -199,9 +222,15 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
         return `{{${inner}}}` // not a macro, leave as-is
     }
 
-    // Parse name and args
     const parenIdx = trimmed.indexOf('(')
-    if (parenIdx === -1 || !trimmed.endsWith(')')) {
+
+    // No parens → scope variable access: `@Scope` or `@Scope.path.to.field`
+    if (parenIdx === -1) {
+        return evaluateScopeAccess(trimmed.slice(1), ctx)
+    }
+
+    // Parse name and args
+    if (!trimmed.endsWith(')')) {
         throw new Error(`Malformed macro call: ${trimmed}`)
     }
 
@@ -231,7 +260,7 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
 
     // Push onto the stack, evaluate the macro, pop.
     ctx.stack.add(name)
-    const newCtx: EvalContext = { stack: ctx.stack, args: parsedArgs }
+    const newCtx: EvalContext = { stack: ctx.stack, args: parsedArgs, scopes: ctx.scopes }
     const output = macro(parsedArgs)
     // Re-parse output for any macros the template body produced.
     // The stack still contains `name`, which catches cycles in the output too.
@@ -239,6 +268,38 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
     ctx.stack.delete(name)
 
     return expanded
+}
+
+// ── Scope access evaluation ──────────────────────────────────────────────────
+
+/**
+ * Resolves `@Scope` or `@Scope.path.to.field`. The scope object is built by
+ * its `ScopeBuilder` on first reference and cached on `ctx.scopes` for the
+ * remainder of the evaluation. If a path step is null/undefined or a
+ * non-object, the result is the empty string.
+ */
+function evaluateScopeAccess(pathExpr: string, ctx: EvalContext): string {
+    const parts = pathExpr.split('.').map(p => p.trim()).filter(p => p.length > 0)
+    const [head, ...rest] = parts
+    if (head === undefined) {
+        throw new Error(`Empty scope reference: @`)
+    }
+
+    if (!(head in ctx.scopes)) {
+        const builder = scopeBuilders.get(head)
+        if (!builder) {
+            throw new Error(`Scope not found: @${head}`)
+        }
+        ctx.scopes[head] = builder()
+    }
+
+    let value: unknown = ctx.scopes[head]
+    for (const key of rest) {
+        if (value === null || value === undefined) return ''
+        if (typeof value !== 'object') return ''
+        value = (value as Record<string, unknown>)[key]
+    }
+    return stringifyValue(value)
 }
 
 // ── Variable substitution evaluation ─────────────────────────────────────────
