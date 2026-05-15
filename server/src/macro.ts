@@ -9,32 +9,66 @@ const promptsDir = path.join(import.meta.dirname, 'prompts')
 // Types
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** A macro is a function that takes named arguments and returns a string. */
-type Macro = (args: Record<string, unknown>) => string
+/**
+ * A registered macro is either a built-in function (pure: args -> string) or a
+ * file-based template body that is evaluated inline within the calling
+ * context — so cycles between template macros are detected by the shared
+ * call stack rather than each template starting with a fresh one.
+ */
+type RegistryEntry =
+    | { kind: 'fn'; fn: (args: Record<string, unknown>) => string }
+    | { kind: 'template'; body: string }
 
-/** Context carried through recursive evaluation — tracks the call stack to detect cycles. */
-type EvalContext = {
-    stack: Set<string>
-    /** Named arguments accessible via <[$name]> inside the current macro's template. */
-    args: Record<string, unknown>
+/**
+ * Context carried through recursive evaluation. Tracks the call stack (for
+ * cycle detection), expansion depth (defense-in-depth backstop), the args of
+ * the enclosing macro frame, and lazily-built scope objects.
+ */
+class EvalContext {
+    stack = new Set<string>()
+    depth = 0
+    args: Record<string, unknown> = {}
     /**
      * Lazily-built scope objects keyed by name (e.g. `Player`). Populated on
-     * first reference within an evaluation. A fresh empty object is created
-     * for each top-level `parseMacros` call, so any accidental mutation
-     * during one prompt cannot leak into the next.
+     * first reference within an evaluation. A fresh context is built for each
+     * top-level `parseMacros` call, so any mutation during one prompt cannot
+     * leak into the next.
      */
-    scopes: Record<string, unknown>
+    scopes: Record<string, unknown> = {}
+
+    static readonly MAX_DEPTH = 256
+
+    /** Enter a macro frame. Returns false if `name` is already on the stack. */
+    enter(name: string): boolean {
+        if (this.stack.has(name)) return false
+        this.stack.add(name)
+        return true
+    }
+
+    exit(name: string) {
+        this.stack.delete(name)
+    }
+
+    bumpDepth() {
+        if (++this.depth > EvalContext.MAX_DEPTH) {
+            throw new Error(`Macro expansion depth exceeded (>${EvalContext.MAX_DEPTH})`)
+        }
+    }
+
+    popDepth() {
+        this.depth--
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Macro registry
 // ═══════════════════════════════════════════════════════════════════════════
 
-const registry = new Map<string, Macro>()
+const registry = new Map<string, RegistryEntry>()
 
 // ── Built-in macros ──────────────────────────────────────────────────────────
 
-registry.set('ACTORS', () => {
+registry.set('ACTORS', { kind: 'fn', fn: () => {
     const currentChat = state.currentChat
     if (!currentChat) return 'No current chat'
 
@@ -67,9 +101,9 @@ registry.set('ACTORS', () => {
     }
 
     return JSON.stringify(resObject, null, 2)
-})
+} })
 
-registry.set('NOTES', () => {
+registry.set('NOTES', { kind: 'fn', fn: () => {
     const currentChat = state.currentChat
     if (!currentChat) return 'No current chat'
 
@@ -83,11 +117,11 @@ registry.set('NOTES', () => {
         result.push({ title: note.title, type: note.type, content: note.content })
     }
     return JSON.stringify(result, null, 2)
-})
+} })
 
-registry.set('GAME_STATE', () => {
+registry.set('GAME_STATE', { kind: 'fn', fn: () => {
     return getCurrentTurnResult()?.systemPromptGameState ?? '';
-});
+} });
 
 // ── Scope builders ───────────────────────────────────────────────────────────
 //
@@ -121,7 +155,7 @@ scopeBuilders.set('Player', () => {
 
 // ── File-based macros ────────────────────────────────────────────────────────
 
-/** Loads .macro files from the prompts dir into the registry. */
+/** Loads .macro files from the prompts dir into the registry as template entries. */
 export function loadMacroFiles() {
     if (!fs.existsSync(promptsDir)) {
         fs.mkdirSync(promptsDir, { recursive: true })
@@ -130,19 +164,8 @@ export function loadMacroFiles() {
     const files = fs.readdirSync(promptsDir).filter(f => f.endsWith('.macro'))
     for (const file of files) {
         const name = path.basename(file, '.macro')
-        const template = fs.readFileSync(path.join(promptsDir, file), 'utf-8')
-        registry.set(name, createTemplateMacro(name, template))
-    }
-}
-
-/** Wraps a template string as a Macro function. */
-function createTemplateMacro(name: string, template: string): Macro {
-    return (args) => {
-        // Evaluate the template as a macro body; the args become <[$name]> locals.
-        // Self-reference is silently rendered as empty (allows a macro file to
-        // contain its own usage examples without infinite recursion).
-        const ctx: EvalContext = { stack: new Set([name]), args, scopes: {} }
-        return evaluate(template, ctx)
+        const body = fs.readFileSync(path.join(promptsDir, file), 'utf-8')
+        registry.set(name, { kind: 'template', body })
     }
 }
 
@@ -152,7 +175,7 @@ function createTemplateMacro(name: string, template: string): Macro {
 
 /** Parse and expand all macros + variable substitutions in the given text. */
 export function parseMacros(raw: string): string {
-    return evaluate(raw, { stack: new Set(), args: {}, scopes: {} })
+    return evaluate(raw, new EvalContext())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -160,55 +183,60 @@ export function parseMacros(raw: string): string {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function evaluate(text: string, ctx: EvalContext): string {
-    let result = ''
-    let i = 0
-    const len = text.length
+    ctx.bumpDepth()
+    try {
+        let result = ''
+        let i = 0
+        const len = text.length
 
-    while (i < len) {
-        const char = text[i]
+        while (i < len) {
+            const char = text[i]
 
-        // ── Escape handling ─────────────────────────────────────────────────
-        // Only `\{`, `\<`, and `\\` are treated as escapes — those are the
-        // only characters that actually introduce macro syntax. Any other
-        // backslash is preserved verbatim so JSON strings (and any other
-        // content carrying backslash escapes like `\n`, `\"`) pass through
-        // re-evaluation unchanged.
-        if (char === '\\' && i + 1 < len) {
-            const next = text[i + 1]
-            if (next === '{' || next === '<' || next === '\\') {
-                result += next
-                i += 2
-                continue
+            // ── Escape handling ─────────────────────────────────────────────────
+            // Only `\{`, `\<`, and `\\` are treated as escapes — those are the
+            // only characters that actually introduce macro syntax. Any other
+            // backslash is preserved verbatim so JSON strings (and any other
+            // content carrying backslash escapes like `\n`, `\"`) pass through
+            // re-evaluation unchanged.
+            if (char === '\\' && i + 1 < len) {
+                const next = text[i + 1]
+                if (next === '{' || next === '<' || next === '\\') {
+                    result += next
+                    i += 2
+                    continue
+                }
             }
+
+            // ── Macro call: {{ @name(args) }} ───────────────────────────────────
+            if (char === '{' && text[i + 1] === '{') {
+                const closeIdx = findMatching(text, i + 2, '{{', '}}')
+                if (closeIdx !== -1) {
+                    const inner = text.slice(i + 2, closeIdx)
+                    result += evaluateMacroCall(inner, ctx)
+                    i = closeIdx + 2
+                    continue
+                }
+            }
+
+            // ── Variable substitution: <[$name]> or <[$name || default]> ────────
+            if (char === '<' && text[i + 1] === '[') {
+                const closeIdx = findMatching(text, i + 2, '<[', ']>')
+                if (closeIdx !== -1) {
+                    const inner = text.slice(i + 2, closeIdx)
+                    result += evaluateVariable(inner, ctx)
+                    i = closeIdx + 2
+                    continue
+                }
+            }
+
+            result += char
+            i++
         }
 
-        // ── Macro call: {{ @name(args) }} ───────────────────────────────────
-        if (char === '{' && text[i + 1] === '{') {
-            const closeIdx = findMatching(text, i + 2, '{{', '}}')
-            if (closeIdx !== -1) {
-                const inner = text.slice(i + 2, closeIdx)
-                result += evaluateMacroCall(inner, ctx)
-                i = closeIdx + 2
-                continue
-            }
-        }
-
-        // ── Variable substitution: <[$name]> or <[$name || default]> ────────
-        if (char === '<' && text[i + 1] === '[') {
-            const closeIdx = findMatching(text, i + 2, '<[', ']>')
-            if (closeIdx !== -1) {
-                const inner = text.slice(i + 2, closeIdx)
-                result += evaluateVariable(inner, ctx)
-                i = closeIdx + 2
-                continue
-            }
-        }
-
-        result += char
-        i++
+        return result
+    } finally {
+        ctx.popDepth()
     }
-
-    return result
 }
 
 // ── Macro call evaluation ────────────────────────────────────────────────────
@@ -237,18 +265,12 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
     const name = trimmed.slice(1, parenIdx).trim()
     const argsText = trimmed.slice(parenIdx + 1, -1).trim()
 
-    // Self-reference or circular dep? Render empty.
-    if (ctx.stack.has(name)) {
-        return ''
-    }
-
-    const macro = registry.get(name)
-    if (!macro) {
+    const entry = registry.get(name)
+    if (!entry) {
         throw new Error(`Macro not found: @${name}`)
     }
 
-    // Evaluate args inside-out: first expand any nested macros/vars, then JS-eval
-    // the object literal (if any).
+    // Evaluate args in the CALLER's frame, before pushing `name` onto the stack.
     let parsedArgs: Record<string, unknown> = {}
     if (argsText.length > 0) {
         const preprocessed = evaluate(argsText, ctx)
@@ -258,16 +280,25 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
         }
     }
 
-    // Push onto the stack, evaluate the macro, pop.
-    ctx.stack.add(name)
-    const newCtx: EvalContext = { stack: ctx.stack, args: parsedArgs, scopes: ctx.scopes }
-    const output = macro(parsedArgs)
-    // Re-parse output for any macros the template body produced.
-    // The stack still contains `name`, which catches cycles in the output too.
-    const expanded = evaluate(output, newCtx)
-    ctx.stack.delete(name)
-
-    return expanded
+    // Push frame; on cycle (self or mutual), render empty.
+    if (!ctx.enter(name)) return ''
+    const prevArgs = ctx.args
+    ctx.args = parsedArgs
+    try {
+        if (entry.kind === 'template') {
+            // Template body evaluates with the SAME ctx — shared stack/depth/scopes
+            // means mutual cycles between template macros are detected on contact.
+            return evaluate(entry.body, ctx)
+        }
+        // Built-in fn: produces text; re-parse so any macro syntax it emits is
+        // expanded against the same ctx (with `name` on the stack to catch
+        // cycles in the emitted output too).
+        const output = entry.fn(parsedArgs)
+        return evaluate(output, ctx)
+    } finally {
+        ctx.args = prevArgs
+        ctx.exit(name)
+    }
 }
 
 // ── Scope access evaluation ──────────────────────────────────────────────────
