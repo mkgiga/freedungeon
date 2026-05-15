@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@solid-primitives/intersection-observer": "^2.2.4",
+    "@solidjs/meta": "^0.29.4",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/router-plugin": "^1.133.21",
     "@tanstack/solid-router": "latest",
@@ -20,10 +21,12 @@
     "nanoid": "catalog:",
     "pluralize": "^8.0.0",
     "solid-emoji-picker": "^0.3.0",
+    "socket.io-client": "^4.8.3",
     "solid-icons": "^1.2.0",
     "solid-js": "catalog:",
     "tailwindcss": "^4.1.18",
     "vite-tsconfig-paths": "^5.1.4",
+    "workbox-window": "^7.4.1",
     "zod": "catalog:"
   },
   "devDependencies": {
