@@ -3,10 +3,8 @@ import { db, loadChatById, saveChat, saveMessage } from "./db";
 import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
-import { ChatCompletionManager } from "./llm";
-import { parseMacros } from "./macro";
-import { runTurn, setCurrentTurnResult, buildHistoryForLLM, createInitialContext } from "./game-state";
-import { writeDebug, writeDebugMd, formatRequestAsText } from "./game-state/debug";
+import { runTurn, createInitialContext } from "./game-state";
+import { dispatchPromptToAgent, forkAgentSession } from "./agent";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -136,105 +134,36 @@ export class CurrentChat {
      * Single "generate next assistant turn" primitive used by both `prompt`
      * (normal user-initiated send) and `regenerateMessage` (retry flow).
      *
-     * Reads the current chat's messages as the history — callers are responsible
-     * for having the in-memory state in the shape they want to send to the LLM
-     * (appending, pruning, etc.) before invoking this.
+     * The agent process owns the LLM conversation. We just hand it the chat
+     * id and the user message id we want it to respond to; it streams Block
+     * emissions back via /agent-rpc which append assistant ChatMessages.
      */
-    private static async generateResponse() {
+    private static async generateResponse(userMessageId: string, userContent: string) {
         if (!state.currentChat.id) {
             logChat('No active chat. Cannot generate a response.');
             throw new Error('No active chat. Cannot generate a response.');
         }
 
-        if (ChatCompletionManager.isGenerating) {
+        if (state.isGenerating) {
             logChat('Already generating a response. Please wait for it to finish.');
             return;
         }
 
-        const llmConfig = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!];
-        if (!llmConfig) {
-            logChat('No active LLM config selected. Cannot generate a response.');
-            return;
-        }
-
-        const rawMessages = Object.values(state.currentChat.messages);
-
-        // Run the deterministic game-state turn: replay every message's function
-        // calls from a fresh initial ctx, collect per-message effect strings,
-        // and produce the transient prompt-injection strings.
-        const turnResult = runTurn(rawMessages);
-
-        // Mirror ctx into currentChat so clients receive it over socket.io
-        // for HUD/inventory rendering. Never persisted to the DB — it's
-        // always reconstructed from chat messages.
+        // Recompute authoritative game-state from current message history
+        // before the agent starts. The agent's query tools read this directly.
+        const turnResult = runTurn(Object.values(state.currentChat.messages));
         setState('currentChat', 'gameState', turnResult.ctx);
 
-        // Expose the turn result to the GAME_STATE macro for the duration of
-        // this prompt build.
-        setCurrentTurnResult(turnResult);
-
         try {
-            let systemPrompt = llmConfig.systemPrompt ?? '';
-            if (!systemPrompt) {
-                logChat('No system prompt set. Proceeding with empty system prompt — model behavior may drift.');
-            }
-            systemPrompt = parseMacros(systemPrompt);
-            console.log('Parsed system prompt:', systemPrompt);
-
-            const history = buildHistoryForLLM(rawMessages, turnResult);
-
-            {
-                const requestDump = {
-                    systemPrompt,
-                    history,
-                    llmConfig: {
-                        name: llmConfig.name,
-                        provider: llmConfig.provider,
-                        model: llmConfig.model,
-                    },
-                };
-                writeDebugMd('chat-completion-request', formatRequestAsText(requestDump));
-            }
-
-            const chatId = state.currentChat.id;
-            const debugFetchResultData = await ChatCompletionManager.chatCompletion({
-                history,
-                systemPrompt,
-                onComplete: (response) => {
-                    if (!state.currentChat.id) {
-                        logChat('No active chat. Cannot add assistant response to chat history.');
-                        return;
-                    }
-                    CurrentChat.upsertMessage({
-                        id: nanoid(),
-                        role: 'assistant',
-                        chatId,
-                        content: response,
-                        createdAt: Date.now(),
-                        updatedAt: Date.now(),
-                    });
-
-                    // Recompute the turn over the now-augmented message list so
-                    // the client HUD reflects any game-state effects the
-                    // assistant's response just produced.
-                    const postResponseTurn = runTurn(Object.values(state.currentChat.messages));
-                    setState('currentChat', 'gameState', postResponseTurn.ctx);
-
-                    writeDebugMd('chat-completion-response', response);
-                    writeDebug('game-state', {
-                        ctx: postResponseTurn.ctx,
-                        messageResults: postResponseTurn.messageResults,
-                        systemPromptGameState: postResponseTurn.systemPromptGameState,
-                        mostRecentUserMessageState: postResponseTurn.mostRecentUserMessageState,
-                    });
-                },
+            await dispatchPromptToAgent({
+                chatId: state.currentChat.id,
+                userMessageId,
+                userContent,
             });
-
-            console.log('(DEBUG) Fetch data:', debugFetchResultData);
-            // @ts-ignore
-            console.log(debugFetchResultData.usageMetadata?.promptTokensDetails || '');
-        } finally {
-            setCurrentTurnResult(null);
+        } catch (err) {
+            logChat(`Agent dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
+            setState('isGenerating', false);
+            throw err;
         }
     }
 
@@ -246,8 +175,9 @@ export class CurrentChat {
             throw new Error('No active chat. Please create or load a chat before sending a message.');
         }
 
+        const userMessageId = nanoid();
         CurrentChat.upsertMessage({
-            id: nanoid(),
+            id: userMessageId,
             role: 'user' as const,
             content: message,
             chatId: state.currentChat.id,
@@ -259,7 +189,7 @@ export class CurrentChat {
             }
         });
 
-        await CurrentChat.generateResponse();
+        await CurrentChat.generateResponse(userMessageId, message);
     }
     
     static editMessage({ messageId, newContent }: { messageId: string; newContent: string }) {
@@ -344,7 +274,8 @@ export class CurrentChat {
      *   - User target: drop everything after (the stale reply + follow-ups), then
      *     generate using history ending in this user turn.
      *
-     * Uses the same `generateResponse` primitive as `prompt`.
+     * Forks the agent session at the most recent surviving message so the
+     * prompt cache is preserved up to that point.
      */
     static async regenerateMessage(messageId: string) {
         const targetMessage = CurrentChat.getMessage(messageId);
@@ -357,16 +288,39 @@ export class CurrentChat {
             includeTarget: targetMessage.role === 'assistant',
         });
 
-        await CurrentChat.generateResponse();
+        const lastUser = CurrentChat.lastUserMessage();
+        if (lastUser) {
+            await forkAgentSession({
+                chatId: state.currentChat.id!,
+                keepUntilMessageId: lastUser.id,
+            });
+            await CurrentChat.generateResponse(lastUser.id, lastUser.content);
+        }
     }
 
     /**
      * Rewinds the chat to a specific message: keeps everything up to and including
      * the target, deletes all subsequent messages. No LLM call — the user stops
      * "here" and can resume from this point by sending a new message.
+     *
+     * Forks the agent session at the rewind point so the next prompt re-uses
+     * the cache prefix up to that point.
      */
-    static rewindToMessage(messageId: string) {
+    static async rewindToMessage(messageId: string) {
         CurrentChat.pruneFromMessage(messageId, { includeTarget: false });
+        await forkAgentSession({
+            chatId: state.currentChat.id!,
+            keepUntilMessageId: messageId,
+        });
+    }
+
+    static lastUserMessage(): ChatMessage | null {
+        const sorted = Object.values(state.currentChat.messages)
+            .sort((a, b) => (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        for (let i = sorted.length - 1; i >= 0; i--) {
+            if (sorted[i]!.role === 'user') return sorted[i]!;
+        }
+        return null;
     }
 
     static async branchFromTargetMessage({messageId, newTitle}: {messageId: string, newTitle: string}) {

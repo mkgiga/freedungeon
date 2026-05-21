@@ -28,8 +28,19 @@ export type GameStateContext = {
             /** Actors that have left the scene — retained so HP persists if reintroduced. */
             offscreen: Record<string, ActorGameState>;
         };
+        /** Free-form short description of where the focus is, set by setLocation. */
+        location?: string;
     };
+    /**
+     * Agent-managed key/value scratchpad. Use for boolean conditions
+     * ("dragon_defeated"), strings ("current_chapter"), or numeric counters
+     * where keying is enough. Reconstructed from message history like the rest
+     * of ctx — never persisted directly.
+     */
+    flags: Record<string, FlagValue>;
 }
+
+export type FlagValue = string | number | boolean;
 
 export type ActorGameState = {
     hp: number;

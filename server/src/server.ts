@@ -19,8 +19,8 @@ import type { AppState, CurrentChatState } from '@shared/types';
 import { z } from 'zod';
 import { notification } from './notifications';
 import { nanoid } from 'nanoid';
-import { bootstrapGenerationSync } from './llm';
 import { createInitialContext } from './game-state';
+import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
 
 export const app = new Hono();
 export const httpServer = createServer();
@@ -88,11 +88,11 @@ function start() {
         setState('assets', loaded.assets);
         setState('userPreferences', loadPreferences());
         await logChatMessageCounts();
-        bootstrapGenerationSync();
         await initProcessHandlers();
         await initHttp();
         await initWebSocket();
         await listen();
+        spawnAgentProcess();
     })();
 }
 
@@ -121,6 +121,7 @@ async function checkpointWal() {
 
 async function listen() {
     app.route('/uploads', uploadsRouter);
+    app.route('/agent-rpc', agentRpcRouter);
     app.use('/trpc/*', trpcServer({ router: appRouter }));
 
     // Serve the built client from server/client/dist. Requests that match a
@@ -197,6 +198,7 @@ async function initProcessHandlers() {
         savePreferences(state.userPreferences)
         saveStateToDb({ state })
         checkpointWal()
+        killAgentProcess()
         console.log('State saved, exiting now.')
         process.exit(0)
     }

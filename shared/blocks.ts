@@ -20,6 +20,9 @@ export type DamageBlock = { type: 'damage'; actorId: string; amount: number }
 export type HealBlock = { type: 'heal'; actorId: string; amount: number }
 export type GiveItemBlock = { type: 'giveItem'; name: string; qty: number }
 export type TakeItemBlock = { type: 'takeItem'; name: string; qty: number }
+export type SetFlagBlock = { type: 'setFlag'; key: string; value: import('./types').FlagValue }
+export type ClearFlagBlock = { type: 'clearFlag'; key: string }
+export type SetLocationBlock = { type: 'setLocation'; description: string }
 
 export type Block =
     // Rendering commands
@@ -38,6 +41,9 @@ export type Block =
     | HealBlock
     | GiveItemBlock
     | TakeItemBlock
+    | SetFlagBlock
+    | ClearFlagBlock
+    | SetLocationBlock
 
 // ── Blocking semantics (visual-novel-style playback) ──
 
@@ -124,6 +130,15 @@ export function parseBlocks(content: string): Block[] {
         },
         takeItem: (name: string, qty: number) => {
             blocks.push({ type: 'takeItem', name, qty })
+        },
+        setFlag: (key: string, value: string | number | boolean) => {
+            blocks.push({ type: 'setFlag', key, value })
+        },
+        clearFlag: (key: string) => {
+            blocks.push({ type: 'clearFlag', key })
+        },
+        setLocation: (description: string) => {
+            blocks.push({ type: 'setLocation', description })
         },
     }
 
@@ -217,6 +232,14 @@ export function serializeBlocks(blocks: Block[]): string {
                     return `giveItem(${str(b.name)}, ${b.qty});`
                 case 'takeItem':
                     return `takeItem(${str(b.name)}, ${b.qty});`
+                case 'setFlag': {
+                    const v = typeof b.value === 'string' ? str(b.value) : String(b.value)
+                    return `setFlag(${str(b.key)}, ${v});`
+                }
+                case 'clearFlag':
+                    return `clearFlag(${str(b.key)});`
+                case 'setLocation':
+                    return `setLocation(${str(b.description)});`
             }
         })
         .filter(Boolean)

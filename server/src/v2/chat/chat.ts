@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
 import { CurrentChat, logChat } from '../../chat'
-import { ChatCompletionManager } from '../../llm'
 import { deleteChat } from '../../db'
 import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
@@ -321,11 +320,11 @@ export const chatRouter = router({
 
     rewindToMessage: procedure
         .input(z.object({ id: z.string() }))
-        .mutation(({ input }) => {
+        .mutation(async ({ input }) => {
             if (!CurrentChat.getMessage(input.id)) {
                 throw new Error(`Message ${input.id} not found in current chat`)
             }
-            CurrentChat.rewindToMessage(input.id)
+            await CurrentChat.rewindToMessage(input.id)
             return { success: true }
         }),
 
@@ -353,13 +352,15 @@ export const chatRouter = router({
         }),
 
     cancel: procedure
-        .mutation(() => {
+        .mutation(async () => {
             if (!state.isGenerating) {
                 logChat(`No generation in progress. Nothing to cancel.`);
                 return { success: false, message: 'No generation in progress. Nothing to cancel.' };
             }
 
-            ChatCompletionManager.cancel();
+            const { cancelAgentTurn } = await import('../../agent')
+            await cancelAgentTurn()
+            setState('isGenerating', false)
             return { success: true }
         }),
 })

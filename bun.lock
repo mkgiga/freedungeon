@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "freedungeon-monorepo",
+      "dependencies": {
+        "zod": "catalog:",
+      },
     },
     "agent-claude": {
       "name": "agent-claude",

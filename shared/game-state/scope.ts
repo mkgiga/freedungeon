@@ -12,6 +12,7 @@ export function createInitialContext(): GameStateContext {
                 offscreen: {},
             },
         },
+        flags: {},
     };
 }
 
@@ -108,6 +109,25 @@ export function createScope({ ctx, arr }: ScopeBinding) {
             arr.push(`${customId} healed ${amount} (HP: ${found.entry.hp})`);
         },
         attack: (_target: string) => {},
+
+        // ── Flags + location ─────────────────────────────────────────────
+        setFlag: (key: string, value: string | number | boolean) => {
+            const prev = ctx.flags[key];
+            ctx.flags[key] = value;
+            if (prev === undefined) arr.push(`Flag set: ${key} = ${JSON.stringify(value)}`);
+            else if (prev !== value) arr.push(`Flag updated: ${key} = ${JSON.stringify(value)} (was ${JSON.stringify(prev)})`);
+        },
+        clearFlag: (key: string) => {
+            if (ctx.flags[key] !== undefined) {
+                delete ctx.flags[key];
+                arr.push(`Flag cleared: ${key}`);
+            }
+        },
+        setLocation: (description: string) => {
+            const prev = ctx.scene.location;
+            ctx.scene.location = description;
+            if (prev !== description) arr.push(`Scene location: ${description}`);
+        },
     } as const;
 }
 
@@ -147,6 +167,15 @@ export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string
             return;
         case 'takeItem':
             scope.takeItem(block.name, block.qty);
+            return;
+        case 'setFlag':
+            scope.setFlag(block.key, block.value);
+            return;
+        case 'clearFlag':
+            scope.clearFlag(block.key);
+            return;
+        case 'setLocation':
+            scope.setLocation(block.description);
             return;
         // text / pause / image / webview / unformatted / noOpContinue: display-only.
     }

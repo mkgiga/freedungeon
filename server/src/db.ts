@@ -56,6 +56,7 @@ export interface DB {
         avatar_url: string | null;
         banner_url: string | null;
         description: string | null;
+        agent_session_id: string | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
@@ -188,6 +189,9 @@ export async function initDb() {
     }
     if (!haveChatCol('description')) {
         await db.schema.alterTable('chats').addColumn('description', 'text').execute();
+    }
+    if (!haveChatCol('agent_session_id')) {
+        await db.schema.alterTable('chats').addColumn('agent_session_id', 'text').execute();
     }
 
     await db.schema
@@ -502,7 +506,7 @@ export async function loadChatById(chatId: string) {
         messages: messagesRecord,
         // Placeholder — CurrentChat.loadChat recomputes this from messages via
         // runTurn immediately after setState('currentChat', loadedChat).
-        gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } } },
+        gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
         createdAt: hydratedChat.createdAt,
         updatedAt: hydratedChat.updatedAt,
     } as typeof state.currentChat;
@@ -586,7 +590,7 @@ export async function loadStateFromDb(): Promise<AppState> {
             assets: { actors: [], notes: [] },
             hotbarNotes: {},
             messages: {},
-            gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } } },
+            gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
             createdAt: null,
             updatedAt: null,
         },
