@@ -101,16 +101,27 @@ async function handleSdkMessage(
             return;
         }
         case 'user': {
-            // SDK emits two flavors of user message during a turn:
-            //   1. The actual user prompt we sent (parent_tool_use_id === null)
-            //   2. Tool-result wrappers carrying tool_use outputs back to the
-            //      model (parent_tool_use_id !== null, often isSynthetic === true)
-            // Only (1) corresponds to our userMessageId — recording (2) would
-            // overwrite the real prompt's UUID with a tool-result UUID that
-            // forkSession can't anchor on reliably.
+            // Skip user messages we don't want attributed to our userMessageId:
+            //   - parent_tool_use_id !== null  → message originated inside a
+            //     subagent (Task tool). forkSession filters these as sidechain.
+            //   - isSynthetic === true         → SDK-constructed message, not
+            //     ours.
+            //   - any tool_result block in content → SDK-built wrapper carrying
+            //     tool outputs back to the model. Distinct from our prompt; in
+            //     practice this is the most common spurious match because
+            //     SDKUserMessage.uuid is optional and the SDK's wrappers get
+            //     uuids assigned at persist time while our prompt's first
+            //     emission may not.
             const parentToolUseId = (msg as unknown as { parent_tool_use_id: string | null }).parent_tool_use_id;
             const isSynthetic = (msg as unknown as { isSynthetic?: boolean }).isSynthetic === true;
             if (parentToolUseId !== null || isSynthetic) return;
+
+            const content = (msg.message as unknown as { content: unknown }).content;
+            if (Array.isArray(content) && content.some((b) =>
+                typeof b === 'object' && b !== null && (b as { type?: string }).type === 'tool_result'
+            )) {
+                return;
+            }
 
             const uuid = msg.uuid as unknown as string | undefined;
             if (uuid) {
