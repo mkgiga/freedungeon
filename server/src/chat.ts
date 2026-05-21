@@ -56,6 +56,7 @@ export class CurrentChat {
             hotbarNotes: {},
             messages: {},
             gameState: createInitialContext(),
+            agentRehydration: null,
             createdAt: Date.now(),
             updatedAt: Date.now(),
         }

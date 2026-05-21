@@ -244,6 +244,12 @@ function handleAnnounce(req: AnnouncementRequest) {
             .set({ agent_session_id: req.sessionId })
             .where('id', '=', req.chatId)
             .execute();
+        // Clear the rehydration warning now that a session exists — the
+        // preamble has been baked into it, and future prompts resume
+        // normally.
+        if (state.currentChat.id === req.chatId && state.currentChat.agentRehydration !== null) {
+            setState('currentChat', 'agentRehydration', null);
+        }
         log.server.info(`Captured agent session ${req.sessionId} for chat ${req.chatId}`);
     }
     if (req.event === 'turn_ended') {
@@ -255,6 +261,66 @@ function handleAnnounce(req: AnnouncementRequest) {
 // ─────────────────────────────────────────────────────────────────────────
 // Server → Agent: prompt forwarding
 // ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Wrap the new user input with a replayed-history preamble built from
+ * the chat's persisted ChatMessages (excluding the just-added prompt).
+ * Returns the bare input unchanged if there's no prior history.
+ *
+ * The preamble uses XML-style tags the system prompt is aware of:
+ *
+ *   <replayed_history>...</replayed_history>
+ *   <current_input>...</current_input>
+ *
+ * Consecutive same-role messages are grouped into one section to keep
+ * the preamble compact. ChatMessage.content is the serialized block(s)
+ * exactly as they live in the DB — the agent reads them as the source
+ * of truth, and queries like list_active_actors return the cumulative
+ * state from the deterministic replay so the agent can cross-check.
+ */
+function wrapWithHistoryPreamble(
+    allMessages: import('@shared/types').ChatMessage[],
+    excludeMessageId: string,
+    newUserContent: string,
+): string {
+    const prior = allMessages
+        .filter(m => m.id !== excludeMessageId)
+        .sort((a, b) => (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+    if (prior.length === 0) return newUserContent;
+
+    const sections: string[] = [];
+    let runRole: string | null = null;
+    let runLines: string[] = [];
+
+    const flush = () => {
+        if (runRole === null || runLines.length === 0) return;
+        const tag = runRole === 'user' ? 'user' : 'agent';
+        sections.push(`[${tag}]\n${runLines.join('\n')}`);
+        runLines = [];
+    };
+
+    for (const msg of prior) {
+        if (msg.role !== runRole) {
+            flush();
+            runRole = msg.role;
+        }
+        runLines.push(msg.content);
+    }
+    flush();
+
+    return [
+        '<replayed_history>',
+        'The simulation has been running. The following events have already occurred — your memory of the conversation so far, reconstructed from persisted records. They are ground truth; the current game state (queryable via the read tools) reflects their cumulative effect. Do NOT respond to them as if they are happening now.',
+        '',
+        sections.join('\n\n'),
+        '</replayed_history>',
+        '',
+        '<current_input>',
+        newUserContent,
+        '</current_input>',
+    ].join('\n');
+}
 
 export async function dispatchPromptToAgent(args: {
     chatId: string;
@@ -283,6 +349,22 @@ export async function dispatchPromptToAgent(args: {
         .executeTakeFirst();
     const resumeSessionId = sessionRow?.agent_session_id ?? null;
 
+    // When there's no SDK session to resume — pre-MCP chats, branched/
+    // cloned chats whose source had no session, anything orphaned by
+    // session-file loss — synthesize a context preamble from the chat's
+    // persisted ChatMessages and prepend it to the user's input. The
+    // SDK creates a new session containing that preamble + the new
+    // prompt; the resulting session_id is captured and saved, and every
+    // subsequent prompt resumes normally from there. So this expensive
+    // preamble happens at most ONCE per chat (or once per re-orphaning).
+    const userContent = resumeSessionId === null
+        ? wrapWithHistoryPreamble(
+            Object.values(state.currentChat.messages),
+            args.userMessageId,
+            args.userContent,
+        )
+        : args.userContent;
+
     setState('isGenerating', true);
 
     const response = await fetch(`${AGENT_URL}/prompt`, {
@@ -291,7 +373,7 @@ export async function dispatchPromptToAgent(args: {
         body: JSON.stringify({
             chatId: args.chatId,
             userMessageId: args.userMessageId,
-            userContent: args.userContent,
+            userContent,
             systemPrompt: expandedSystemPrompt,
             resumeSessionId,
             model: llmConfig.model || 'claude-sonnet-4-6',
@@ -322,11 +404,29 @@ export async function cancelAgentTurn() {
     }
 }
 
+/**
+ * Explicit nuke of a chat's SDK session — currently unused by the agent
+ * pipeline (the fork-failure path leaves the session intact). Kept
+ * exported so a future "reset agent memory" UI affordance has a target.
+ *
+ * When the dropped chat is the loaded one and has any messages, sets the
+ * rehydration flag so the next prompt rebuilds context.
+ */
 export async function invalidateAgentSession(chatId: string) {
     await db.updateTable('chats')
         .set({ agent_session_id: null })
         .where('id', '=', chatId)
         .execute();
+    if (state.currentChat.id === chatId) {
+        const msgs = Object.values(state.currentChat.messages);
+        if (msgs.length > 0) {
+            const chars = msgs.reduce((sum, m) => sum + m.content.length, 0);
+            setState('currentChat', 'agentRehydration', {
+                messageCount: msgs.length,
+                estimatedTokens: Math.ceil(chars / 4),
+            });
+        }
+    }
     log.server.info(`Invalidated agent session for chat ${chatId}`);
 }
 

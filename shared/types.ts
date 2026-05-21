@@ -151,6 +151,18 @@ export type CurrentChatState = {
      * always reconstructed from message history.
      */
     gameState: GameStateContext;
+    /**
+     * Non-null when the chat has prior messages but no SDK session — the
+     * next prompt will rebuild the agent's memory by injecting the full
+     * chat history as a context preamble. Carries stats (message count
+     * + estimated tokens) so the UI can warn before the user spends the
+     * one-time cost. Cleared back to null on session_captured.
+     */
+    agentRehydration: null | {
+        messageCount: number;
+        /** Approximate, char-based (chars / 4). Good enough for a warning. */
+        estimatedTokens: number;
+    };
     createdAt: number | null;
     updatedAt: number | null;
 }

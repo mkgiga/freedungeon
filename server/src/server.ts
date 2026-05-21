@@ -50,6 +50,7 @@ export const [state, _setState] = createStore({
         hotbarNotes: {},
         messages: {},
         gameState: createInitialContext(),
+        agentRehydration: null,
         createdAt: null,
         updatedAt: null,
     } as CurrentChatState,

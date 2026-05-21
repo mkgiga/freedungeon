@@ -14,7 +14,9 @@ import {
     MdFillStop,
     MdFillPerson,
     MdFillInventory_2,
+    MdFillWarning,
 } from 'solid-icons/md'
+import { Em } from '../typography/Em'
 import { GameStateActorStatus } from '../GameStateActorStatus'
 import { ChatHotbar } from './ChatHotbar'
 import { InventoryModal } from './InventoryModal'
@@ -60,14 +62,94 @@ export function ChatInput() {
         })
     }
 
+    /**
+     * Run an action that triggers an agent turn. If this chat has no
+     * SDK session yet, show a confirm modal with the estimated rebuild
+     * cost first. Resolves true when the action ran, false when the
+     * user cancelled.
+     */
+    const withRehydrationConfirm = (
+        actionLabel: string,
+        run: () => Promise<void> | void,
+    ): Promise<boolean> => {
+        const rehydration = state.currentChat.agentRehydration
+        if (!rehydration) {
+            const r = run()
+            return Promise.resolve(r instanceof Promise ? r.then(() => true) : true) as Promise<boolean>
+        }
+        return new Promise<boolean>((resolve) => {
+            modal.open({
+                title: 'Rebuild agent memory?',
+                content: () => (
+                    <div>
+                        <Text>
+                            This chat has <Em bold>{rehydration.messageCount} prior messages</Em>{' '}
+                            but no live agent session. The next agent turn will inject the full
+                            chat history into a new session so the agent regains context.
+                        </Text>
+                        <Text class="mt-2">
+                            <Em type="warning" bold>One-time cost:</Em> approximately{' '}
+                            <Em bold>{rehydration.estimatedTokens.toLocaleString()} input tokens</Em>{' '}
+                            (rough char/4 estimate). Subsequent prompts in this chat resume the
+                            rebuilt session normally and hit cache.
+                        </Text>
+                        <div class="modal-confirm-actions">
+                            <button class="modal-btn modal-btn-cancel" onClick={() => { modal.close(); resolve(false) }}>Cancel</button>
+                            <button
+                                class="modal-btn modal-btn-confirm"
+                                onClick={async () => {
+                                    modal.close()
+                                    await run()
+                                    resolve(true)
+                                }}
+                            >
+                                {actionLabel}
+                            </button>
+                        </div>
+                    </div>
+                ),
+            })
+        })
+    }
+
+    const openRehydrationInfo = () => {
+        const rehydration = state.currentChat.agentRehydration
+        if (!rehydration) return
+        modal.open({
+            title: 'Agent has no live session',
+            content: () => (
+                <div>
+                    <Text>
+                        This chat has <Em bold>{rehydration.messageCount} prior messages</Em> on
+                        disk but no SDK session — either it was started before the agent system
+                        existed, was branched/cloned from a chat without one, or its session
+                        file is missing.
+                    </Text>
+                    <Text class="mt-2">
+                        Your next agent turn (send, regenerate, or fast-forward) will inject
+                        the full history as a context preamble — approximately{' '}
+                        <Em bold>{rehydration.estimatedTokens.toLocaleString()} input tokens</Em>.
+                        After that, the new session is saved and subsequent prompts resume
+                        normally.
+                    </Text>
+                    <div class="modal-confirm-actions">
+                        <button class="modal-btn modal-btn-cancel" onClick={() => modal.close()}>OK</button>
+                    </div>
+                </div>
+            ),
+        })
+    }
+
+    const sendNow = async (text: string) => {
+        setMessage('')
+        playback.skipAll()
+        await trpc.chat.prompt.mutate({ message: `unformatted(${JSON.stringify(text)});` })
+    }
+
     const handleSend = async () => {
         const text = message().trim()
         if (!text) return
-        setMessage('')
-        // If a previous assistant turn is mid-playback, commit it instantly
-        // so the new turn lands in a clean state and can start its own playback.
-        playback.skipAll()
-        await trpc.chat.prompt.mutate({ message: `unformatted(${JSON.stringify(text)});` })
+        await withRehydrationConfirm('Send anyway', () => sendNow(text))
     }
 
     const handleStop = () => trpc.chat.cancel.mutate()
@@ -82,16 +164,20 @@ export function ChatInput() {
         )
         return latest.id
     }
-    const handleRegenerate = () => {
+    const handleRegenerate = async () => {
         const id = latestMessageId()
         if (!id) return
-        playback.skipAll()
-        trpc.chat.regenerateMessage.mutate({ id })
+        await withRehydrationConfirm('Regenerate anyway', () => {
+            playback.skipAll()
+            return trpc.chat.regenerateMessage.mutate({ id }).then(() => {})
+        })
     }
 
     const handleContinue = async () => {
-        playback.skipAll()
-        await trpc.chat.prompt.mutate({ message: `noOpContinue()` })
+        await withRehydrationConfirm('Continue anyway', () => {
+            playback.skipAll()
+            return trpc.chat.prompt.mutate({ message: `noOpContinue()` }).then(() => {})
+        })
     }
 
     return (
@@ -133,6 +219,17 @@ export function ChatInput() {
                 ),
                 right: (
                     <>
+                        <Show when={state.currentChat.agentRehydration}>
+                            {(r) => (
+                                <button
+                                    class="chat-input-btn text-emphasis-warning"
+                                    title={`Agent has no live session — next turn will inject ${r().messageCount} prior messages (~${r().estimatedTokens.toLocaleString()} input tokens) to rebuild context. Click for details.`}
+                                    onClick={openRehydrationInfo}
+                                >
+                                    <MdFillWarning size={20} />
+                                </button>
+                            )}
+                        </Show>
                         <ChatHotbar />
                         <button class="chat-input-btn" onClick={openInventory} title="Inventory">
                             <MdFillInventory_2 size={20} />

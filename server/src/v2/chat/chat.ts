@@ -58,6 +58,8 @@ export const chatRouter = router({
                     assets: { actors: [...chat.assets.actors], notes: [...chat.assets.notes] },
                     hotbarNotes: {},
                     messages: {},
+                    gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+                    agentRehydration: null,
                     createdAt: now,
                     updatedAt: now,
                 })
@@ -275,6 +277,8 @@ export const chatRouter = router({
                     assets: { actors: [], notes: [] },
                     hotbarNotes: {},
                     messages: {},
+                    gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+                    agentRehydration: null,
                     createdAt: null,
                     updatedAt: null,
                 })

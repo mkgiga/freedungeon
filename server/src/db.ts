@@ -495,6 +495,24 @@ export async function loadChatById(chatId: string) {
         const m = hydrateChatMessage(row);
         messagesRecord[m.id] = m;
     }
+    // Compute the "next prompt will rehydrate the agent's memory" flag.
+    // Non-null iff there's no SDK session yet but the chat has messages
+    // whose history needs to be replayed into the model on the next
+    // prompt. Estimated tokens use a char/4 heuristic — fast and good
+    // enough for a warning; real token count comes from the API on the
+    // first response.
+    let agentRehydration: { messageCount: number; estimatedTokens: number } | null = null;
+    if ((loadedChat.agent_session_id ?? null) === null) {
+        const msgs = Object.values(messagesRecord);
+        if (msgs.length > 0) {
+            const chars = msgs.reduce((sum, m) => sum + m.content.length, 0);
+            agentRehydration = {
+                messageCount: msgs.length,
+                estimatedTokens: Math.ceil(chars / 4),
+            };
+        }
+    }
+
     return {
         id: hydratedChat.id,
         title: hydratedChat.title,
@@ -507,6 +525,7 @@ export async function loadChatById(chatId: string) {
         // Placeholder — CurrentChat.loadChat recomputes this from messages via
         // runTurn immediately after setState('currentChat', loadedChat).
         gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+        agentRehydration,
         createdAt: hydratedChat.createdAt,
         updatedAt: hydratedChat.updatedAt,
     } as typeof state.currentChat;
@@ -591,6 +610,7 @@ export async function loadStateFromDb(): Promise<AppState> {
             hotbarNotes: {},
             messages: {},
             gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+            agentRehydration: null,
             createdAt: null,
             updatedAt: null,
         },
