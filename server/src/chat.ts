@@ -4,7 +4,7 @@ import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
 import { runTurn, createInitialContext } from "./game-state";
-import { dispatchPromptToAgent } from "./agent";
+import { dispatchPromptToAgent, forkAgentSession, forkAgentSessionForChat } from "./agent";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -274,12 +274,12 @@ export class CurrentChat {
      *   - User target: drop everything after (the stale reply + follow-ups), then
      *     generate using history ending in this user turn.
      *
-     * V1: the SDK session is NOT touched. Pruned messages stay in the SDK's
-     * transcript, so the model sees its prior response in context when
-     * generating the new one — outcomes will be partially anchored on the
-     * prior reply. Tradeoff accepted to avoid losing all agent context on
-     * fork failure (the prior fork-on-regen path nulled the session on any
-     * error, which left the agent blind to history).
+     * Forks the SDK session at the turn-closer anchor of the message just
+     * BEFORE the surviving user prompt — so the forked session ends right
+     * before that prompt and we re-send it fresh. If no anchor is
+     * available (first turn, or no prior turn has been stamped) the
+     * session is left intact and we just append a new prompt; the model
+     * will see the prior response in context.
      */
     static async regenerateMessage(messageId: string) {
         const targetMessage = CurrentChat.getMessage(messageId);
@@ -293,9 +293,23 @@ export class CurrentChat {
         });
 
         const lastUser = CurrentChat.lastUserMessage();
-        if (lastUser) {
-            await CurrentChat.generateResponse(lastUser.id, lastUser.content);
+        if (!lastUser) return;
+
+        // Fork before lastUser so the SDK doesn't carry the now-pruned
+        // response. The previous-turn closer is the natural anchor —
+        // find it by stepping back from the message immediately before
+        // lastUser. If nothing before, no fork happens (acceptable: the
+        // session stays intact, the prior response is in the model's
+        // context when re-prompted).
+        const messageBeforeLastUser = CurrentChat.messageImmediatelyBefore(lastUser.id);
+        if (messageBeforeLastUser) {
+            await forkAgentSession({
+                chatId: state.currentChat.id!,
+                keepUntilMessageId: messageBeforeLastUser.id,
+            });
         }
+
+        await CurrentChat.generateResponse(lastUser.id, lastUser.content);
     }
 
     /**
@@ -303,12 +317,24 @@ export class CurrentChat {
      * the target, deletes all subsequent messages. No LLM call — the user stops
      * "here" and can resume from this point by sending a new message.
      *
-     * V1: SDK session not touched. The next prompt resumes the same session,
-     * which still contains the pruned tail in its transcript. See note on
-     * regenerateMessage.
+     * Forks the SDK session at the target's turn-closer anchor so the
+     * SDK transcript matches the displayed history. If no anchor is
+     * available the session is left intact.
      */
     static async rewindToMessage(messageId: string) {
         CurrentChat.pruneFromMessage(messageId, { includeTarget: false });
+        await forkAgentSession({
+            chatId: state.currentChat.id!,
+            keepUntilMessageId: messageId,
+        });
+    }
+
+    static messageImmediatelyBefore(messageId: string): ChatMessage | null {
+        const sorted = Object.values(state.currentChat.messages)
+            .sort((a, b) => (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        const idx = sorted.findIndex(m => m.id === messageId);
+        if (idx <= 0) return null;
+        return sorted[idx - 1] ?? null;
     }
 
     static lastUserMessage(): ChatMessage | null {
@@ -366,6 +392,20 @@ export class CurrentChat {
         saveChat(newChat, newChatMessagesObject);
         logChat(`Branched new chat "${newChat.title}" with id ${newChat.id} from message ${messageId}.`);
         logChat(`[BRANCH] Source chat ${sourceChatId} had ${sourceChatTotal} messages; branch slice has ${Object.keys(newChatMessagesObject).length} messages.`);
+
+        // Fork the source SDK session at the target message's turn-closer
+        // anchor so the branched chat inherits the agent's memory. Must
+        // run BEFORE loadChat below, because loadChat swaps
+        // state.currentChat — after that we'd lose addressability of the
+        // source's original message ids (the branched copies have new
+        // nanoid ids).
+        await forkAgentSessionForChat({
+            sourceChatId,
+            targetChatId: newChat.id,
+            mode: 'untilMessage',
+            sourceMessages: state.currentChat.messages,
+            keepUntilMessageId: messageId,
+        });
 
         const countAfterSave = await countChatMessages(newChat.id);
         const sourceCountAfterSave = await countChatMessages(sourceChatId);
@@ -428,6 +468,15 @@ export class CurrentChat {
 
         saveChat(newChat, newMessages);
         setState('assets', 'chats', newId, newChat);
+
+        // Full copy of the source SDK session so the clone inherits the
+        // agent's memory. No anchor needed since we copied every message.
+        await forkAgentSessionForChat({
+            sourceChatId,
+            targetChatId: newId,
+            mode: 'fullCopy',
+        });
+
         logChat(`Cloned chat ${sourceChatId} → ${newId} (asTemplate=${asTemplate}, ${Object.keys(newMessages).length} messages).`);
         return newId;
     }

@@ -85,7 +85,14 @@ type SdkUuidRequest = {
     sdkUuid: string;
 };
 
-type RpcRequest = ExecRequest | QueryRequest | AnnouncementRequest | SdkUuidRequest;
+type TurnClosedRequest = {
+    kind: 'turn_closed';
+    chatId: string;
+    messageIds: string[];
+    trailingWrapperUuid: string;
+};
+
+type RpcRequest = ExecRequest | QueryRequest | AnnouncementRequest | SdkUuidRequest | TurnClosedRequest;
 
 export const agentRpcRouter = new Hono();
 
@@ -101,8 +108,29 @@ agentRpcRouter.post('/', async (c) => {
     if (body.kind === 'query') return c.json(handleQuery(body));
     if (body.kind === 'announce') return c.json(handleAnnounce(body));
     if (body.kind === 'sdk_uuid') return c.json(handleSdkUuid(body));
+    if (body.kind === 'turn_closed') return c.json(handleTurnClosed(body));
     return c.json({ error: 'unknown_kind' }, 400);
 });
+
+function handleTurnClosed(req: TurnClosedRequest) {
+    // Stamp metadata.sdkTurnCloserUuid on every message the agent
+    // produced during this turn (user prompt + assistant blocks). That
+    // UUID is the only clean fork anchor we can rely on — it points to
+    // the tool_result wrapper that closes the agent's turn in the SDK
+    // transcript, after which the next prompt can land cleanly.
+    let stamped = 0;
+    for (const messageId of req.messageIds) {
+        const msg = state.currentChat.messages[messageId];
+        if (!msg) continue;
+        const nextMeta = { ...(msg.metadata ?? {}), sdkTurnCloserUuid: req.trailingWrapperUuid };
+        const updated = { ...msg, metadata: nextMeta, updatedAt: Date.now() };
+        setState('currentChat', 'messages', messageId, updated);
+        saveMessage(updated);
+        stamped++;
+    }
+    log.server.info(`Turn closer ${req.trailingWrapperUuid.slice(0, 8)}… stamped on ${stamped}/${req.messageIds.length} messages for chat ${req.chatId}`);
+    return { ok: true, stamped };
+}
 
 function handleSdkUuid(req: SdkUuidRequest) {
     const msg = state.currentChat.messages[req.messageId];
@@ -303,16 +331,48 @@ export async function invalidateAgentSession(chatId: string) {
 }
 
 /**
- * Fork the SDK session to preserve cache up to a point. `keepUntilMessageId`
- * is one of OUR ChatMessage ids; we look up its sdkUuid from metadata and
- * fork the SDK session inclusive of that UUID. Returns the new session id
- * (also persisted to chat.agent_session_id) or null if no fork was possible.
+ * Find a clean fork anchor (an SDK tool_result wrapper UUID) within a
+ * given message dictionary. Walks backward from `keepUntilMessageId`
+ * through the sorted messages, returning the first
+ * metadata.sdkTurnCloserUuid encountered.
  *
- * Fork is message-granular on the SDK side. If `keepUntilMessageId` is an
- * agent-emitted assistant block that shares its sdkUuid with later blocks
- * in the same agent turn, the entire turn is preserved together (we cannot
- * cut mid-turn). Callers should round to a user message for predictable
- * cutoffs.
+ * `keepUntilMessageId` itself counts as the starting point — if that
+ * message has a closer, we use it. Otherwise we step back.
+ *
+ * Returns null when no anchor exists (e.g. the chat starts at this
+ * message or no prior turn has been stamped yet). Callers MUST handle
+ * null by leaving the session untouched rather than invalidating.
+ *
+ * Takes a messages dict argument rather than reading from
+ * state.currentChat so it can be used for cross-chat operations
+ * (branching from a source chat whose messages haven't been loaded
+ * into currentChat).
+ */
+function findForkAnchorIn(
+    messages: Record<string, import('@shared/types').ChatMessage>,
+    keepUntilMessageId: string
+): string | null {
+    const sorted = Object.values(messages)
+        .sort((a, b) => (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const cutoffIdx = sorted.findIndex(m => m.id === keepUntilMessageId);
+    if (cutoffIdx === -1) return null;
+    for (let i = cutoffIdx; i >= 0; i--) {
+        const closer = sorted[i]?.metadata?.sdkTurnCloserUuid as string | undefined;
+        if (closer) return closer;
+    }
+    return null;
+}
+
+/**
+ * Fork the SDK session to preserve cache up to (and including) a clean
+ * turn boundary at or before `keepUntilMessageId`. On success persists
+ * the new session id to `chat.agent_session_id` and returns it.
+ *
+ * On any failure (no source session, no anchor, fork call errored) the
+ * existing session is LEFT UNCHANGED. The displayed history may diverge
+ * from the SDK transcript afterward but the agent never loses memory —
+ * that trade is intentional. The prior "invalidate on failure" path
+ * caused the agent to forget everything, which is much worse.
  */
 export async function forkAgentSession(args: {
     chatId: string;
@@ -328,23 +388,20 @@ export async function forkAgentSession(args: {
         return null;
     }
 
-    const keepMsg = state.currentChat.messages[args.keepUntilMessageId];
-    const sdkUuid = keepMsg?.metadata?.sdkUuid as string | undefined;
-    if (!sdkUuid) {
-        log.server.warn(`No sdkUuid on message ${args.keepUntilMessageId}; falling back to invalidate`);
-        await invalidateAgentSession(args.chatId);
+    const anchor = findForkAnchorIn(state.currentChat.messages, args.keepUntilMessageId);
+    if (!anchor) {
+        log.server.warn(`No fork anchor found at or before message ${args.keepUntilMessageId} for chat ${args.chatId}; leaving session intact`);
         return null;
     }
 
     const response = await fetch(`${AGENT_URL}/fork`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: oldSessionId, upToMessageId: sdkUuid }),
+        body: JSON.stringify({ sessionId: oldSessionId, upToMessageId: anchor }),
     });
     if (!response.ok) {
         const errText = await response.text();
-        log.server.error(`Fork failed: ${errText}; falling back to invalidate`);
-        await invalidateAgentSession(args.chatId);
+        log.server.error(`Fork failed: ${errText}; leaving session intact for chat ${args.chatId}`);
         return null;
     }
     const { newSessionId } = await response.json() as { newSessionId: string };
@@ -352,6 +409,76 @@ export async function forkAgentSession(args: {
         .set({ agent_session_id: newSessionId })
         .where('id', '=', args.chatId)
         .execute();
-    log.server.info(`Forked agent session for chat ${args.chatId}: ${oldSessionId} -> ${newSessionId} @ ${sdkUuid}`);
+    log.server.info(`Forked agent session for chat ${args.chatId}: ${oldSessionId} -> ${newSessionId} @ ${anchor.slice(0, 8)}…`);
+    return newSessionId;
+}
+
+/**
+ * Fork the source chat's SDK session and assign the resulting fork to
+ * `targetChatId`. Used by branch / clone / saveAsTemplate so derived
+ * chats inherit the agent's memory of the source.
+ *
+ * Three modes:
+ *
+ * - `mode: 'fullCopy'` — fork the entire source session (no
+ *   upToMessageId). Use for clone/template flows where the derived chat
+ *   is the complete contents of the source.
+ *
+ * - `mode: 'untilMessage'` — fork at the turn-closer anchor at or
+ *   before `keepUntilMessageId`. Use for branch flows. The anchor is
+ *   resolved against `sourceMessages` (which must contain
+ *   keepUntilMessageId — typically the source chat's messages BEFORE
+ *   they're cloned with new ids).
+ *
+ * Returns null when there's no source session, no anchor found, or the
+ * fork call failed. In those cases the derived chat is left with
+ * agent_session_id = null and its first prompt creates a fresh session.
+ */
+export async function forkAgentSessionForChat(
+    args:
+        | { sourceChatId: string; targetChatId: string; mode: 'fullCopy' }
+        | { sourceChatId: string; targetChatId: string; mode: 'untilMessage';
+            sourceMessages: Record<string, import('@shared/types').ChatMessage>;
+            keepUntilMessageId: string }
+): Promise<string | null> {
+    const sourceRow = await db.selectFrom('chats')
+        .select('agent_session_id')
+        .where('id', '=', args.sourceChatId)
+        .executeTakeFirst();
+    const sourceSessionId = sourceRow?.agent_session_id;
+    if (!sourceSessionId) {
+        log.server.info(`Source chat ${args.sourceChatId} has no agent session; ${args.targetChatId} starts fresh`);
+        return null;
+    }
+
+    let anchor: string | undefined = undefined;
+    if (args.mode === 'untilMessage') {
+        const found = findForkAnchorIn(args.sourceMessages, args.keepUntilMessageId);
+        if (!found) {
+            log.server.warn(`Source chat ${args.sourceChatId} has no fork anchor at ${args.keepUntilMessageId}; ${args.targetChatId} starts fresh`);
+            return null;
+        }
+        anchor = found;
+    }
+
+    const response = await fetch(`${AGENT_URL}/fork`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            sessionId: sourceSessionId,
+            ...(anchor ? { upToMessageId: anchor } : {}),
+        }),
+    });
+    if (!response.ok) {
+        const errText = await response.text();
+        log.server.error(`Fork failed for ${args.sourceChatId} -> ${args.targetChatId}: ${errText}`);
+        return null;
+    }
+    const { newSessionId } = await response.json() as { newSessionId: string };
+    await db.updateTable('chats')
+        .set({ agent_session_id: newSessionId })
+        .where('id', '=', args.targetChatId)
+        .execute();
+    log.server.info(`Forked session ${sourceSessionId} -> ${newSessionId} for ${args.sourceChatId} -> ${args.targetChatId}${anchor ? ` @ ${anchor.slice(0, 8)}…` : ' (full copy)'}`);
     return newSessionId;
 }

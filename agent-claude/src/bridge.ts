@@ -1,7 +1,13 @@
-import { query, forkSession, type SDKUserMessage, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { query, forkSession, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { buildGameStateMcpServer, allTools } from './mcp';
-import { rpcAnnounce, rpcRecordSdkUuid } from './rpc';
-import { setActiveChat, setCurrentSdkAssistantUuid, consumeEndTurnRequest } from './bridge-state';
+import { rpcAnnounce, rpcRecordSdkUuid, rpcAnnounceTurnClosed } from './rpc';
+import {
+    setActiveChat,
+    setCurrentSdkAssistantUuid,
+    consumeEndTurnRequest,
+    setLastTrailingWrapperUuid,
+    consumeTurnState,
+} from './bridge-state';
 
 export type PromptArgs = {
     chatId: string;
@@ -22,7 +28,9 @@ export function cancelCurrentTurn() {
 export async function runAgentPrompt(args: PromptArgs): Promise<{ ok: true; sessionId: string | null }> {
     setActiveChat(args.chatId);
     setCurrentSdkAssistantUuid(undefined);
-    consumeEndTurnRequest(); // clear stale flag from prior turn
+    consumeEndTurnRequest();
+    // Drain any stale turn-state from a previous run that didn't clean up.
+    consumeTurnState();
 
     const abort = new AbortController();
     currentAbort = abort;
@@ -52,12 +60,7 @@ export async function runAgentPrompt(args: PromptArgs): Promise<{ ok: true; sess
             await handleSdkMessage(msg, args, (sessionId) => {
                 capturedSessionId = sessionId;
             });
-            if (consumeEndTurnRequest()) {
-                // The model called end_turn; let the SDK finish flushing
-                // the tool_result and the model's final wrap-up text. We
-                // don't break out — natural end-of-conversation comes
-                // from the SDK emitting a result message.
-            }
+            consumeEndTurnRequest();
         }
     } catch (err) {
         if ((err as Error)?.name === 'AbortError') {
@@ -66,6 +69,10 @@ export async function runAgentPrompt(args: PromptArgs): Promise<{ ok: true; sess
             throw err;
         }
     } finally {
+        // Flush whatever we've accumulated for this turn even on early
+        // exit. Better to record a partial closer than to leak stale
+        // state into the next turn.
+        await flushTurnState(args.chatId, args.userMessageId);
         currentAbort = null;
         setActiveChat(null);
         setCurrentSdkAssistantUuid(undefined);
@@ -75,6 +82,13 @@ export async function runAgentPrompt(args: PromptArgs): Promise<{ ok: true; sess
     return { ok: true, sessionId: capturedSessionId };
 }
 
+async function flushTurnState(chatId: string, userMessageId: string) {
+    const { producedMessageIds, trailingWrapperUuid } = consumeTurnState();
+    if (!trailingWrapperUuid) return;
+    const messageIds = [userMessageId, ...producedMessageIds];
+    await rpcAnnounceTurnClosed(chatId, messageIds, trailingWrapperUuid);
+}
+
 async function handleSdkMessage(
     msg: SDKMessage,
     args: PromptArgs,
@@ -82,10 +96,8 @@ async function handleSdkMessage(
 ) {
     switch (msg.type) {
         case 'system': {
-            // The `system` init message carries the session_id we need to
-            // persist for cache-friendly resume on the next prompt.
-            if ('subtype' in msg && (msg as any).subtype === 'init') {
-                const sid = (msg as any).session_id as string | undefined;
+            if ('subtype' in msg && (msg as { subtype?: string }).subtype === 'init') {
+                const sid = (msg as { session_id?: string }).session_id;
                 if (sid) {
                     onSessionCaptured(sid);
                     await rpcAnnounce(args.chatId, 'session_captured', sid);
@@ -94,43 +106,63 @@ async function handleSdkMessage(
             return;
         }
         case 'assistant': {
-            // Track the current assistant UUID so MCP tool handlers
-            // (which fire during this assistant's tool_use blocks) can
-            // attribute their emitted ChatMessages.
+            // Track current assistant UUID so MCP tool handlers (firing
+            // during this assistant's tool_use blocks) can attribute
+            // their emitted ChatMessages.
             setCurrentSdkAssistantUuid(msg.uuid as unknown as string);
             return;
         }
         case 'user': {
-            // Skip user messages we don't want attributed to our userMessageId:
-            //   - parent_tool_use_id !== null  → message originated inside a
-            //     subagent (Task tool). forkSession filters these as sidechain.
-            //   - isSynthetic === true         → SDK-constructed message, not
-            //     ours.
-            //   - any tool_result block in content → SDK-built wrapper carrying
-            //     tool outputs back to the model. Distinct from our prompt; in
-            //     practice this is the most common spurious match because
-            //     SDKUserMessage.uuid is optional and the SDK's wrappers get
-            //     uuids assigned at persist time while our prompt's first
-            //     emission may not.
+            // The SDK stream emits two flavors of user message we care about:
+            //
+            // (1) The main-thread user prompt (the one we sent).
+            //     parent_tool_use_id === null, no tool_result content blocks.
+            //     We record its UUID against our userMessageId so future
+            //     forks can identify "this is the prompt we sent."
+            //
+            // (2) Tool-result wrappers built by the SDK to feed tool_use
+            //     outputs back to the model. parent_tool_use_id === null on
+            //     the main thread (parent_tool_use_id is the subagent
+            //     boundary, NOT a tool_result discriminator — confirmed by
+            //     reading sdk.mjs). Discriminated by tool_result blocks in
+            //     content. Their UUIDs are the clean fork anchors at the
+            //     end of an agent turn.
+            //
+            // Subagent-context messages (parent_tool_use_id !== null) are
+            // filtered out — forkSession's lookup also filters isSidechain
+            // before matching uuid.
             const parentToolUseId = (msg as unknown as { parent_tool_use_id: string | null }).parent_tool_use_id;
             const isSynthetic = (msg as unknown as { isSynthetic?: boolean }).isSynthetic === true;
-            if (parentToolUseId !== null || isSynthetic) return;
+            if (parentToolUseId !== null) return;
 
             const content = (msg.message as unknown as { content: unknown }).content;
-            if (Array.isArray(content) && content.some((b) =>
+            const isToolResultWrapper = Array.isArray(content) && content.some((b) =>
                 typeof b === 'object' && b !== null && (b as { type?: string }).type === 'tool_result'
-            )) {
+            );
+
+            const uuid = msg.uuid as unknown as string | undefined;
+
+            if (isToolResultWrapper) {
+                // (2) — remember as candidate turn closer. The LAST wrapper
+                // observed before the `result` message is the closer.
+                if (uuid) setLastTrailingWrapperUuid(uuid);
                 return;
             }
 
-            const uuid = msg.uuid as unknown as string | undefined;
+            if (isSynthetic) return;
+
+            // (1) — the main-thread user prompt we sent.
             if (uuid) {
                 await rpcRecordSdkUuid(args.chatId, args.userMessageId, uuid);
             }
             return;
         }
         case 'result': {
-            // Final message — loop exits naturally after this.
+            // SDK loop settled. Flush turn closer to server now; the
+            // finally block also flushes defensively, but doing it here
+            // means the metadata stamp is visible before runAgentPrompt
+            // returns.
+            await flushTurnState(args.chatId, args.userMessageId);
             return;
         }
         default:
@@ -140,10 +172,10 @@ async function handleSdkMessage(
 
 export async function forkAndReturnNewSessionId(args: {
     sessionId: string;
-    upToMessageId: string;
+    upToMessageId?: string;
 }): Promise<{ newSessionId: string }> {
     const { sessionId } = await forkSession(args.sessionId, {
-        upToMessageId: args.upToMessageId,
+        ...(args.upToMessageId ? { upToMessageId: args.upToMessageId } : {}),
     });
     return { newSessionId: sessionId };
 }

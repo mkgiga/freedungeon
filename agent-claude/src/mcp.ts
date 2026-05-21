@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { COMMANDS } from '@shared/game-state/commands';
 import { QUERIES } from '@shared/game-state/queries';
 import { rpcExec, rpcQuery } from './rpc';
-import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn } from './bridge-state';
+import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProducedMessageId } from './bridge-state';
 
 /**
  * Build the MCP server for one user prompt. The chatId is closed over by the
@@ -39,6 +39,7 @@ export function buildGameStateMcpServer() {
                         isError: true,
                     };
                 }
+                recordProducedMessageId(result.messageId);
                 return {
                     content: [{ type: 'text', text: result.effects }],
                 };

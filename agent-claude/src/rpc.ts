@@ -41,6 +41,25 @@ export async function rpcRecordSdkUuid(
     return rpcCall({ kind: 'sdk_uuid', chatId, messageId, sdkUuid }) as Promise<{ ok: true } | { error: string }>;
 }
 
+/**
+ * Stamp metadata.sdkTurnCloserUuid on a batch of ChatMessages — the
+ * userMessageId that initiated the turn plus every assistant block the
+ * agent produced during it. Called once per turn after the SDK loop
+ * settles on a `result` message.
+ */
+export async function rpcAnnounceTurnClosed(
+    chatId: string,
+    messageIds: string[],
+    trailingWrapperUuid: string
+): Promise<{ ok: true } | { error: string }> {
+    return rpcCall({
+        kind: 'turn_closed',
+        chatId,
+        messageIds,
+        trailingWrapperUuid,
+    }) as Promise<{ ok: true } | { error: string }>;
+}
+
 async function rpcCall(body: object): Promise<unknown> {
     const res = await fetch(SERVER_RPC_URL, {
         method: 'POST',
