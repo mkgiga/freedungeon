@@ -4,7 +4,7 @@ import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
 import { runTurn, createInitialContext } from "./game-state";
-import { dispatchPromptToAgent, forkAgentSession } from "./agent";
+import { dispatchPromptToAgent } from "./agent";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -274,8 +274,12 @@ export class CurrentChat {
      *   - User target: drop everything after (the stale reply + follow-ups), then
      *     generate using history ending in this user turn.
      *
-     * Forks the agent session at the most recent surviving message so the
-     * prompt cache is preserved up to that point.
+     * V1: the SDK session is NOT touched. Pruned messages stay in the SDK's
+     * transcript, so the model sees its prior response in context when
+     * generating the new one — outcomes will be partially anchored on the
+     * prior reply. Tradeoff accepted to avoid losing all agent context on
+     * fork failure (the prior fork-on-regen path nulled the session on any
+     * error, which left the agent blind to history).
      */
     static async regenerateMessage(messageId: string) {
         const targetMessage = CurrentChat.getMessage(messageId);
@@ -290,10 +294,6 @@ export class CurrentChat {
 
         const lastUser = CurrentChat.lastUserMessage();
         if (lastUser) {
-            await forkAgentSession({
-                chatId: state.currentChat.id!,
-                keepUntilMessageId: lastUser.id,
-            });
             await CurrentChat.generateResponse(lastUser.id, lastUser.content);
         }
     }
@@ -303,15 +303,12 @@ export class CurrentChat {
      * the target, deletes all subsequent messages. No LLM call — the user stops
      * "here" and can resume from this point by sending a new message.
      *
-     * Forks the agent session at the rewind point so the next prompt re-uses
-     * the cache prefix up to that point.
+     * V1: SDK session not touched. The next prompt resumes the same session,
+     * which still contains the pruned tail in its transcript. See note on
+     * regenerateMessage.
      */
     static async rewindToMessage(messageId: string) {
         CurrentChat.pruneFromMessage(messageId, { includeTarget: false });
-        await forkAgentSession({
-            chatId: state.currentChat.id!,
-            keepUntilMessageId: messageId,
-        });
     }
 
     static lastUserMessage(): ChatMessage | null {

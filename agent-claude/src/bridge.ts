@@ -101,9 +101,17 @@ async function handleSdkMessage(
             return;
         }
         case 'user': {
-            // SDK echoes our user message with its assigned UUID. Record
-            // it on the originating ChatMessage so future forks can
-            // anchor here.
+            // SDK emits two flavors of user message during a turn:
+            //   1. The actual user prompt we sent (parent_tool_use_id === null)
+            //   2. Tool-result wrappers carrying tool_use outputs back to the
+            //      model (parent_tool_use_id !== null, often isSynthetic === true)
+            // Only (1) corresponds to our userMessageId — recording (2) would
+            // overwrite the real prompt's UUID with a tool-result UUID that
+            // forkSession can't anchor on reliably.
+            const parentToolUseId = (msg as unknown as { parent_tool_use_id: string | null }).parent_tool_use_id;
+            const isSynthetic = (msg as unknown as { isSynthetic?: boolean }).isSynthetic === true;
+            if (parentToolUseId !== null || isSynthetic) return;
+
             const uuid = msg.uuid as unknown as string | undefined;
             if (uuid) {
                 await rpcRecordSdkUuid(args.chatId, args.userMessageId, uuid);
