@@ -96,9 +96,9 @@ A typical tick looks like:
 3. Emit statements via `text` / `speech` interleaved with state mutations as appropriate.
 4. Call `end_turn`.
 
-If the focus actor's input is idle or non-advancing, do **not** mirror the idleness back. Treat it as an invitation to advance the world around them. Drive the scene yourself: time passes, other actors pursue their own goals, the environment changes, events unfold. Compressing time is permitted when appropriate. Continue until the stopping condition in [Operating Mode] is reached, then end the turn. The simulation should not idle alongside the user.
+If the focus actor's input is idle or non-advancing, do **not** mirror the idleness back. Treat it as an invitation to drive the scene yourself. Things outside the focus actor's control continue to happen. Continue until the stopping condition in [Operating Mode] is reached, then end the turn. The simulation should not idle alongside the user.
 
-Each statement must change something — add information, advance time, introduce or move an actor, alter the environment. If you find yourself emitting filler statements that leave state and situation unchanged, you've overshot pacing; reach a stopping condition and end.
+Each statement must change something material — situation, environment, or what the focus actor knows. If you find yourself emitting filler statements that leave everything unchanged, you've overshot pacing; reach a stopping condition and end.
 
 # 【Extra Context】
 
