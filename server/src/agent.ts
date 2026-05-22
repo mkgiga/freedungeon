@@ -416,12 +416,17 @@ export async function cancelAgentTurn() {
 }
 
 /**
- * Explicit nuke of a chat's SDK session — currently unused by the agent
- * pipeline (the fork-failure path leaves the session intact). Kept
- * exported so a future "reset agent memory" UI affordance has a target.
+ * Drop a chat's SDK session and arm the rehydration path. The next
+ * prompt will inject the chat's full message history as a preamble
+ * into a fresh session so the agent's view stays in sync with the
+ * displayed chat. Used as the fork-failure / no-anchor fallback —
+ * preferred over "leave session intact" because divergence causes the
+ * agent to ignore events the user can see (e.g. characters
+ * pretending events didn't happen).
  *
- * When the dropped chat is the loaded one and has any messages, sets the
- * rehydration flag so the next prompt rebuilds context.
+ * When the dropped chat is the loaded one and has any messages, sets
+ * the rehydration flag so the UI shows the warning + cost-confirm
+ * modal on the next send.
  */
 export async function invalidateAgentSession(chatId: string) {
     await db.updateTable('chats')
@@ -501,11 +506,18 @@ function findForkAnchorIn(
  * turn boundary at or before `keepUntilMessageId`. On success persists
  * the new session id to `chat.agent_session_id` and returns it.
  *
- * On any failure (no source session, no anchor, fork call errored) the
- * existing session is LEFT UNCHANGED. The displayed history may diverge
- * from the SDK transcript afterward but the agent never loses memory —
- * that trade is intentional. The prior "invalidate on failure" path
- * caused the agent to forget everything, which is much worse.
+ * On any failure (no anchor in the current session, fork call errored)
+ * the session is INVALIDATED so the next prompt rebuilds context from
+ * the displayed chat via rehydration. The invalidate path is preferred
+ * over "leave session intact" because divergence between displayed
+ * messages and SDK transcript causes the agent to ignore events the
+ * user can see (characters pretending events that just happened
+ * didn't). Rehydration costs a one-time preamble; divergence costs
+ * trust in the chat.
+ *
+ * The one case where we do nothing: no source session at all. Then
+ * the chat is ALREADY in the rehydration state and the next prompt
+ * will inject the preamble naturally.
  */
 export async function forkAgentSession(args: {
     chatId: string;
@@ -517,13 +529,14 @@ export async function forkAgentSession(args: {
         .executeTakeFirst();
     const oldSessionId = sessionRow?.agent_session_id;
     if (!oldSessionId) {
-        log.server.info(`No agent session to fork for chat ${args.chatId}`);
+        log.server.info(`No agent session to fork for chat ${args.chatId}; first prompt will rehydrate`);
         return null;
     }
 
     const anchor = findForkAnchorIn(state.currentChat.messages, args.keepUntilMessageId, oldSessionId);
     if (!anchor) {
-        log.server.warn(`No fork anchor in session ${oldSessionId.slice(0, 8)}… found at or before message ${args.keepUntilMessageId} for chat ${args.chatId}; leaving session intact`);
+        log.server.warn(`No fork anchor in session ${oldSessionId.slice(0, 8)}… at or before ${args.keepUntilMessageId} for chat ${args.chatId}; invalidating session, next prompt will rehydrate`);
+        await invalidateAgentSession(args.chatId);
         return null;
     }
 
@@ -534,7 +547,8 @@ export async function forkAgentSession(args: {
     });
     if (!response.ok) {
         const errText = await response.text();
-        log.server.error(`Fork failed: ${errText}; leaving session intact for chat ${args.chatId}`);
+        log.server.error(`Fork failed: ${errText}; invalidating session for chat ${args.chatId}, next prompt will rehydrate`);
+        await invalidateAgentSession(args.chatId);
         return null;
     }
     const { newSessionId } = await response.json() as { newSessionId: string };
