@@ -991,6 +991,55 @@ button {
   100% { left: 100%; }
 }
 
+/* Fade-to-dark overlay below the top bar with the current scene location
+ * floating in the top-right. Read-only orientation cue; never captures
+ * pointer events so the chat scrolls through it. */
+.chat-location-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: linear-gradient(to bottom, color-mix(in oklch, var(--bg), transparent 10%), transparent);
+  pointer-events: none;
+  z-index: 3;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 8px 16px;
+}
+
+.chat-location-label {
+  color: var(--text-dim);
+  text-shadow: var(--text-shadow);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+/* Inline scene-break shown when setLocation fires inside an assistant
+ * turn. Renders as a centered chapter-marker between chat blocks. */
+.chat-block-scene-break {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 24px;
+  pointer-events: none;
+}
+
+.chat-block-scene-break-line {
+  flex: 1;
+  height: 1px;
+  background: color-mix(in oklch, var(--text), transparent 80%);
+}
+
+.chat-block-scene-break-label {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .chat-jump-to-latest {
   position: absolute;
   bottom: 120px;

@@ -462,6 +462,13 @@ function ConversationViewBody(props: { onBack: () => void }) {
         <Show when={state.isGenerating}>
           <div class="chat-generation-indicator" aria-hidden="true" />
         </Show>
+        <Show when={playback.effectiveGameState().scene.location}>
+          {(loc) => (
+            <div class="chat-location-overlay" aria-hidden="true">
+              <Text size="sm" class="chat-location-label">{loc()}</Text>
+            </div>
+          )}
+        </Show>
         <div
           ref={scrollEl}
           class="chat-messages flex-1 overflow-y-auto"

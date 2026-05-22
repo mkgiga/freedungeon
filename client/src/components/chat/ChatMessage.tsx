@@ -18,6 +18,7 @@ import { DamageBlock } from './blocks/DamageBlock'
 import { HealBlock } from './blocks/HealBlock'
 import { GiveItemBlock } from './blocks/GiveItemBlock'
 import { TakeItemBlock } from './blocks/TakeItemBlock'
+import { SetLocationBlock } from './blocks/SetLocationBlock'
 import { usePlayback } from './playback'
 
 export function ChatMessage(props: { message: ChatMessageType }) {
@@ -179,6 +180,12 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                             <Match when={block.type === 'takeItem'}>
                                 <TakeItemBlock
                                     block={block as Extract<Block, { type: 'takeItem' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'setLocation'}>
+                                <SetLocationBlock
+                                    block={block as Extract<Block, { type: 'setLocation' }>}
                                     onUpdate={(b) => updateBlock(i(), b)}
                                 />
                             </Match>
