@@ -4,7 +4,7 @@ import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
 import { runTurn, createInitialContext } from "./game-state";
-import { dispatchPromptToAgent, forkAgentSession, forkAgentSessionForChat } from "./agent";
+import { dispatchPromptToAgent, forkAgentSession, forkAgentSessionForChat, resetFlagsSnapshotToCurrent } from "./agent";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -310,6 +310,7 @@ export class CurrentChat {
             });
         }
 
+        await CurrentChat.refreshStateAndResetSnapshot();
         await CurrentChat.generateResponse(lastUser.id, lastUser.content);
     }
 
@@ -328,6 +329,22 @@ export class CurrentChat {
             chatId: state.currentChat.id!,
             keepUntilMessageId: messageId,
         });
+        await CurrentChat.refreshStateAndResetSnapshot();
+    }
+
+    /**
+     * Recompute gameState from current message history and reset the
+     * agent flags snapshot to the resulting flags. Called after
+     * destructive ops (regen, rewind) that re-replay history so the
+     * next prompt's <system_notice> delta uses the post-mutation
+     * state as the baseline — otherwise pruned-away flag changes
+     * would surface as spurious "removed" / "reverted" deltas.
+     */
+    private static async refreshStateAndResetSnapshot() {
+        if (!state.currentChat.id) return;
+        const turnResult = runTurn(Object.values(state.currentChat.messages));
+        setState('currentChat', 'gameState', turnResult.ctx);
+        await resetFlagsSnapshotToCurrent(state.currentChat.id);
     }
 
     static messageImmediatelyBefore(messageId: string): ChatMessage | null {

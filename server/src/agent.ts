@@ -270,13 +270,93 @@ function handleAnnounce(req: AnnouncementRequest) {
     }
     if (req.event === 'turn_ended') {
         setState('isGenerating', false);
+        // Snapshot the post-turn flags so the NEXT prompt can diff
+        // against them. Captures the agent's own set_flag/clear_flag
+        // effects too — those will then NOT appear as deltas on the
+        // next turn, since the snapshot already reflects them. Only
+        // out-of-band changes (UI toggles, edits to prior messages
+        // that re-replay differently) will surface as deltas.
+        if (state.currentChat.id === req.chatId) {
+            void writeFlagsSnapshot(req.chatId, state.currentChat.gameState.flags);
+        }
     }
     return { ok: true };
+}
+
+async function writeFlagsSnapshot(chatId: string, flags: Record<string, unknown>) {
+    try {
+        await db.updateTable('chats')
+            .set({ last_agent_flags_snapshot: JSON.stringify(flags) })
+            .where('id', '=', chatId)
+            .execute();
+    } catch (err) {
+        log.server.error(`Failed to snapshot flags for chat ${chatId}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+}
+
+/**
+ * Reset a chat's flags snapshot to the current state. Call after
+ * destructive ops (regen, rewind) that re-replay history and change
+ * what the agent's "last visible state" should be — without this, the
+ * next prompt's delta would compare against a snapshot from a now-
+ * pruned reality and produce noise.
+ */
+export async function resetFlagsSnapshotToCurrent(chatId: string) {
+    if (state.currentChat.id !== chatId) return;
+    await writeFlagsSnapshot(chatId, state.currentChat.gameState.flags);
+}
+
+/**
+ * Build a delta string from a snapshot (the post-turn flags from the
+ * end of the previous turn) and the current flags. Returns an empty
+ * string if nothing changed — the caller should then skip injecting
+ * the <state_changes_since_last_turn> block entirely.
+ */
+function buildFlagsDelta(
+    snapshot: Record<string, unknown> | null,
+    current: Record<string, unknown>,
+): string {
+    if (snapshot === null) return ''; // no baseline yet (fresh chat, post-fork, post-clone) — treat current as the baseline
+    const lines: string[] = [];
+    for (const [key, val] of Object.entries(current)) {
+        if (!(key in snapshot)) {
+            lines.push(`- flag "${key}" added (value: ${JSON.stringify(val)})`);
+        } else if (JSON.stringify(snapshot[key]) !== JSON.stringify(val)) {
+            lines.push(`- flag "${key}" changed: ${JSON.stringify(snapshot[key])} -> ${JSON.stringify(val)}`);
+        }
+    }
+    for (const key of Object.keys(snapshot)) {
+        if (!(key in current)) {
+            lines.push(`- flag "${key}" removed`);
+        }
+    }
+    return lines.join('\n');
 }
 
 // ─────────────────────────────────────────────────────────────────────────
 // Server → Agent: prompt forwarding
 // ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Wrap the user input with a <system_notice> block carrying
+ * out-of-band state updates. The Anthropic API has no system-role
+ * channel within the messages array, so by convention the SDK ferries
+ * server-originated, non-user instruction-context inside a user-role
+ * message tagged with a known XML wrapper. The system prompt teaches
+ * the agent to treat <system_notice> content as authoritative state
+ * updates, distinct from the user's actual <current_input>.
+ */
+function wrapWithSystemNotice(noticeBody: string, userContent: string): string {
+    return [
+        '<system_notice>',
+        'State changes occurred outside the agent loop since the previous turn. Treat these as ground truth:',
+        '',
+        noticeBody,
+        '</system_notice>',
+        '',
+        userContent,
+    ].join('\n');
+}
 
 /**
  * Wrap the new user input with a replayed-history preamble built from
@@ -373,13 +453,34 @@ export async function dispatchPromptToAgent(args: {
     // prompt; the resulting session_id is captured and saved, and every
     // subsequent prompt resumes normally from there. So this expensive
     // preamble happens at most ONCE per chat (or once per re-orphaning).
-    const userContent = resumeSessionId === null
+    let userContent = resumeSessionId === null
         ? wrapWithHistoryPreamble(
             Object.values(state.currentChat.messages),
             args.userMessageId,
             args.userContent,
         )
         : args.userContent;
+
+    // Diff flags since the end of the previous turn and prepend a
+    // <system_notice> block if anything has changed out-of-band (user
+    // toggles, prior-message edits that re-replayed differently). The
+    // Anthropic API has no mid-conversation system-role channel — every
+    // message is user or assistant — so the convention is to mark
+    // instruction-like content with an XML tag the model recognizes as
+    // distinct from user dialogue. RP_PROMPT.md teaches the agent that
+    // <system_notice> blocks are out-of-band state updates, not user
+    // input.
+    const flagsSnapshotRow = await db.selectFrom('chats')
+        .select('last_agent_flags_snapshot')
+        .where('id', '=', args.chatId)
+        .executeTakeFirst();
+    const flagsSnapshot = flagsSnapshotRow?.last_agent_flags_snapshot
+        ? JSON.parse(flagsSnapshotRow.last_agent_flags_snapshot) as Record<string, unknown>
+        : null;
+    const flagsDelta = buildFlagsDelta(flagsSnapshot, state.currentChat.gameState.flags);
+    if (flagsDelta) {
+        userContent = wrapWithSystemNotice(flagsDelta, userContent);
+    }
 
     setState('isGenerating', true);
 

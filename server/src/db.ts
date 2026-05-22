@@ -57,6 +57,15 @@ export interface DB {
         banner_url: string | null;
         description: string | null;
         agent_session_id: string | null;
+        /**
+         * JSON snapshot of GameStateContext.flags taken at the end of the
+         * most recent agent turn. dispatchPromptToAgent diffs against this
+         * to build a <state_changes_since_last_turn> block in the next
+         * user prompt, so the agent notices out-of-band flag changes
+         * (e.g. user toggles via UI) without having to call list_flags
+         * defensively every turn.
+         */
+        last_agent_flags_snapshot: string | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
@@ -192,6 +201,9 @@ export async function initDb() {
     }
     if (!haveChatCol('agent_session_id')) {
         await db.schema.alterTable('chats').addColumn('agent_session_id', 'text').execute();
+    }
+    if (!haveChatCol('last_agent_flags_snapshot')) {
+        await db.schema.alterTable('chats').addColumn('last_agent_flags_snapshot', 'text').execute();
     }
 
     await db.schema
