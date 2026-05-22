@@ -72,7 +72,7 @@ export async function runAgentPrompt(args: PromptArgs): Promise<{ ok: true; sess
         // Flush whatever we've accumulated for this turn even on early
         // exit. Better to record a partial closer than to leak stale
         // state into the next turn.
-        await flushTurnState(args.chatId, args.userMessageId);
+        await flushTurnState(args.chatId, args.userMessageId, capturedSessionId);
         currentAbort = null;
         setActiveChat(null);
         setCurrentSdkAssistantUuid(undefined);
@@ -82,11 +82,19 @@ export async function runAgentPrompt(args: PromptArgs): Promise<{ ok: true; sess
     return { ok: true, sessionId: capturedSessionId };
 }
 
-async function flushTurnState(chatId: string, userMessageId: string) {
-    const { producedMessageIds, trailingWrapperUuid } = consumeTurnState();
+async function flushTurnState(chatId: string, userMessageId: string, fallbackSessionId: string | null) {
+    const { producedMessageIds, trailingWrapperUuid, trailingWrapperSessionId } = consumeTurnState();
     if (!trailingWrapperUuid) return;
+    // SDKUserMessage.session_id is optional on the stream emission; if no
+    // wrapper this turn carried one, fall back to the session id we
+    // captured from the `system: init` event. Either way, the closer
+    // and the session_id agree on which session this turn lives in —
+    // which is what findForkAnchorIn needs to filter stale closers
+    // after a future fork rewrites session ids.
+    const sessionId = trailingWrapperSessionId ?? fallbackSessionId;
+    if (!sessionId) return;
     const messageIds = [userMessageId, ...producedMessageIds];
-    await rpcAnnounceTurnClosed(chatId, messageIds, trailingWrapperUuid);
+    await rpcAnnounceTurnClosed(chatId, messageIds, trailingWrapperUuid, sessionId);
 }
 
 async function handleSdkMessage(
@@ -145,7 +153,10 @@ async function handleSdkMessage(
             if (isToolResultWrapper) {
                 // (2) — remember as candidate turn closer. The LAST wrapper
                 // observed before the `result` message is the closer.
-                if (uuid) setLastTrailingWrapperUuid(uuid);
+                if (uuid) {
+                    const sid = (msg as unknown as { session_id?: string }).session_id;
+                    setLastTrailingWrapperUuid(uuid, sid);
+                }
                 return;
             }
 
@@ -158,11 +169,11 @@ async function handleSdkMessage(
             return;
         }
         case 'result': {
-            // SDK loop settled. Flush turn closer to server now; the
-            // finally block also flushes defensively, but doing it here
-            // means the metadata stamp is visible before runAgentPrompt
-            // returns.
-            await flushTurnState(args.chatId, args.userMessageId);
+            // Settlement is observed; the finally block in
+            // runAgentPrompt does the actual flush so it has access to
+            // capturedSessionId (a closure local of runAgentPrompt, not
+            // visible here). The stream loop exits naturally after this
+            // message, so the flush runs immediately.
             return;
         }
         default:

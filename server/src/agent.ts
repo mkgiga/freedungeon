@@ -90,6 +90,7 @@ type TurnClosedRequest = {
     chatId: string;
     messageIds: string[];
     trailingWrapperUuid: string;
+    trailingWrapperSessionId: string;
 };
 
 type RpcRequest = ExecRequest | QueryRequest | AnnouncementRequest | SdkUuidRequest | TurnClosedRequest;
@@ -113,22 +114,32 @@ agentRpcRouter.post('/', async (c) => {
 });
 
 function handleTurnClosed(req: TurnClosedRequest) {
-    // Stamp metadata.sdkTurnCloserUuid on every message the agent
-    // produced during this turn (user prompt + assistant blocks). That
-    // UUID is the only clean fork anchor we can rely on — it points to
-    // the tool_result wrapper that closes the agent's turn in the SDK
-    // transcript, after which the next prompt can land cleanly.
+    // Stamp metadata.sdkTurnCloserUuid AND sdkTurnCloserSessionId on
+    // every message the agent produced during this turn (user prompt +
+    // assistant blocks). The pair (uuid, sessionId) is the only clean
+    // fork anchor we can rely on — it points to the tool_result wrapper
+    // that closes the agent's turn in a SPECIFIC session's transcript.
+    //
+    // Tracking sessionId alongside is critical: forkSession rewrites
+    // every kept entry's uuid in the resulting session. After a
+    // successful fork, closer uuids stamped pre-fork become stale
+    // pointers into the now-defunct prior session. findForkAnchorIn
+    // filters by current sessionId to skip those stale entries.
     let stamped = 0;
     for (const messageId of req.messageIds) {
         const msg = state.currentChat.messages[messageId];
         if (!msg) continue;
-        const nextMeta = { ...(msg.metadata ?? {}), sdkTurnCloserUuid: req.trailingWrapperUuid };
+        const nextMeta = {
+            ...(msg.metadata ?? {}),
+            sdkTurnCloserUuid: req.trailingWrapperUuid,
+            sdkTurnCloserSessionId: req.trailingWrapperSessionId,
+        };
         const updated = { ...msg, metadata: nextMeta, updatedAt: Date.now() };
         setState('currentChat', 'messages', messageId, updated);
         saveMessage(updated);
         stamped++;
     }
-    log.server.info(`Turn closer ${req.trailingWrapperUuid.slice(0, 8)}… stamped on ${stamped}/${req.messageIds.length} messages for chat ${req.chatId}`);
+    log.server.info(`Turn closer ${req.trailingWrapperUuid.slice(0, 8)}… in session ${req.trailingWrapperSessionId.slice(0, 8)}… stamped on ${stamped}/${req.messageIds.length} messages for chat ${req.chatId}`);
     return { ok: true, stamped };
 }
 
@@ -432,15 +443,22 @@ export async function invalidateAgentSession(chatId: string) {
 
 /**
  * Find a clean fork anchor (an SDK tool_result wrapper UUID) within a
- * given message dictionary. Walks backward from `keepUntilMessageId`
- * through the sorted messages, returning the first
- * metadata.sdkTurnCloserUuid encountered.
+ * given message dictionary, scoped to a specific SDK session. Walks
+ * backward from `keepUntilMessageId` through the sorted messages,
+ * returning the first metadata.sdkTurnCloserUuid whose recorded
+ * sdkTurnCloserSessionId matches `currentSessionId`.
+ *
+ * Why the session filter matters: forkSession rewrites every kept
+ * entry's uuid in the resulting session. After a successful fork,
+ * closer uuids stamped pre-fork still refer to the OLD session and are
+ * not addressable in the new one. Without this filter, walking back
+ * would return a stale uuid and the next forkSession call would error
+ * with "Message X not found in session Y".
  *
  * `keepUntilMessageId` itself counts as the starting point — if that
- * message has a closer, we use it. Otherwise we step back.
+ * message has a matching closer, we use it. Otherwise we step back.
  *
- * Returns null when no anchor exists (e.g. the chat starts at this
- * message or no prior turn has been stamped yet). Callers MUST handle
+ * Returns null when no matching anchor exists. Callers MUST handle
  * null by leaving the session untouched rather than invalidating.
  *
  * Takes a messages dict argument rather than reading from
@@ -450,15 +468,30 @@ export async function invalidateAgentSession(chatId: string) {
  */
 function findForkAnchorIn(
     messages: Record<string, import('@shared/types').ChatMessage>,
-    keepUntilMessageId: string
+    keepUntilMessageId: string,
+    currentSessionId: string
 ): string | null {
     const sorted = Object.values(messages)
         .sort((a, b) => (a.createdAt - b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     const cutoffIdx = sorted.findIndex(m => m.id === keepUntilMessageId);
     if (cutoffIdx === -1) return null;
+    let staleSkipped = 0;
     for (let i = cutoffIdx; i >= 0; i--) {
-        const closer = sorted[i]?.metadata?.sdkTurnCloserUuid as string | undefined;
-        if (closer) return closer;
+        const meta = sorted[i]?.metadata;
+        const closer = meta?.sdkTurnCloserUuid as string | undefined;
+        const sessionId = meta?.sdkTurnCloserSessionId as string | undefined;
+        if (!closer) continue;
+        if (sessionId !== currentSessionId) {
+            staleSkipped++;
+            continue;
+        }
+        if (staleSkipped > 0) {
+            log.server.info(`findForkAnchor skipped ${staleSkipped} stale closer(s) from prior sessions before matching session ${currentSessionId.slice(0, 8)}…`);
+        }
+        return closer;
+    }
+    if (staleSkipped > 0) {
+        log.server.info(`findForkAnchor found ${staleSkipped} stale closer(s) but none matched session ${currentSessionId.slice(0, 8)}…; returning null`);
     }
     return null;
 }
@@ -488,9 +521,9 @@ export async function forkAgentSession(args: {
         return null;
     }
 
-    const anchor = findForkAnchorIn(state.currentChat.messages, args.keepUntilMessageId);
+    const anchor = findForkAnchorIn(state.currentChat.messages, args.keepUntilMessageId, oldSessionId);
     if (!anchor) {
-        log.server.warn(`No fork anchor found at or before message ${args.keepUntilMessageId} for chat ${args.chatId}; leaving session intact`);
+        log.server.warn(`No fork anchor in session ${oldSessionId.slice(0, 8)}… found at or before message ${args.keepUntilMessageId} for chat ${args.chatId}; leaving session intact`);
         return null;
     }
 
@@ -553,9 +586,9 @@ export async function forkAgentSessionForChat(
 
     let anchor: string | undefined = undefined;
     if (args.mode === 'untilMessage') {
-        const found = findForkAnchorIn(args.sourceMessages, args.keepUntilMessageId);
+        const found = findForkAnchorIn(args.sourceMessages, args.keepUntilMessageId, sourceSessionId);
         if (!found) {
-            log.server.warn(`Source chat ${args.sourceChatId} has no fork anchor at ${args.keepUntilMessageId}; ${args.targetChatId} starts fresh`);
+            log.server.warn(`Source chat ${args.sourceChatId} has no anchor in session ${sourceSessionId.slice(0, 8)}… at ${args.keepUntilMessageId}; ${args.targetChatId} starts fresh (will rehydrate on first prompt)`);
             return null;
         }
         anchor = found;

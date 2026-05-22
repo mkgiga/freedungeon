@@ -147,7 +147,6 @@ async function initHttp() {
     app.use('*', async (c, next) => {
         const info = getConnInfo(c);
         const clientIp = info.remote.address;
-        console.log('Client IP:', JSON.stringify(clientIp), 'isPrivate:', clientIp ? isPrivateIP(clientIp) : 'no ip');
         if (clientIp && isPrivateIP(clientIp)) {
             return next();
         }
@@ -215,7 +214,6 @@ async function initProcessHandlers() {
             saveStateToDb({ state })
             savePreferences(state.userPreferences)
             checkpointWal()
-            log.server.info('Auto-save complete.')
         } catch (err) {
             log.server.error(`Auto-save failed: ${err}`)
         }

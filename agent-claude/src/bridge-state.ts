@@ -24,6 +24,7 @@ let endTurnRequested = false;
  */
 let producedMessageIds: string[] = [];
 let lastTrailingWrapperUuid: string | undefined = undefined;
+let lastTrailingWrapperSessionId: string | undefined = undefined;
 
 export function setActiveChat(chatId: string | null) {
     activeChatId = chatId;
@@ -55,8 +56,14 @@ export function recordProducedMessageId(messageId: string) {
     producedMessageIds.push(messageId);
 }
 
-export function setLastTrailingWrapperUuid(uuid: string) {
+export function setLastTrailingWrapperUuid(uuid: string, sessionId: string | undefined) {
     lastTrailingWrapperUuid = uuid;
+    // Wrapper messages may or may not carry session_id in the stream
+    // (SDKUserMessage.session_id is optional). When absent, fall back
+    // to whatever the caller's already passed for prior wrappers in
+    // this turn; if nothing's set yet, leave undefined — the bridge
+    // will fill it in from capturedSessionId at flush time.
+    if (sessionId) lastTrailingWrapperSessionId = sessionId;
 }
 
 /**
@@ -65,12 +72,18 @@ export function setLastTrailingWrapperUuid(uuid: string) {
  * turn have been observed and all tool calls have produced their
  * ChatMessages.
  */
-export function consumeTurnState(): { producedMessageIds: string[]; trailingWrapperUuid: string | undefined } {
+export function consumeTurnState(): {
+    producedMessageIds: string[];
+    trailingWrapperUuid: string | undefined;
+    trailingWrapperSessionId: string | undefined;
+} {
     const snapshot = {
         producedMessageIds: producedMessageIds.slice(),
         trailingWrapperUuid: lastTrailingWrapperUuid,
+        trailingWrapperSessionId: lastTrailingWrapperSessionId,
     };
     producedMessageIds = [];
     lastTrailingWrapperUuid = undefined;
+    lastTrailingWrapperSessionId = undefined;
     return snapshot;
 }

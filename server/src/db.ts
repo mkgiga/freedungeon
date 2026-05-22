@@ -706,7 +706,6 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
 
 export function saveStateToDb({ state: appState }: { state: AppState }) {
     const actorValues = Object.values(appState.assets.actors)
-    console.log(`[DB] Saving state: ${actorValues.length} actors, ${Object.values(appState.assets.notes).length} notes`)
 
     // No await — bun:sqlite is synchronous, Kysely wraps in Promise.resolve()
     // .execute() completes the DB write synchronously regardless of await
@@ -750,8 +749,6 @@ export function saveStateToDb({ state: appState }: { state: AppState }) {
         .values({ key: 'userPreferences', value: prefsJson })
         .onConflict((oc) => oc.column('key').doUpdateSet({ value: prefsJson }))
         .execute()
-
-    console.log(`[DB] Save complete.`)
 }
 
 export default { get db() { return db }, initDb, saveStateToDb };

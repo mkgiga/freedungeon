@@ -38,10 +38,10 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
         ],
     },
     'anthropic-claude': {
-        name: 'Anthropic Claude',
+        name: 'Claude Opus 4.7',
         provider: 'anthropic',
         endpoint: 'https://api.anthropic.com/v1/messages',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-4-7',
         editable: false,
         apiKeyLocation: { type: 'header', header: 'x-api-key' },
         schema: [

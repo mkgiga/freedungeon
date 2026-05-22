@@ -50,13 +50,15 @@ export async function rpcRecordSdkUuid(
 export async function rpcAnnounceTurnClosed(
     chatId: string,
     messageIds: string[],
-    trailingWrapperUuid: string
+    trailingWrapperUuid: string,
+    trailingWrapperSessionId: string
 ): Promise<{ ok: true } | { error: string }> {
     return rpcCall({
         kind: 'turn_closed',
         chatId,
         messageIds,
         trailingWrapperUuid,
+        trailingWrapperSessionId,
     }) as Promise<{ ok: true } | { error: string }>;
 }
 
