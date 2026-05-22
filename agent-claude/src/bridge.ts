@@ -25,7 +25,11 @@ export function cancelCurrentTurn() {
     currentAbort = null;
 }
 
-export async function runAgentPrompt(args: PromptArgs): Promise<{ ok: true; sessionId: string | null }> {
+export type RunAgentPromptResult =
+    | { ok: true; sessionId: string | null; aborted?: boolean }
+    | { ok: false; sessionId: string | null; error: string; errorName?: string };
+
+export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptResult> {
     setActiveChat(args.chatId);
     setCurrentSdkAssistantUuid(undefined);
     consumeEndTurnRequest();
@@ -38,6 +42,7 @@ export async function runAgentPrompt(args: PromptArgs): Promise<{ ok: true; sess
     const mcpServer = buildGameStateMcpServer();
 
     let capturedSessionId: string | null = args.resumeSessionId;
+    let caughtError: { name?: string; message: string } | null = null;
 
     const q = query({
         prompt: args.userContent,
@@ -63,23 +68,52 @@ export async function runAgentPrompt(args: PromptArgs): Promise<{ ok: true; sess
             consumeEndTurnRequest();
         }
     } catch (err) {
-        if ((err as Error)?.name === 'AbortError') {
-            // Cancelled — no rethrow.
-        } else {
-            throw err;
+        // Detect abort by signal state rather than error name. The SDK
+        // wraps multiple transports (subprocess IPC, fetch, websocket-
+        // ish stream) and an abort can surface as 'AbortError',
+        // 'AbortException', EPIPE, "stream closed", or runtime-
+        // specific names. signal.aborted is the authoritative check.
+        const isAbort = abort.signal.aborted;
+        if (!isAbort) {
+            const e = err as { name?: string; message?: string };
+            caughtError = {
+                name: e?.name,
+                message: e?.message ?? String(err),
+            };
+            console.error('Agent runAgentPrompt error:', caughtError.name, caughtError.message);
         }
     } finally {
         // Flush whatever we've accumulated for this turn even on early
         // exit. Better to record a partial closer than to leak stale
         // state into the next turn.
-        await flushTurnState(args.chatId, args.userMessageId, capturedSessionId);
+        try {
+            await flushTurnState(args.chatId, args.userMessageId, capturedSessionId);
+        } catch (flushErr) {
+            console.error('flushTurnState failed:', flushErr);
+        }
         currentAbort = null;
         setActiveChat(null);
         setCurrentSdkAssistantUuid(undefined);
-        await rpcAnnounce(args.chatId, 'turn_ended');
+        try {
+            await rpcAnnounce(args.chatId, 'turn_ended');
+        } catch (annErr) {
+            console.error('turn_ended announce failed:', annErr);
+        }
     }
 
-    return { ok: true, sessionId: capturedSessionId };
+    if (caughtError) {
+        return {
+            ok: false,
+            sessionId: capturedSessionId,
+            error: caughtError.message,
+            errorName: caughtError.name,
+        };
+    }
+    return {
+        ok: true,
+        sessionId: capturedSessionId,
+        ...(abort.signal.aborted ? { aborted: true } : {}),
+    };
 }
 
 async function flushTurnState(chatId: string, userMessageId: string, fallbackSessionId: string | null) {

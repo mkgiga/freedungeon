@@ -484,29 +484,46 @@ export async function dispatchPromptToAgent(args: {
 
     setState('isGenerating', true);
 
-    const response = await fetch(`${AGENT_URL}/prompt`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chatId: args.chatId,
-            userMessageId: args.userMessageId,
-            userContent,
-            systemPrompt: expandedSystemPrompt,
-            resumeSessionId,
-            model: llmConfig.model || 'claude-sonnet-4-6',
-        }),
-    });
-
-    if (!response.ok) {
-        setState('isGenerating', false);
-        const errText = await response.text();
-        throw new Error(`Agent error ${response.status}: ${errText}`);
+    let response: Response;
+    try {
+        response = await fetch(`${AGENT_URL}/prompt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chatId: args.chatId,
+                userMessageId: args.userMessageId,
+                userContent,
+                systemPrompt: expandedSystemPrompt,
+                resumeSessionId,
+                model: llmConfig.model || 'claude-sonnet-4-6',
+            }),
+        });
+    } catch (err) {
+        // Network-level failure: agent process unreachable, crashed,
+        // restarted mid-request. The caller (generateResponse) clears
+        // isGenerating in its finally and notifies the user.
+        throw new Error(`Agent unreachable: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Agent responds when the turn ends. Server already received tool-call
-    // RPCs to apply Blocks during the turn, so there's nothing to do with
-    // the response body beyond logging it.
-    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        // The agent now always returns 200 with a structured body, so
+        // a non-OK status means something the agent itself couldn't
+        // catch — defensive only.
+        const errText = await response.text().catch(() => '');
+        throw new Error(`Agent transport error ${response.status}: ${errText.slice(0, 200)}`);
+    }
+
+    // Structured result from runAgentPrompt: { ok, sessionId, error?, errorName?, aborted? }.
+    // ok=false means an internal agent failure (SDK Overloaded, transport
+    // closed, etc.) that the agent caught cleanly. Surface to the
+    // caller as a thrown Error so generateResponse's catch can notify
+    // the user.
+    const result = await response.json().catch(() => ({ ok: false, error: 'invalid agent response body' })) as
+        | { ok: true; sessionId: string | null; aborted?: boolean }
+        | { ok: false; sessionId: string | null; error: string; errorName?: string };
+    if (!result.ok) {
+        throw new Error(`Agent reported failure${result.errorName ? ` (${result.errorName})` : ''}: ${result.error}`);
+    }
     log.server.info(`Agent turn complete for chat ${args.chatId}: ${JSON.stringify(result).slice(0, 200)}`);
 }
 

@@ -181,6 +181,24 @@ async function initWebSocket() {
 async function initProcessHandlers() {
     let shuttingDown = false
 
+    // Safety net. Bun's default behavior for an unhandled promise
+    // rejection is to exit with code 1. The agent flow has multiple
+    // long-running async chains (fetch into the agent subprocess,
+    // SDK stream iteration, tRPC mutations that fire-and-forget the
+    // turn) and any one of them can produce an unhandled rejection
+    // when the SDK errors (Overloaded), the subprocess transport
+    // closes, or a fork call fails. Without these handlers a single
+    // Anthropic 529 takes the whole server down. With them, we log
+    // and keep serving — the failing turn surfaces to the client via
+    // the notification channel.
+    process.on('unhandledRejection', (reason) => {
+        const msg = reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason);
+        log.server.error(`Unhandled promise rejection: ${msg}`);
+    });
+    process.on('uncaughtException', (err) => {
+        log.server.error(`Uncaught exception: ${err.name}: ${err.message}`);
+    });
+
     const gracefulShutdown = (signal: string) => {
         console.log(signal);
         if (shuttingDown) return;

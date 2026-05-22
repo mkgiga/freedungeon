@@ -5,6 +5,7 @@ import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
 import { runTurn, createInitialContext } from "./game-state";
 import { dispatchPromptToAgent, forkAgentSession, forkAgentSessionForChat, resetFlagsSnapshotToCurrent } from "./agent";
+import { notification } from "./notifications";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -142,7 +143,7 @@ export class CurrentChat {
     private static async generateResponse(userMessageId: string, userContent: string) {
         if (!state.currentChat.id) {
             logChat('No active chat. Cannot generate a response.');
-            throw new Error('No active chat. Cannot generate a response.');
+            return;
         }
 
         if (state.isGenerating) {
@@ -155,6 +156,14 @@ export class CurrentChat {
         const turnResult = runTurn(Object.values(state.currentChat.messages));
         setState('currentChat', 'gameState', turnResult.ctx);
 
+        // Critical: NEVER let this method's rejection escape. The tRPC
+        // mutation that triggers it is fire-and-forget (it doesn't
+        // await CurrentChat.prompt), so any rejection here becomes an
+        // unhandled rejection — which on Bun means process exit.
+        // SDK errors (Overloaded), transport closes, and aborts that
+        // don't surface as "AbortError" all reach this point. We
+        // catch, surface to the user via notification, and ensure
+        // isGenerating is cleared so the UI unfreezes.
         try {
             await dispatchPromptToAgent({
                 chatId: state.currentChat.id,
@@ -162,9 +171,25 @@ export class CurrentChat {
                 userContent,
             });
         } catch (err) {
-            logChat(`Agent dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
-            setState('isGenerating', false);
-            throw err;
+            const msg = err instanceof Error ? err.message : String(err);
+            logChat(`Agent dispatch failed: ${msg}`);
+            notification({
+                title: 'Agent error',
+                content: msg.slice(0, 240),
+                backgroundColor: '#7a1f1f',
+                textColor: '#fff',
+                show: true,
+                toast: true,
+                push: false,
+            });
+        } finally {
+            // Always clear isGenerating so the UI's Send button
+            // re-enables after a failure. The agent's turn_ended
+            // RPC clears this on the happy path; the finally covers
+            // every other path.
+            if (state.isGenerating) {
+                setState('isGenerating', false);
+            }
         }
     }
 
