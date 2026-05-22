@@ -10,9 +10,19 @@ import type { GameStateContext } from '../types';
  */
 export type QueryDeps = {
     ctx: GameStateContext;
-    /** Actor profiles for actors referenced by this chat (or all known actors). */
+    /**
+     * Actor profiles for actors referenced by this chat (or all known actors).
+     *
+     * NOTE: the `id` field here is the agent-facing identifier — it's
+     * backed by the DB's `Actor.customId` column (user-authored, stable,
+     * friendly). The Actor type also has a separate `id` nanoid primary
+     * key that the agent NEVER sees. The aliasing happens in
+     * server/src/agent.ts handleQuery. Keeping that internal name out of
+     * the agent's vocabulary avoids two things being called "id" at the
+     * same layer.
+     */
     actors: Array<{
-        customId: string;
+        id: string;
         name: string;
         description: string;
         expressions: string[];
@@ -38,14 +48,14 @@ function defineQuery<S extends z.ZodTypeAny>(spec: QuerySpec<S>): QuerySpec<S> {
     return spec;
 }
 
-function findActor(deps: QueryDeps, customId: string) {
-    return deps.actors.find(a => a.customId === customId);
+function findActor(deps: QueryDeps, id: string) {
+    return deps.actors.find(a => a.id === id);
 }
 
 export const QUERIES = {
     get_actor_hp: defineQuery({
         name: 'get_actor_hp',
-        description: 'Return current HP for an actor by custom id. Result mentions whether they\'re active, offscreen, or unknown.',
+        description: 'Return current HP for an actor by id. Result mentions whether they\'re active, offscreen, or unknown.',
         schema: z.object({ actorId: z.string() }),
         run: (args, deps) => {
             const active = deps.ctx.scene.actors.active[args.actorId];
@@ -80,26 +90,26 @@ export const QUERIES = {
 
     list_chat_actors: defineQuery({
         name: 'list_chat_actors',
-        description: 'List actors preloaded into this chat (regardless of scene presence). Returns custom id, name, and a short description for each — use this to discover ids for speech/enter_actors/damage.',
+        description: 'List actors preloaded into this chat (regardless of scene presence). Returns id, name, and a short description for each — use this to discover ids for speech/enter_actors/damage.',
         schema: z.object({}),
         run: (_args, deps) => {
             if (deps.actors.length === 0) return '(no actors preloaded in this chat)';
             return deps.actors.map(a => {
                 const exprs = a.expressions.length > 0 ? ` [expressions: ${a.expressions.join(', ')}]` : '';
-                return `${a.customId} — ${a.name}${exprs}\n  ${a.description.slice(0, 200)}`;
+                return `${a.id} — ${a.name}${exprs}\n  ${a.description.slice(0, 200)}`;
             }).join('\n\n');
         },
     }),
 
     get_actor: defineQuery({
         name: 'get_actor',
-        description: 'Return full profile for a single actor by custom id — name, description, available expressions.',
+        description: 'Return full profile for a single actor by id — name, description, available expressions.',
         schema: z.object({ actorId: z.string() }),
         run: (args, deps) => {
             const a = findActor(deps, args.actorId);
             if (!a) return `Actor "${args.actorId}" not found in this chat.`;
             const exprs = a.expressions.length > 0 ? a.expressions.join(', ') : '(none)';
-            return `customId: ${a.customId}\nname: ${a.name}\nexpressions: ${exprs}\n\n${a.description}`;
+            return `id: ${a.id}\nname: ${a.name}\nexpressions: ${exprs}\n\n${a.description}`;
         },
     }),
 

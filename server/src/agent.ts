@@ -225,7 +225,12 @@ function handleQuery(req: QueryRequest) {
         .map((id) => state.assets.actors[id])
         .filter((a): a is NonNullable<typeof a> => Boolean(a))
         .map((a) => ({
-            customId: a.customId || a.id,
+            // Aliasing boundary: the agent-facing field is `id`, backed
+            // by the DB's `Actor.customId` (user-authored, stable,
+            // friendly). The nanoid `a.id` primary key is intentionally
+            // never exposed to the agent — falls back to it only if
+            // customId is somehow blank, as a last-resort identifier.
+            id: a.customId || a.id,
             name: a.name,
             description: a.description,
             expressions: Object.keys(a.expressions),

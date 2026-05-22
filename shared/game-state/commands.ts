@@ -35,7 +35,10 @@ function defineCommand<S extends z.ZodTypeAny>(spec: CommandSpec<S>): CommandSpe
 }
 
 const speechPredefinedSchema = z.object({
-    actorId: z.string().describe('Custom id of a predefined actor in the chat. Use list_active_actors / list_chat_actors to discover ids.'),
+    // NOTE: `actorId` here is the agent-facing id (backed internally by
+    // the DB's Actor.customId column). The Actor type's nanoid `id`
+    // primary key is intentionally never exposed to the agent.
+    actorId: z.string().describe('Id of a predefined actor in the chat. Use list_active_actors / list_chat_actors to discover ids.'),
     dialogue: z.string().describe('The line of dialogue, present tense.'),
     name: z.string().optional().describe('Override display name. Rarely needed when actorId is set.'),
     expression: z.string().optional().describe('Expression name. Must exactly match one of the actor\'s defined expressions.'),
@@ -58,7 +61,7 @@ export const COMMANDS = {
 
     speech: defineCommand({
         name: 'speech',
-        description: 'Dialogue from a predefined actor. Use the actor\'s custom id (not their numeric id). Auto-adds the actor to the active scene if absent.',
+        description: 'Dialogue from a predefined actor. Use the actor\'s id (discoverable via list_chat_actors). Auto-adds the actor to the active scene if absent.',
         schema: speechPredefinedSchema,
         toBlock: (args) => ({
             type: 'speech',
@@ -94,7 +97,7 @@ export const COMMANDS = {
         description: 'Display an image from an actor\'s image gallery. src must be an exact filename from that actor\'s expressions list. Never fabricate filenames.',
         schema: z.object({
             src: z.string().describe('Exact filename from the actor\'s expressions list.'),
-            from: z.string().describe('Actor custom id whose gallery the image belongs to.'),
+            from: z.string().describe('Actor id whose gallery the image belongs to.'),
             caption: z.string().optional(),
         }),
         toBlock: (args) => ({
@@ -125,7 +128,7 @@ export const COMMANDS = {
         name: 'enter_actors',
         description: 'Move one or more actors into the active scene. Restores HP from offscreen if they were there, otherwise starts at HP 100. No-op if already active.',
         schema: z.object({
-            ids: z.array(z.string()).min(1).describe('Actor custom ids to add to the scene.'),
+            ids: z.array(z.string()).min(1).describe('Actor ids to add to the scene.'),
         }),
         toBlock: (args) => ({ type: 'enterActors', actors: args.ids }),
     }),
@@ -134,7 +137,7 @@ export const COMMANDS = {
         name: 'leave_actors',
         description: 'Move one or more actors from active to offscreen, preserving HP for later reintroduction.',
         schema: z.object({
-            ids: z.array(z.string()).min(1).describe('Actor custom ids to remove from the active scene.'),
+            ids: z.array(z.string()).min(1).describe('Actor ids to remove from the active scene.'),
         }),
         toBlock: (args) => ({ type: 'leaveActors', actors: args.ids }),
     }),
