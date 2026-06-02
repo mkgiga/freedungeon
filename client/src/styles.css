@@ -208,7 +208,11 @@ button {
 }
 
 .resource-table-col-avatar {
-  width: 40px;
+  /* 16px left inset + 40px avatar + 12px right margin. At 40px the avatar
+   * overflowed the column and its right edge butted against the title text
+   * (zero gap); sizing the column to contain the image makes the right margin
+   * an actual gap before the next column. */
+  width: 68px;
 }
 
 .resource-table-col-avatar .actor-avatar,
