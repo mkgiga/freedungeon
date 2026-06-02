@@ -373,16 +373,20 @@ button {
 /* ── Chat list rows (banner gradient bg) ── */
 
 /* `--chat-row-banner` is set inline per-row when the chat has a bannerUrl.
- * We render the gradient via ::before so it spans all cells (not just one
- * <td>) and so the mask affects only the background layer — not the row's
- * text content. `isolation: isolate` keeps the ::before's negative z-index
- * from leaking above the table's own layers. */
+ * We render the gradient via ::before so the mask affects only the background
+ * layer — not the row's text content. The pseudo hangs off the avatar <td>
+ * (not the <tr>): a generated child of a `display: table-row` element gets
+ * wrapped in an anonymous table-cell — a phantom first column that shifts every
+ * real cell one column right. Anchoring it to a real cell avoids that; the row
+ * is `position: relative`, so `inset: 0` still stretches it across all cells.
+ * `isolation: isolate` keeps the ::before's negative z-index from leaking above
+ * the table's own layers. */
 .chat-list-row {
   position: relative;
   isolation: isolate;
 }
 
-.chat-list-row::before {
+.chat-list-row .resource-table-col-avatar::before {
   content: '';
   position: absolute;
   inset: 0;
