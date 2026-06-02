@@ -538,6 +538,7 @@ export async function loadChatById(chatId: string) {
         // runTurn immediately after setState('currentChat', loadedChat).
         gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
         agentRehydration,
+        pendingSystemNotice: '',
         createdAt: hydratedChat.createdAt,
         updatedAt: hydratedChat.updatedAt,
     } as typeof state.currentChat;
@@ -623,6 +624,7 @@ export async function loadStateFromDb(): Promise<AppState> {
             messages: {},
             gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
             agentRehydration: null,
+            pendingSystemNotice: '',
             createdAt: null,
             updatedAt: null,
         },

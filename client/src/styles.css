@@ -1552,6 +1552,12 @@ button {
     opacity: 1;
     background-color: var(--bg-2);
   }
+
+  &.is-active-notice {
+    opacity: 1;
+    color: var(--primary);
+    background-color: color-mix(in srgb, var(--primary) 14%, transparent);
+  }
 }
 
 .chat-input-btn-send {

@@ -58,6 +58,7 @@ export class CurrentChat {
             messages: {},
             gameState: createInitialContext(),
             agentRehydration: null,
+            pendingSystemNotice: '',
             createdAt: Date.now(),
             updatedAt: Date.now(),
         }

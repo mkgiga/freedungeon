@@ -60,6 +60,7 @@ export const chatRouter = router({
                     messages: {},
                     gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
                     agentRehydration: null,
+                    pendingSystemNotice: '',
                     createdAt: now,
                     updatedAt: now,
                 })
@@ -239,6 +240,14 @@ export const chatRouter = router({
             return { success: true }
         }),
 
+    setPendingSystemNotice: procedure
+        .input(z.object({ text: z.string() }))
+        .mutation(({ input }) => {
+            if (!state.currentChat.id) throw new Error('No chat loaded')
+            setState('currentChat', 'pendingSystemNotice', input.text)
+            return { success: true }
+        }),
+
     saveAsTemplate: procedure
         .input(z.object({ sourceChatId: z.string(), newTitle: z.string().optional() }))
         .mutation(async ({ input }) => {
@@ -279,6 +288,7 @@ export const chatRouter = router({
                     messages: {},
                     gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
                     agentRehydration: null,
+                    pendingSystemNotice: '',
                     createdAt: null,
                     updatedAt: null,
                 })

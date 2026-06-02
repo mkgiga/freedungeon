@@ -51,6 +51,7 @@ export const [state, _setState] = createStore({
         messages: {},
         gameState: createInitialContext(),
         agentRehydration: null,
+        pendingSystemNotice: '',
         createdAt: null,
         updatedAt: null,
     } as CurrentChatState,

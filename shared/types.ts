@@ -163,6 +163,13 @@ export type CurrentChatState = {
         /** Approximate, char-based (chars / 4). Good enough for a warning. */
         estimatedTokens: number;
     };
+    /**
+     * One-shot director's note attached to the next agent turn as part of
+     * the `<system_notice>` block. Lets the user nudge or correct the agent
+     * out-of-character without the input being framed as their dialogue.
+     * Cleared by the server after the next prompt dispatch.
+     */
+    pendingSystemNotice: string;
     createdAt: number | null;
     updatedAt: number | null;
 }

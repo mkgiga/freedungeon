@@ -15,6 +15,7 @@ import {
     MdFillPerson,
     MdFillInventory_2,
     MdFillWarning,
+    MdFillEdit_note,
 } from 'solid-icons/md'
 import { Em } from '../typography/Em'
 import { GameStateActorStatus } from '../GameStateActorStatus'
@@ -61,6 +62,48 @@ export function ChatInput() {
             content: () => <InventoryModal gameState={() => playback.effectiveGameState()} />,
         })
     }
+
+    const openDirectorNote = () => {
+        const initial = state.currentChat.pendingSystemNotice ?? ''
+        const [draft, setDraft] = createSignal(initial)
+        modal.open({
+            title: "Director's note",
+            content: () => (
+                <div class="flex flex-col gap-3">
+                    <Text size="sm" class="opacity-70">
+                        Attached to the next agent turn as a system notice — not framed as
+                        your dialogue. Use to nudge or correct the agent out-of-character;
+                        it will not be spoken or acknowledged in output. Cleared after the
+                        next prompt is sent.
+                    </Text>
+                    <textarea
+                        class="text-editor-textarea"
+                        style={{ "min-height": "12rem" }}
+                        autofocus
+                        placeholder="e.g. Stop having Vega apologize after every line. Keep her terse."
+                        value={draft()}
+                        onInput={(e) => setDraft(e.currentTarget.value)}
+                    />
+                    <div class="modal-confirm-actions">
+                        <button class="modal-btn modal-btn-cancel" onClick={() => modal.close()}>Cancel</button>
+                        <button
+                            class="modal-btn modal-btn-confirm"
+                            onClick={async () => {
+                                await trpc.chat.setPendingSystemNotice.mutate({ text: draft() })
+                                modal.close()
+                            }}
+                        >
+                            Save
+                        </button>
+                    </div>
+                </div>
+            ),
+        })
+    }
+
+    const hasPendingNotice = createMemo(() =>
+        (state.currentChat.pendingSystemNotice ?? '').trim().length > 0
+    )
 
     /**
      * Run an action that triggers an agent turn. If this chat has no
@@ -231,6 +274,16 @@ export function ChatInput() {
                             )}
                         </Show>
                         <ChatHotbar />
+                        <button
+                            class="chat-input-btn"
+                            classList={{ 'is-active-notice': hasPendingNotice() }}
+                            onClick={openDirectorNote}
+                            title={hasPendingNotice()
+                                ? "Director's note pending — will attach to next turn"
+                                : "Director's note for next turn"}
+                        >
+                            <MdFillEdit_note size={20} />
+                        </button>
                         <button class="chat-input-btn" onClick={openInventory} title="Inventory">
                             <MdFillInventory_2 size={20} />
                         </button>

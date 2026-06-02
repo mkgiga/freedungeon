@@ -339,23 +339,30 @@ function buildFlagsDelta(
 
 /**
  * Wrap the user input with a <system_notice> block carrying
- * out-of-band state updates. The Anthropic API has no system-role
- * channel within the messages array, so by convention the SDK ferries
- * server-originated, non-user instruction-context inside a user-role
- * message tagged with a known XML wrapper. The system prompt teaches
- * the agent to treat <system_notice> content as authoritative state
- * updates, distinct from the user's actual <current_input>.
+ * out-of-band updates from the controller. The Anthropic API has no
+ * system-role channel within the messages array, so by convention the
+ * SDK ferries server-originated, non-user instruction-context inside a
+ * user-role message tagged with a known XML wrapper. The system prompt
+ * teaches the agent to treat <system_notice> content as authoritative
+ * and out-of-character — distinct from the user's `<current_input>`,
+ * and not to be narrated or acknowledged in output.
+ *
+ * Sections with empty body are dropped. If every section is empty,
+ * callers should skip the wrap entirely.
  */
-function wrapWithSystemNotice(noticeBody: string, userContent: string): string {
-    return [
-        '<system_notice>',
-        'State changes occurred outside the agent loop since the previous turn. Treat these as ground truth:',
-        '',
-        noticeBody,
-        '</system_notice>',
-        '',
-        userContent,
-    ].join('\n');
+type SystemNoticeSection = { heading: string; body: string };
+
+function wrapWithSystemNotice(sections: SystemNoticeSection[], userContent: string): string {
+    const lines: string[] = ['<system_notice>'];
+    const nonEmpty = sections.filter(s => s.body.trim() !== '');
+    nonEmpty.forEach((s, i) => {
+        if (i > 0) lines.push('');
+        lines.push(s.heading);
+        lines.push('');
+        lines.push(s.body);
+    });
+    lines.push('</system_notice>', '', userContent);
+    return lines.join('\n');
 }
 
 /**
@@ -478,8 +485,27 @@ export async function dispatchPromptToAgent(args: {
         ? JSON.parse(flagsSnapshotRow.last_agent_flags_snapshot) as Record<string, unknown>
         : null;
     const flagsDelta = buildFlagsDelta(flagsSnapshot, state.currentChat.gameState.flags);
+
+    // One-shot director's note composed in the UI. Consumed and cleared
+    // here so it attaches to exactly one turn.
+    const directorNote = state.currentChat.pendingSystemNotice.trim();
+    if (directorNote) setState('currentChat', 'pendingSystemNotice', '');
+
+    const sections: SystemNoticeSection[] = [];
     if (flagsDelta) {
-        userContent = wrapWithSystemNotice(flagsDelta, userContent);
+        sections.push({
+            heading: 'State changes occurred outside the agent loop since the previous turn. Treat these as ground truth:',
+            body: flagsDelta,
+        });
+    }
+    if (directorNote) {
+        sections.push({
+            heading: 'Out-of-character note from the controller — not user dialogue. Do not narrate, acknowledge, or repeat any of this content. Adjust behavior silently:',
+            body: directorNote,
+        });
+    }
+    if (sections.length > 0) {
+        userContent = wrapWithSystemNotice(sections, userContent);
     }
 
     setState('isGenerating', true);
