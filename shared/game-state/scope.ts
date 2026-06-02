@@ -72,12 +72,12 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         },
 
         // ── Scene management ──────────────────────────────────────────────
-        enterActors: (...customIds: string[]) => {
+        enterActors: (customIds: string[]) => {
             for (const id of customIds) {
                 if (ensureActive(ctx, id)) arr.push(`${id} entered the scene`);
             }
         },
-        leaveActors: (...customIds: string[]) => {
+        leaveActors: (customIds: string[]) => {
             for (const id of customIds) {
                 const entry = ctx.scene.actors.active[id];
                 if (!entry) continue;
@@ -148,10 +148,10 @@ export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string
             if (block.actorId) scope.speech(block.actorId, block.dialogue);
             return;
         case 'enterActors':
-            scope.enterActors(...block.actors);
+            scope.enterActors(block.actors);
             return;
         case 'leaveActors':
-            scope.leaveActors(...block.actors);
+            scope.leaveActors(block.actors);
             return;
         case 'setHp':
             scope.setHp(block.actorId, block.value);
