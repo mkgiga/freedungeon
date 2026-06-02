@@ -595,6 +595,11 @@ button {
   gap: 8px;
   padding: 8px 16px;
   border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+  /* Keep natural height inside the .resource-list flex column — without this a
+   * tall table (many rows) makes flexbox shrink the toolbar and squish the
+   * tab pills. The parent scroller handles overflow, so the toolbar never needs
+   * to give up height. */
+  flex-shrink: 0;
 }
 
 /* ── Chat list tab pills (rendered inside a .resource-table-toolbar) ── */
