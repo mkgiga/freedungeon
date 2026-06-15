@@ -8,7 +8,7 @@ import { applyBlockToCtx } from '@shared/game-state';
 import { serializeBlocks } from '@shared/blocks';
 import { state, setState } from './server';
 import { db, saveMessage } from './db';
-import { parseMacros } from './macro';
+import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { log } from './logger';
 
@@ -440,10 +440,24 @@ export async function dispatchPromptToAgent(args: {
     setCurrentTurnResult(turnResult);
 
     let expandedSystemPrompt = '';
+    let macroFeatures: Record<string, unknown> = {};
     try {
-        expandedSystemPrompt = parseMacros(llmConfig.systemPrompt ?? '');
+        const result = parseMacros(llmConfig.systemPrompt ?? '');
+        expandedSystemPrompt = result.parsed;
+        macroFeatures = result.features;
     } finally {
         setCurrentTurnResult(null);
+    }
+
+    // Conditional capability: when the multiple-choice setting is on, make the
+    // agent aware of the `choice_prompt` tool and of how a chosen option arrives
+    // back. The tool itself is only exposed agent-side under the same flag, so
+    // instruction and capability stay in lockstep. The user can position the
+    // text precisely via the `@MULTICHOICE_PROMPT_INSTRUCTIONS()` macro; only
+    // when they haven't do we append it trailing so toggling needs no edits.
+    const enableChoicePrompts = state.userPreferences.enableChoicePrompts === true;
+    if (enableChoicePrompts && !macroFeatures['MULTICHOICE_PROMPT_INSTRUCTIONS']) {
+        expandedSystemPrompt += `\n\n${MULTICHOICE_PROMPT_INSTRUCTIONS}`;
     }
 
     const sessionRow = await db.selectFrom('chats')
@@ -522,6 +536,7 @@ export async function dispatchPromptToAgent(args: {
                 systemPrompt: expandedSystemPrompt,
                 resumeSessionId,
                 model: llmConfig.model || 'claude-sonnet-4-6',
+                enableChoicePrompts,
             }),
         });
     } catch (err) {

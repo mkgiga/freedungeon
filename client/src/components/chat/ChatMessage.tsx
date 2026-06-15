@@ -19,6 +19,10 @@ import { HealBlock } from './blocks/HealBlock'
 import { GiveItemBlock } from './blocks/GiveItemBlock'
 import { TakeItemBlock } from './blocks/TakeItemBlock'
 import { SetLocationBlock } from './blocks/SetLocationBlock'
+import { ChoicePromptBlock } from './blocks/ChoicePromptBlock'
+import { ChoiceBlock } from './blocks/ChoiceBlock'
+import { latestMessageId } from './latest'
+import { state } from '../../state'
 import { usePlayback } from './playback'
 
 export function ChatMessage(props: { message: ChatMessageType }) {
@@ -37,6 +41,12 @@ export function ChatMessage(props: { message: ChatMessageType }) {
         props.message.id === playback.playingMessageId() && i >= playback.cursor()
 
     const isPlaying = () => props.message.id === playback.playingMessageId()
+
+    // Choice prompts are interactive only while they're the latest message and
+    // unanswered, and only when the global setting is on.
+    const isLatest = () => latestMessageId() === props.message.id
+    const choiceEnabled = () => state.userPreferences.enableChoicePrompts === true
+    const chosenIndex = () => props.message.metadata?.chosenIndex as number | undefined
 
     /**
      * Message-level tap target. While this message is mid-playback, a tap
@@ -186,6 +196,20 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                             <Match when={block.type === 'setLocation'}>
                                 <SetLocationBlock
                                     block={block as Extract<Block, { type: 'setLocation' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'choicePrompt'}>
+                                <ChoicePromptBlock
+                                    block={block as Extract<Block, { type: 'choicePrompt' }>}
+                                    chosenIndex={chosenIndex()}
+                                    interactive={choiceEnabled() && isLatest() && chosenIndex() == null}
+                                    onChoose={(index) => trpc.chat.chooseOption.mutate({ messageId: props.message.id, optionIndex: index })}
+                                />
+                            </Match>
+                            <Match when={block.type === 'choice'}>
+                                <ChoiceBlock
+                                    block={block as Extract<Block, { type: 'choice' }>}
                                     onUpdate={(b) => updateBlock(i(), b)}
                                 />
                             </Match>

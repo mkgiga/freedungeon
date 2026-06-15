@@ -36,6 +36,14 @@ class EvalContext {
      */
     scopes: Record<string, unknown> = {}
 
+    /**
+     * Signals collected while expanding. Each registered macro that is invoked
+     * sets its own key to `true`, letting callers detect which macros the user
+     * placed (e.g. to avoid auto-appending content already positioned by hand).
+     * Typed `unknown` so a macro can surface richer data here in the future.
+     */
+    features: Record<string, unknown> = {}
+
     static readonly MAX_DEPTH = 256
 
     /** Enter a macro frame. Returns false if `name` is already on the stack. */
@@ -123,6 +131,20 @@ registry.set('GAME_STATE', { kind: 'fn', fn: () => {
     return getCurrentTurnResult()?.systemPromptGameState ?? '';
 } });
 
+/**
+ * Instructions teaching the agent about the optional `choice_prompt` tool.
+ * Exported so the auto-append fallback (agent.ts) and the macro share one
+ * source of truth. The macro and the agent-side tool are both gated on
+ * `enableChoicePrompts`, so awareness and capability stay in lockstep.
+ */
+export const MULTICHOICE_PROMPT_INSTRUCTIONS = `# 【Choice Prompts】
+
+You may optionally end a turn by calling \`choice_prompt\` with 2+ short action options instead of \`end_turn\`. Use it only when a few concrete branches genuinely help; prefer open-ended play otherwise. When the user picks an option, their next input arrives wrapped as \`choice("...")\` (versus \`unformatted("...")\` for a freely-typed action) — treat the chosen text as the user's action. The user can always ignore the menu and act freely, so never assume they must pick a listed option.`
+
+registry.set('MULTICHOICE_PROMPT_INSTRUCTIONS', { kind: 'fn', fn: () => {
+    return state.userPreferences.enableChoicePrompts === true ? MULTICHOICE_PROMPT_INSTRUCTIONS : ''
+} });
+
 // ── Scope builders ───────────────────────────────────────────────────────────
 //
 // Scopes are named values accessible without parens: `{{ @Player }}` or
@@ -173,9 +195,20 @@ export function loadMacroFiles() {
 // Public API
 // ═══════════════════════════════════════════════════════════════════════════
 
+export type MacroResult = {
+    /** The fully expanded text. */
+    parsed: string
+    /** Signals collected during expansion — see `EvalContext.features`. Each
+     *  invoked macro name maps to `true`; check membership to know whether the
+     *  user placed a given macro themselves. */
+    features: Record<string, unknown>
+}
+
 /** Parse and expand all macros + variable substitutions in the given text. */
-export function parseMacros(raw: string): string {
-    return evaluate(raw, new EvalContext())
+export function parseMacros(raw: string): MacroResult {
+    const ctx = new EvalContext()
+    const parsed = evaluate(raw, ctx)
+    return { parsed, features: ctx.features }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -269,6 +302,10 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
     if (!entry) {
         throw new Error(`Macro not found: @${name}`)
     }
+
+    // Record that this macro was referenced (before cycle/arg handling) so
+    // callers can detect user-placed injections regardless of output.
+    ctx.features[name] = true
 
     // Evaluate args in the CALLER's frame, before pushing `name` onto the stack.
     let parsedArgs: Record<string, unknown> = {}

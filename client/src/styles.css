@@ -2431,3 +2431,72 @@ menu#main-nav {
   gap: 12px;
   padding: 4px 0;
 }
+
+/* ── Choice prompts ── */
+
+/* Agent's menu, rendered inside a chat message. */
+.chat-block-choice-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: var(--chat-block-indent);
+  padding-top: 4px;
+}
+
+/* Option button — shared between the in-message menu and the input bar. */
+.choice-prompt-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 82%);
+  background: var(--bg);
+  transition: background-color 120ms, border-color 120ms, opacity 120ms;
+}
+
+.choice-prompt-option:not(:disabled) {
+  cursor: pointer;
+}
+
+.choice-prompt-option:not(:disabled):hover {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary), transparent 88%);
+}
+
+/* Static (answered/historical) menu: highlight the pick, dim the rest. */
+.choice-prompt-option.is-chosen {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary), transparent 80%);
+  font-weight: 600;
+}
+
+.choice-prompt-option.is-dimmed {
+  opacity: 0.4;
+}
+
+/* Disabled-but-not-answered (a non-latest, unanswered menu). */
+.choice-prompt-option:disabled:not(.is-chosen):not(.is-dimmed) {
+  opacity: 0.6;
+}
+
+/* Interactive copy of the options, surfaced in the input bar. */
+.choice-prompt-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+/* User's chosen action, rendered as a chip in chat history. */
+.chat-block-choice {
+  padding-left: var(--chat-block-indent);
+}
+
+.chat-block-choice-text {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--primary), transparent 85%);
+  border: 1px solid color-mix(in oklch, var(--primary), transparent 70%);
+}

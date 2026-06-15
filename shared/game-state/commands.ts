@@ -220,6 +220,15 @@ export const COMMANDS = {
         toBlock: (args) => ({ type: 'setLocation', description: args.description }),
         destructive: true,
     }),
+
+    choice_prompt: defineCommand({
+        name: 'choice_prompt',
+        description: 'End your turn by presenting the user a multiple-choice menu of suggested next actions. Calling this ENDS your turn — do not call other tools or end_turn after it. The user may instead ignore the menu and type their own action, so treat the options as suggestions, not a closed set. Use only when offering a few concrete branches genuinely helps; prefer open-ended play otherwise.',
+        schema: z.object({
+            options: z.array(z.string()).min(2).describe('2+ short, present-tense action options for the user to choose from.'),
+        }),
+        toBlock: (args) => ({ type: 'choicePrompt', options: args.options }),
+    }),
 } as const;
 
 export type CommandName = keyof typeof COMMANDS;

@@ -16,8 +16,8 @@ import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProd
  * registered under `game_state`. We pass that pattern to `allowedTools` so
  * the model can call them without permission prompts.
  */
-export function buildGameStateMcpServer() {
-    const writeTools = Object.entries(COMMANDS).map(([key, spec]) => {
+export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
+    const writeTools = commandEntries(enableChoicePrompts).map(([key, spec]) => {
         const shape = unwrapToShape(spec.schema);
         return tool(
             spec.name,
@@ -102,10 +102,21 @@ export function buildGameStateMcpServer() {
  * `mcp__game_state__<tool>`. We list each one explicitly so we don't
  * accidentally bypass deferred-loading semantics.
  */
-export function allTools(): string[] {
-    const cmds = Object.values(COMMANDS).map(c => `mcp__game_state__${c.name}`);
+export function allTools(enableChoicePrompts: boolean): string[] {
+    const cmds = commandEntries(enableChoicePrompts).map(([, c]) => `mcp__game_state__${c.name}`);
     const queries = Object.values(QUERIES).map(q => `mcp__game_state__${q.name}`);
     return [...cmds, ...queries, 'mcp__game_state__end_turn'];
+}
+
+/**
+ * The command registry, with feature-gated commands filtered out when their
+ * global setting is off. Keeping this in one place keeps the MCP server's tool
+ * set and the `allowedTools` allowlist in agreement.
+ */
+function commandEntries(enableChoicePrompts: boolean): [string, (typeof COMMANDS)[keyof typeof COMMANDS]][] {
+    return Object.entries(COMMANDS).filter(([key]) =>
+        key === 'choice_prompt' ? enableChoicePrompts : true
+    );
 }
 
 /**

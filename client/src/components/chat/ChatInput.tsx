@@ -1,6 +1,7 @@
-import { createMemo, createSignal, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
+import { parseBlocks } from './blocks'
 import { ImageIcon } from '../ImageIcon'
 import { Text } from '../typography/Text'
 import { useModal } from '../Modal'
@@ -223,6 +224,27 @@ export function ChatInput() {
         })
     }
 
+    // The latest message, if it's an unanswered choice menu and the setting is
+    // on. Its options surface as buttons here, beside the always-available
+    // text field (the "type your own action" escape hatch).
+    const pendingChoicePrompt = createMemo(() => {
+        if (state.userPreferences.enableChoicePrompts !== true) return null
+        const id = latestMessageId()
+        if (!id) return null
+        const msg = state.currentChat.messages[id]
+        if (!msg || msg.role !== 'assistant' || msg.metadata?.chosenIndex != null) return null
+        const promptBlock = parseBlocks(msg.content).find(b => b.type === 'choicePrompt')
+        if (!promptBlock || promptBlock.type !== 'choicePrompt') return null
+        return { messageId: id, options: promptBlock.options }
+    })
+
+    const handleChoose = async (messageId: string, optionIndex: number) => {
+        await withRehydrationConfirm('Choose anyway', () => {
+            playback.skipAll()
+            return trpc.chat.chooseOption.mutate({ messageId, optionIndex }).then(() => {})
+        })
+    }
+
     return (
         <div class="chat-input-container relative">
             <Show when={playback.effectiveGameState().scene.actors.active[currentActor()?.customId ?? '']}>
@@ -297,10 +319,29 @@ export function ChatInput() {
                 )
             }} />
 
+            <Show when={pendingChoicePrompt()}>
+                {(p) => (
+                    <div class="choice-prompt-bar" role="group" aria-label="Choices">
+                        <For each={p().options}>
+                            {(option, i) => (
+                                <button
+                                    type="button"
+                                    class="choice-prompt-option"
+                                    disabled={state.isGenerating}
+                                    onClick={() => handleChoose(p().messageId, i())}
+                                >
+                                    {option}
+                                </button>
+                            )}
+                        </For>
+                    </div>
+                )}
+            </Show>
+
             <div class="chat-input-row">
                 <textarea
                     class="chat-input-textarea"
-                    placeholder="Type a message..."
+                    placeholder={pendingChoicePrompt() ? '…or type your own action' : 'Type a message...'}
                     value={message()}
                     onInput={(e) => setMessage(e.currentTarget.value)}
                     onKeyDown={(e) => {

@@ -612,7 +612,7 @@ export async function loadStateFromDb(): Promise<AppState> {
     const prefsRow = await db.selectFrom('settings').selectAll().where('key', '=', 'userPreferences').executeTakeFirst();
     const userPreferences = prefsRow
         ? JSON.parse(prefsRow.value)
-        : { activeLLMConfigId: null, playerCharacterId: null, theme: 'system' };
+        : { activeLLMConfigId: null, playerCharacterId: null, theme: 'system', enableChoicePrompts: false };
 
     return {
         assets: { actors, notes, llmConfigs, chats },

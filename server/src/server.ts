@@ -61,6 +61,7 @@ export const [state, _setState] = createStore({
         theme: "system",
         playerCharacterId: null,
         activeLLMConfigId: null,
+        enableChoicePrompts: false,
     }
 } as AppState);
 

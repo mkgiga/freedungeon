@@ -23,6 +23,11 @@ export type TakeItemBlock = { type: 'takeItem'; name: string; qty: number }
 export type SetFlagBlock = { type: 'setFlag'; key: string; value: import('./types').FlagValue }
 export type ClearFlagBlock = { type: 'clearFlag'; key: string }
 export type SetLocationBlock = { type: 'setLocation'; description: string }
+// The agent's optional end-of-turn multiple-choice menu.
+export type ChoicePromptBlock = { type: 'choicePrompt'; options: string[] }
+// A user's pick from a ChoicePromptBlock — distinct from a free-typed
+// `unformatted` action so renderer and agent can tell a menu pick apart.
+export type ChoiceBlock = { type: 'choice'; text: string }
 
 export type Block =
     // Rendering commands
@@ -44,6 +49,9 @@ export type Block =
     | SetFlagBlock
     | ClearFlagBlock
     | SetLocationBlock
+    // Choice flow
+    | ChoicePromptBlock
+    | ChoiceBlock
 
 // ── Blocking semantics (visual-novel-style playback) ──
 
@@ -139,6 +147,12 @@ export function parseBlocks(content: string): Block[] {
         },
         setLocation: (description: string) => {
             blocks.push({ type: 'setLocation', description })
+        },
+        choicePrompt: (options: Array<string>) => {
+            blocks.push({ type: 'choicePrompt', options })
+        },
+        choice: (text: string) => {
+            blocks.push({ type: 'choice', text })
         },
     }
 
@@ -240,6 +254,10 @@ export function serializeBlocks(blocks: Block[]): string {
                     return `clearFlag(${str(b.key)});`
                 case 'setLocation':
                     return `setLocation(${str(b.description)});`
+                case 'choicePrompt':
+                    return `choicePrompt([${b.options.map(str).join(', ')}]);`
+                case 'choice':
+                    return `choice(${tpl(b.text)});`
             }
         })
         .filter(Boolean)

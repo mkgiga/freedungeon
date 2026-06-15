@@ -192,6 +192,9 @@ export type UserChatMessage = ChatMessage & {
 export type UserPreferences = {
     activeLLMConfigId: string | null;
     playerCharacterId: string | null;
+    /** When true, the agent is offered the `choice_prompt` tool and may end a
+     *  turn with a multiple-choice menu. */
+    enableChoicePrompts?: boolean;
     [key: string]: any;
 };
 

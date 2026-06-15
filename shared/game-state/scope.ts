@@ -58,6 +58,8 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         image: (_opts: object) => {},
         webview: (_html: string, _opts?: object) => {},
         noOpContinue: () => {},
+        choicePrompt: (_options: string[]) => {},
+        choice: (_text: string) => {},
 
         // ── Inventory (party-wide) ────────────────────────────────────────
         giveItem: (name: string, qty: number = 1) => {

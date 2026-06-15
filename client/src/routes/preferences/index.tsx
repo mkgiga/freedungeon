@@ -102,6 +102,20 @@ function RouteComponent() {
                 })()}
               </button>
             </label>
+
+            <label class="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={state.userPreferences.enableChoicePrompts ?? false}
+                onChange={(e) => {
+                  trpc.preferences.update.mutate({ enableChoicePrompts: e.currentTarget.checked })
+                }}
+              />
+              <span class="flex flex-col">
+                <Text>Multiple-choice prompts</Text>
+                <Text size="sm" class="opacity-50">Let the agent optionally end a turn with a menu of suggested actions. You can always type your own instead.</Text>
+              </span>
+            </label>
           </div>
         </section>
 

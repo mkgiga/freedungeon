@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
 import { CurrentChat, logChat } from '../../chat'
-import { deleteChat } from '../../db'
+import { deleteChat, saveMessage } from '../../db'
+import { parseBlocks } from '@shared/blocks'
 import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
 
@@ -310,6 +311,41 @@ export const chatRouter = router({
             }
             
             CurrentChat.prompt({ message: input.message });
+        }),
+
+    chooseOption: procedure
+        .input(z.object({ messageId: z.string(), optionIndex: z.number().int().min(0) }))
+        .mutation(async ({ input }) => {
+            const currentChat = state.currentChat
+            if (!currentChat.id) throw new Error('No chat loaded')
+            if (state.isGenerating) {
+                throw new Error('Generation is already in progress. Please wait until it finishes.')
+            }
+
+            const msg = currentChat.messages[input.messageId]
+            if (!msg) throw new Error(`Message ${input.messageId} not found in current chat`)
+
+            const promptBlock = parseBlocks(msg.content).find(b => b.type === 'choicePrompt')
+            if (!promptBlock || promptBlock.type !== 'choicePrompt') {
+                throw new Error('Message is not a choice prompt')
+            }
+            const optionText = promptBlock.options[input.optionIndex]
+            if (optionText === undefined) throw new Error('Invalid option index')
+
+            // Stamp the chosen index so history renders the pick (highlight +
+            // dim the rest). Mirrors the metadata-stamp pattern in agent.ts.
+            const updated = {
+                ...msg,
+                metadata: { ...(msg.metadata ?? {}), chosenIndex: input.optionIndex },
+                updatedAt: Date.now(),
+            }
+            setState('currentChat', 'messages', input.messageId, updated)
+            saveMessage(updated)
+
+            // Submit the pick as a distinct `choice(...)` user message (vs the
+            // normal `unformatted(...)`), then let the agent respond.
+            CurrentChat.prompt({ message: `choice(${JSON.stringify(optionText)});` })
+            return { success: true }
         }),
 
     deleteMessage: procedure
