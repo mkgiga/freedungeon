@@ -139,7 +139,7 @@ registry.set('GAME_STATE', { kind: 'fn', fn: () => {
  */
 export const MULTICHOICE_PROMPT_INSTRUCTIONS = `# 【Choice Prompts】
 
-You may optionally end a turn by calling \`choice_prompt\` with 2+ short action options instead of \`end_turn\`. Use it only when a few concrete branches genuinely help; prefer open-ended play otherwise. When the user picks an option, their next input arrives wrapped as \`choice("...")\` (versus \`unformatted("...")\` for a freely-typed action) — treat the chosen text as the user's action. The user can always ignore the menu and act freely, so never assume they must pick a listed option.`
+When you call \`end_turn\`, you may pass a \`choices\` array — an enumerated set of 2+ candidate next actions salient to the focus actor at this branch point. Enumerate them only when the branch genuinely narrows to a few distinct, material actions; otherwise leave the next move open, as usual. The focus actor's controller may select one — it returns next tick as \`choice("...")\` rather than \`unformatted("...")\` — or disregard the set entirely and supply any other action. A selection is the focus actor's action; treat it exactly as the equivalent \`unformatted(...)\` input. Never assume the controller is bound to the enumerated set.`
 
 registry.set('MULTICHOICE_PROMPT_INSTRUCTIONS', { kind: 'fn', fn: () => {
     return state.userPreferences.enableChoicePrompts === true ? MULTICHOICE_PROMPT_INSTRUCTIONS : ''

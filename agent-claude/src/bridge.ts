@@ -50,7 +50,7 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
         options: {
             abortController: abort,
             mcpServers: { game_state: mcpServer },
-            allowedTools: allTools(args.enableChoicePrompts ?? false),
+            allowedTools: allTools(),
             tools: [],
             systemPrompt: args.systemPrompt,
             model: args.model,

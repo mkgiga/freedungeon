@@ -17,7 +17,7 @@ import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProd
  * the model can call them without permission prompts.
  */
 export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
-    const writeTools = commandEntries(enableChoicePrompts).map(([key, spec]) => {
+    const writeTools = commandEntries().map(([key, spec]) => {
         const shape = unwrapToShape(spec.schema);
         return tool(
             spec.name,
@@ -77,15 +77,37 @@ export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
         );
     });
 
+    // When the multiple-choice setting is on, `end_turn` gains an optional
+    // `choices` arg: an enumerated set of candidate next actions for the focus
+    // actor at this branch point. The block is persisted by reusing the
+    // internal `choice_prompt` command (its schema/toBlock/serialize), so this
+    // stays a thin agent-side wrapper.
+    const endTurnBase = 'Call this when the causal chain initiated by the user\'s prompt is fully resolved and you have nothing more to do. After end_turn, the conversation hands control back to the user.';
+    const endTurnDescription = enableChoicePrompts
+        ? `${endTurnBase} You may optionally pass \`choices\`: an enumerated set of 2+ candidate next actions salient to the focus actor at this branch point. The focus actor's controller may take one — it returns next tick as \`choice("...")\` — or disregard the set and supply any other action via \`unformatted(...)\`. Enumerate only when the branch genuinely narrows to a few distinct, material actions; otherwise leave the next move open.`
+        : endTurnBase;
+    const endTurnShape: z.ZodRawShape = enableChoicePrompts
+        ? { choices: z.array(z.string()).min(2).optional().describe('2+ candidate next actions for the focus actor, each phrased as an action the focus actor takes, present tense.') }
+        : {};
     const endTurn = tool(
         'end_turn',
-        'Call this when the causal chain initiated by the user\'s prompt is fully resolved and you have nothing more to do. After end_turn, the conversation hands control back to the user.',
-        {},
-        async () => {
+        endTurnDescription,
+        endTurnShape,
+        async (args) => {
+            const choices = enableChoicePrompts ? (args as { choices?: string[] }).choices : undefined;
+            if (choices && choices.length > 0) {
+                const chatId = getActiveChatId();
+                if (chatId) {
+                    const sdkUuid = getCurrentSdkAssistantUuid();
+                    const result = await rpcExec(chatId, 'choice_prompt', { options: choices }, sdkUuid);
+                    if (!('error' in result)) recordProducedMessageId(result.messageId);
+                    // On error we still end the turn — the menu just won't persist.
+                }
+            }
             requestEndTurn();
             return { content: [{ type: 'text', text: 'Turn ended.' }] };
         },
-        { annotations: { readOnlyHint: true } }
+        { annotations: { readOnlyHint: !enableChoicePrompts } }
     );
 
     return createSdkMcpServer({
@@ -102,21 +124,20 @@ export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
  * `mcp__game_state__<tool>`. We list each one explicitly so we don't
  * accidentally bypass deferred-loading semantics.
  */
-export function allTools(enableChoicePrompts: boolean): string[] {
-    const cmds = commandEntries(enableChoicePrompts).map(([, c]) => `mcp__game_state__${c.name}`);
+export function allTools(): string[] {
+    const cmds = commandEntries().map(([, c]) => `mcp__game_state__${c.name}`);
     const queries = Object.values(QUERIES).map(q => `mcp__game_state__${q.name}`);
     return [...cmds, ...queries, 'mcp__game_state__end_turn'];
 }
 
 /**
- * The command registry, with feature-gated commands filtered out when their
- * global setting is off. Keeping this in one place keeps the MCP server's tool
+ * The directly-exposed command tools. `choice_prompt` is excluded — it's an
+ * internal block-builder invoked by `end_turn` (via RPC) when given `choices`,
+ * not a standalone tool. Keeping this in one place keeps the MCP server's tool
  * set and the `allowedTools` allowlist in agreement.
  */
-function commandEntries(enableChoicePrompts: boolean): [string, (typeof COMMANDS)[keyof typeof COMMANDS]][] {
-    return Object.entries(COMMANDS).filter(([key]) =>
-        key === 'choice_prompt' ? enableChoicePrompts : true
-    );
+function commandEntries(): [string, (typeof COMMANDS)[keyof typeof COMMANDS]][] {
+    return Object.entries(COMMANDS).filter(([key]) => key !== 'choice_prompt');
 }
 
 /**

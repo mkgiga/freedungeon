@@ -1,4 +1,4 @@
-import { createMemo, For, Match, Switch } from 'solid-js'
+import { createMemo, For, Match, Show, Switch } from 'solid-js'
 import { MdFillMore_horiz } from 'solid-icons/md'
 import type { ChatMessage as ChatMessageType } from '@shared/types'
 import { parseBlocks, serializeBlocks, type Block } from './blocks'
@@ -47,6 +47,16 @@ export function ChatMessage(props: { message: ChatMessageType }) {
     const isLatest = () => latestMessageId() === props.message.id
     const choiceEnabled = () => state.userPreferences.enableChoicePrompts === true
     const chosenIndex = () => props.message.metadata?.chosenIndex as number | undefined
+
+    // While a choice prompt is the active, unanswered prompt, its options are
+    // rendered in the input bar — so hide the history copy to avoid showing it
+    // twice. It reappears here (static, with the pick highlighted) once it's
+    // answered or superseded. Scoped to a lone choicePrompt block, which is how
+    // end_turn emits it.
+    const hideForActivePrompt = () =>
+        choiceEnabled() && isLatest() && chosenIndex() == null &&
+        props.message.role === 'assistant' &&
+        blocks().length === 1 && blocks()[0]?.type === 'choicePrompt'
 
     /**
      * Message-level tap target. While this message is mid-playback, a tap
@@ -102,6 +112,7 @@ export function ChatMessage(props: { message: ChatMessageType }) {
     }
 
     return (
+        <Show when={!hideForActivePrompt()}>
         <div
             class="chat-message"
             classList={{ 'chat-message-playing': isPlaying() }}
@@ -218,5 +229,6 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                 )}
             </For>
         </div>
+        </Show>
     )
 }

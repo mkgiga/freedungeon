@@ -27,7 +27,14 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
     "paths": {
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      // Pin zod to this package's single copy. The SDK declares zod as a peer
+      // (^4.0.0); without this, tsc resolution can walk past the in-repo copy
+      // up to a stray zod elsewhere on the machine, producing two structurally
+      // incompatible zod types and spurious tool() argument errors. Runtime is
+      // unaffected — bun already resolves the SDK's peer to this same copy.
+      "zod": ["./node_modules/zod"],
+      "zod/*": ["./node_modules/zod/*"]
     }
   }
 }
