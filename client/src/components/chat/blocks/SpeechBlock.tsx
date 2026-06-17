@@ -7,6 +7,7 @@ import { useModal } from '../../Modal'
 import { openExpressionPicker } from '../ExpressionPicker'
 import { EditableText } from '../EditableText'
 import { usePlayback } from '../playback'
+import { currentDialogueUrl, toggleDialogue } from '../dialogueAudio'
 
 export function SpeechBlock(props: {
     block: SpeechBlockType
@@ -57,11 +58,31 @@ export function SpeechBlock(props: {
 
     const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : props.block.dialogue.length)
     const isScrolling = () => props.isActive && playback.isActiveScrolling()
-    const awaitingTts = () => !!props.isActive && playback.isAwaitingTts()
+    // The voice is still synthesizing → the dialogue text isn't allowed to show
+    // yet (block-level, independent of whether this is the actively-played
+    // message). Cleared once TTS resolves to ready/failed.
+    const ttsPending = () => props.tts?.status === 'pending'
 
-    const replay = (e: MouseEvent) => {
+    const isThisPlaying = () => !!props.tts?.audioUrl && currentDialogueUrl() === props.tts.audioUrl
+
+    const toggleAudio = (e: MouseEvent) => {
         e.stopPropagation()
-        if (props.tts?.audioUrl) new Audio(props.tts.audioUrl).play().catch(() => {})
+        if (props.tts?.audioUrl) toggleDialogue(props.tts.audioUrl)
+    }
+
+    const showPrompt = (e: MouseEvent) => {
+        e.stopPropagation()
+        modal.open({
+            title: 'TTS prompt',
+            content: () => (
+                <div class="flex flex-col gap-2">
+                    <Show when={props.tts?.error}>
+                        <div class="text-emphasis-warning">Error: {props.tts!.error}</div>
+                    </Show>
+                    <pre class="chat-tts-prompt">{props.tts?.prompt ?? '(no prompt recorded)'}</pre>
+                </div>
+            ),
+        })
     }
 
     return (
@@ -81,39 +102,52 @@ export function SpeechBlock(props: {
             <div class="chat-block-content">
                 <div class="chat-block-name">
                     {displayName()}
-                    <Show when={!props.isActive && props.tts?.status === 'ready' && props.tts.audioUrl}>
-                        <button class="chat-block-replay" title="Play voice" onClick={replay}>▶</button>
+                    <Show when={props.tts?.status === 'ready' && props.tts.audioUrl}>
+                        <button
+                            class="chat-block-replay"
+                            classList={{ 'is-playing': isThisPlaying() }}
+                            title={isThisPlaying() ? 'Stop' : 'Play voice'}
+                            onClick={toggleAudio}
+                        >
+                            {isThisPlaying() ? '⏹' : '▶'}
+                        </button>
+                    </Show>
+                    <Show when={props.tts?.prompt || props.tts?.error}>
+                        <button class="chat-block-replay" title="Show TTS prompt" onClick={showPrompt}>ⓘ</button>
                     </Show>
                 </div>
                 <Show
-                    when={props.isActive}
+                    when={ttsPending()}
                     fallback={
-                        <EditableText
-                            class="chat-block-dialogue"
-                            initial={props.block.dialogue}
-                            onCommit={(dialogue) => props.onUpdate({ ...props.block, dialogue })}
-                        />
-                    }
-                >
-                    <div class="chat-block-dialogue chat-block-dialogue-locked">
-                        {props.block.dialogue.slice(0, revealedCount())}
-                        {/* Pending dialogue rendered with `visibility: hidden`
-                         * so it contributes to layout (line wrapping + total
-                         * height) without being painted. The block sits at
-                         * its final size from character 0. */}
-                        <span class="chat-block-dialogue-pending">
-                            {props.block.dialogue.slice(revealedCount())}
-                        </span>
                         <Show
-                            when={awaitingTts()}
+                            when={props.isActive}
                             fallback={
+                                <EditableText
+                                    class="chat-block-dialogue"
+                                    initial={props.block.dialogue}
+                                    onCommit={(dialogue) => props.onUpdate({ ...props.block, dialogue })}
+                                />
+                            }
+                        >
+                            <div class="chat-block-dialogue chat-block-dialogue-locked">
+                                {props.block.dialogue.slice(0, revealedCount())}
+                                {/* Pending dialogue rendered with `visibility: hidden`
+                                 * so it contributes to layout (line wrapping + total
+                                 * height) without being painted. The block sits at
+                                 * its final size from character 0. */}
+                                <span class="chat-block-dialogue-pending">
+                                    {props.block.dialogue.slice(revealedCount())}
+                                </span>
                                 <Show when={!isScrolling()}>
                                     <span class="chat-block-tap-indicator">▶</span>
                                 </Show>
-                            }
-                        >
-                            <span class="chat-block-tts-pending">🎙 generating voice…</span>
+                            </div>
                         </Show>
+                    }
+                >
+                    {/* Voice still synthesizing — hold the text, show a placeholder. */}
+                    <div class="chat-block-dialogue chat-block-dialogue-locked">
+                        <span class="chat-block-tts-pending">🎙 generating voice…</span>
                     </div>
                 </Show>
             </div>

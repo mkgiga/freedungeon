@@ -20,11 +20,18 @@ export function buildGameStateMcpServer(enableChoicePrompts: boolean, agentCompo
     const writeTools = commandEntries().map(([key, spec]) => {
         let shape = unwrapToShape(spec.schema);
         // Degraded TTS fallback: when the composer LLM is down, the agent writes
-        // the voice prompt itself, so `speech` gains a `voice` field this turn.
+        // the delivery itself, so `speech` gains a `voice` field this turn — an
+        // ordered array of delivery segments (see the Voice Acting instructions).
         // The server reads it raw from the tool args (the command schema strips
         // unknown keys) and keeps it out of the persisted block.
         if (key === 'speech' && agentComposesVoice) {
-            shape = { ...shape, voice: z.string().optional().describe('DramaBox TTS prompt for this line: a short speaker description, the dialogue in double quotes, and stage directions outside the quotes. Required while voice acting is active.') };
+            shape = {
+                ...shape,
+                voice: z.array(z.object({
+                    type: z.enum(['character_clause', 'dialogue_line', 'action_direction']),
+                    content: z.string(),
+                })).optional().describe('How to voice this line: ordered delivery segments (one character_clause first, then dialogue_line / action_direction).'),
+            };
         }
         return tool(
             spec.name,

@@ -232,6 +232,10 @@ export function ChatInput() {
         if (!featureEnabled(state.userPreferences, 'choicePrompts')) return null
         const id = latestMessageId()
         if (!id) return null
+        // Don't offer the menu until playback has actually reached this prompt —
+        // otherwise the options appear in the input bar while earlier dialogue
+        // is still typewriting/holding.
+        if (!playback.isMessageRevealed(id)) return null
         const msg = state.currentChat.messages[id]
         if (!msg || msg.role !== 'assistant' || msg.metadata?.chosenIndex != null) return null
         const promptBlock = parseBlocks(msg.content).find(b => b.type === 'choicePrompt')

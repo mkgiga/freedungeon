@@ -3,6 +3,7 @@ import type { ChatMessage, GameStateContext, SpeechTtsMeta } from '@shared/types
 import { applyBlockToCtx, runTurn } from '@shared/game-state'
 import { parseBlocks, isBlockingBlock, type Block } from '@shared/blocks'
 import { resolveFeatureConfig } from '@shared/features'
+import { playDialogue, stopDialogue } from './dialogueAudio'
 import { state } from '../../state'
 
 type PlaybackApi = {
@@ -36,6 +37,9 @@ type PlaybackApi = {
     /** True while the active speech block is held waiting for its TTS audio to
      *  finish generating. The block frame is shown; the dialogue is masked. */
     isAwaitingTts: () => boolean
+    /** Whether playback has reached (started) this assistant message yet.
+     *  Future, not-yet-played messages return false so the UI can hide them. */
+    isMessageRevealed: (id: string) => boolean
 }
 
 const PlaybackContext = createContext<PlaybackApi | null>(null)
@@ -70,6 +74,18 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
      * trigger playback exactly once.
      */
     const seenAssistantIds = new Set<string>()
+    // Reactive stamp over the (plain) seen set so components can gate rendering
+    // on whether playback has reached a message yet.
+    const [seenVersion, setSeenVersion] = createSignal(0)
+    const markSeen = (id: string) => { seenAssistantIds.add(id); setSeenVersion(v => v + 1) }
+    /**
+     * A message is "revealed" once playback has started it (or it was seeded on
+     * load). Future assistant messages playback hasn't reached are NOT revealed,
+     * so the UI can hide them — a fast provider can't show later lines before
+     * the user taps to them. (Non-assistant messages are always revealed; that
+     * check lives in the consumer, which knows the role.)
+     */
+    const isMessageRevealed = (id: string) => { seenVersion(); return seenAssistantIds.has(id) }
 
     // While a speech block's TTS audio is still generating we "hold" on it:
     // the block is revealed (frame visible) but the typewriter doesn't start
@@ -80,22 +96,25 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
 
     let pauseTimer: ReturnType<typeof setTimeout> | null = null
     let typewriterTimer: ReturnType<typeof setInterval> | null = null
-    let activeAudio: HTMLAudioElement | null = null
 
     const ttsEnabled = () => resolveFeatureConfig('tts', state.userPreferences.features?.tts).enabled
 
-    const stopAudio = () => {
-        if (activeAudio) {
-            activeAudio.pause()
-            activeAudio = null
-        }
+    // Whether a speech line will actually be synthesized — mirrors the server's
+    // pipeline gate (feature on AND the speaking actor has a voiceRef). Ad-hoc
+    // speakers (no actorId) and ref-less actors are never synthesized, so
+    // playback must not hold on them.
+    const speechWillSynthesize = (block: Extract<Block, { type: 'speech' }>): boolean => {
+        if (!ttsEnabled() || !block.actorId) return false
+        const a = Object.values(state.assets.actors ?? {}).find(
+            x => x.customId === block.actorId || x.id === block.actorId
+        )
+        return !!a?.voiceRef
     }
 
-    const playAudio = (url: string) => {
-        stopAudio()
-        activeAudio = new Audio(url)
-        activeAudio.play().catch(() => { /* autoplay/format errors are non-fatal */ })
-    }
+    // Auto-play routes through the shared dialogue buffer so it can't overlap
+    // with a manual per-message toggle — one clip at a time, app-wide.
+    const stopAudio = () => stopDialogue()
+    const playAudio = (url: string) => playDialogue(url)
 
     const clearPauseTimer = () => {
         if (pauseTimer !== null) {
@@ -161,22 +180,31 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         if (!blocks) {
             setPlayingMessageId(null)
             stopTypewriter()
+            playNextUnseen()
             return
         }
 
         let c = untrack(cursor)
         let lastRevealed: Block | undefined
+        let revealedBlocking = false
         while (c < blocks.length) {
             lastRevealed = blocks[c]
             c++
-            if (lastRevealed && isBlockingBlock(lastRevealed)) break
+            if (lastRevealed && isBlockingBlock(lastRevealed)) { revealedBlocking = true; break }
         }
         setCursor(c)
 
-        if (c >= blocks.length) {
+        // Only end the message when we ran off the end WITHOUT hitting a
+        // blocking block. If we broke on a blocking block we must stop and
+        // configure it — even when it's the last block (the common case, since
+        // each tool call is its own single-block message). Using `c >=
+        // blocks.length` here was the bug: it also fired for a trailing blocking
+        // block, so playback advanced instead of holding.
+        if (!revealedBlocking) {
             setPlayingMessageId(null)
             stopTypewriter()
             stopAudio()
+            playNextUnseen()
             return
         }
 
@@ -187,9 +215,13 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         } else if (lastRevealed?.type === 'speech') {
             const id = untrack(playingMessageId)!
             const tts = state.currentChat.messages[id]?.metadata?.tts as SpeechTtsMeta | undefined
-            // Hold while audio is still generating (pending, or not yet stamped
-            // when the feature is on). The resume effect fires when it resolves.
-            if (ttsEnabled() && tts?.status !== 'ready' && tts?.status !== 'failed') {
+            // Hold ONLY while audio for this line is actually coming — i.e. the
+            // line will synthesize (feature on + the actor has a voiceRef) and it
+            // isn't resolved yet. Lines that won't synthesize (ad-hoc speakers,
+            // ref-less actors) must NOT hold, or they'd hang forever waiting for
+            // a status that never arrives. The resume effect fires when a held
+            // line resolves.
+            if (speechWillSynthesize(lastRevealed) && tts?.status !== 'ready' && tts?.status !== 'failed') {
                 stopTypewriter()
                 stopAudio()
                 setActiveTypewriterText('')
@@ -209,6 +241,29 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         } else {
             stopTypewriter()
         }
+    }
+
+    /**
+     * Play the OLDEST not-yet-seen assistant message, if idle. Called when a
+     * message arrives AND when the current one finishes, so a turn's messages
+     * play strictly in order — nothing is skipped, and each blocking line
+     * (text/speech/pause) waits for a tap before the next is revealed. This is
+     * what keeps a fast provider from racing ahead of what the user has read
+     * or heard. Callers invoke this outside any tracking scope.
+     */
+    const playNextUnseen = () => {
+        if (untrack(playingMessageId) !== null) return
+        let candidate: ChatMessage | null = null
+        for (const m of Object.values(state.currentChat.messages)) {
+            if (m.role !== 'assistant') continue
+            if (seenAssistantIds.has(m.id)) continue
+            if (!candidate || sortByCreatedAt(m, candidate) < 0) candidate = m
+        }
+        if (!candidate) return
+        markSeen(candidate.id)
+        setPlayingMessageId(candidate.id)
+        setCursor(0)
+        autoAdvance()
     }
 
     const advance = () => {
@@ -238,15 +293,9 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
      */
     const tap = () => {
         if (untrack(playingMessageId) === null) return
-        // Held waiting for audio → reveal the line now (no audio) rather than wait.
-        const hold = untrack(holdingTts)
-        if (hold) {
-            const blocks = getPlayingBlocks()
-            const block = blocks?.[hold.index]
-            if (block?.type === 'speech') revealSpeech(block as Extract<Block, { type: 'speech' }>, undefined)
-            else setHoldingTts(null)
-            return
-        }
+        // Held waiting for audio: ignore taps — the line's text stays gated
+        // until TTS resolves, at which point it reveals and plays on its own.
+        if (untrack(holdingTts)) return
         if (untrack(isActiveScrolling)) {
             // First tap: full text + skip audio.
             stopTypewriter()
@@ -284,25 +333,16 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
                 for (const m of allMessages) {
                     if (m.role === 'assistant') seenAssistantIds.add(m.id)
                 }
+                setSeenVersion(v => v + 1)
             })
             lastSeenChatId = cid
             return
         }
 
-        if (untrack(playingMessageId) !== null) return
-
-        let candidate: ChatMessage | null = null
-        for (const m of allMessages) {
-            if (m.role !== 'assistant') continue
-            if (seenAssistantIds.has(m.id)) continue
-            if (!candidate || sortByCreatedAt(m, candidate) > 0) candidate = m
-        }
-        if (!candidate) return
-
-        seenAssistantIds.add(candidate.id)
-        setPlayingMessageId(candidate.id)
-        setCursor(0)
-        autoAdvance()
+        // Iterating `allMessages` above subscribes this effect to new arrivals.
+        // The actual selection/playback is untracked so reading message state
+        // inside playNextUnseen doesn't add spurious dependencies.
+        untrack(() => playNextUnseen())
     })
 
     // Resume a held speech block once its TTS audio resolves (ready → audio +
@@ -378,6 +418,7 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         isActiveScrolling,
         tap,
         isAwaitingTts: () => holdingTts() !== null,
+        isMessageRevealed,
     }
 
     return (

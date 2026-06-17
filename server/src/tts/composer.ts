@@ -8,46 +8,43 @@ import type { FeatureConfig } from '@shared/features'
  */
 
 /**
- * The DramaBox prompt-format rules + examples. Exported so the degraded-mode
- * fallback (where the MAIN agent writes the voice prompt because this composer
- * is unreachable) can teach the agent the exact same format.
+ * Shared spec for the structured intermediate format both paths emit. The
+ * composer model and (in degraded mode) the main agent describe HOW a line is
+ * delivered as typed segments; `segmentsToPrompt` renders the DramaBox grammar
+ * deterministically, so neither model touches the grammar's reserved
+ * punctuation (which a small model gets wrong).
  */
-export const DRAMABOX_RULES = `Format rules:
-- The prompt is ONE line of segments. Each segment is a short descriptive clause ending in a comma, then the spoken words in double quotes — e.g. \`A shadowy villain speaks with cold menace, "..."\`. Chain segments to shift delivery: \`He chuckles darkly, "..." His voice rises with fury, "..."\`.
-- Voiced non-verbals go INSIDE the quotes as words the voice performs: "Hahaha", "Hehehe", "Hmm", "Mmmmm", "Ugh", "Argh", "Ahhh".
-- Everything not spoken aloud — actions, tone, pauses — goes OUTSIDE the quotes as a descriptive clause: "He sighs deeply,", "His voice cracks,", "A long pause.", "He clears his throat,".
-- Do NOT write a gasp, sigh, cough, throat-clear, or "ahem"/"pfft" as a word inside the quotes — render it as an outside clause instead (a gasp → "A sudden gasp," or "He gasps,"; a sigh → "He sighs deeply,"; a cough → "He clears his throat,").
-- Preserve the dialogue's exact words; you may split it across multiple quoted segments to reflect tone shifts within the line.
-- End the prompt on a closing quote — no trailing description after the final quote.
-- Make the speaker description and clauses fit the given character.
-- Output ONLY the prompt. No preamble, explanation, markdown, or quotes wrapping the whole thing.
+const SEGMENT_FORMAT = `Each segment is an object with "type" and "content", in order:
+- "character_clause" — who is speaking and how: their voice and overall delivery. Exactly one, first. Present tense. Must name the speaker as a noun phrase (a/an + character) with a speaking verb, then the delivery — match age/gender to the voice. E.g. "A gruff old man speaks in a tired flat tone", "An exhausted father speaks with fraying patience", "She speaks softly". Never give the delivery alone with the speaker dropped (not "Deep and sincere, not a hint of sarcasm").
+- "dialogue_line" — a verbatim span of the spoken words.
+- "action_direction" — how the next words are delivered, or an audible beat between them (a laugh, a sigh, a pause, a sob, a rising shout). AUDIBLE only — never visual (no grins, nods, smiles, glances).
 
-Examples:
-Character: A shadowy villain, cold and menacing.
-Line: You have entered my domain, mortal. Such arrogance will be your undoing.
-A shadowy villain speaks with cold menace, "You have entered my domain, mortal." He chuckles darkly, "Such arrogance will be your undoing."
+Rules:
+- Preserve the dialogue's exact words across the dialogue_line segments; never paraphrase.
+- Be faithful to the emotional register of the line in its scene: match it. Don't flatten genuine emotion — anger, grief, fear, joy, shouting, sobbing — and don't manufacture drama a calm moment doesn't have.
+- Split into multiple dialogue_line segments (separated by an action_direction) only where the delivery genuinely shifts; a single dialogue_line is fine otherwise.
+- A laugh or sound the character actually voices (Hahaha, Hehehe, Hmm, Mmmmm) stays INSIDE a dialogue_line as words.`
 
-Character: A tender woman saying goodnight to her partner.
-Line: It has been a long day, my love. Close your eyes, I am right here.
-A woman speaks tenderly, "It has been a long day, my love." She whispers, "Close your eyes. I am right here."
+// Composer (small external model). It is given the recent scene as context
+// since, unlike the main agent, it has no memory of the conversation.
+const SYSTEM_PROMPT = `You are a performance director. Given a character, the recent scene, and one line of their dialogue, break the line into how it is delivered, as a JSON array of segments — output NOTHING but that array.
 
-Character: An excitable talk-show host reacting in disbelief.
-Line: No, you did not just say that! I cannot breathe right now!
-A talk show host gasps with shock, "No! You did NOT just say that!" He bursts into uncontrollable laughter, "Hahaha! I cannot, I literally cannot breathe right now!"`
+${SEGMENT_FORMAT}
 
-const SYSTEM_PROMPT = `You convert a single line of character dialogue into a DramaBox TTS prompt. DramaBox is an expressive text-to-speech model. Use the recent scene only to judge tone — never voice it.
-
-${DRAMABOX_RULES}`
+Use the recent scene to judge the emotional intensity and tone; never include any of it in the output. Output ONLY the JSON array.`
 
 /**
- * The degraded-mode system-prompt section injected into the MAIN agent when the
- * composer is unreachable. Exported so it can be placed via the
- * `@VOICE_ACTING_INSTRUCTIONS()` macro or appended trailing as a fallback —
- * mirroring the multi-choice instruction.
+ * Degraded-mode instructions for the MAIN agent (when the composer is
+ * unreachable). The agent already has full scene context, so it just fills the
+ * `voice` argument with the same segment format — no scene recap needed.
+ * Exported so it can be placed via the `@VOICE_ACTING_INSTRUCTIONS()` macro or
+ * appended trailing.
  */
 export const VOICE_ACTING_INSTRUCTIONS = `# 【Voice Acting】
 
-${DRAMABOX_RULES}`
+On every \`speech\` call, also pass a \`voice\` argument: an ordered array of segments describing how the line is delivered.
+
+${SEGMENT_FORMAT}`
 
 /**
  * Cheap reachability check for the composer endpoint (OpenAI `/models`). Used
@@ -80,6 +77,86 @@ export type ComposeInput = {
     context: string
 }
 
+export type Segment = { type: 'character_clause' | 'dialogue_line' | 'action_direction'; content: string }
+
+/**
+ * Coerce a model's output into validated segments — accepts either a JSON string
+ * (the composer's chat completion, possibly fenced/surrounded by prose) or an
+ * already-structured array (the agent's `voice` tool argument). Returns [] for
+ * anything unusable so callers can fall back.
+ */
+export function coerceSegments(value: unknown): Segment[] {
+    let arr: unknown = value
+    if (typeof value === 'string') {
+        let txt = value.trim()
+        const fence = txt.match(/```(?:json)?\s*([\s\S]*?)```/i)
+        if (fence?.[1]) txt = fence[1].trim()
+        const start = txt.indexOf('[')
+        const end = txt.lastIndexOf(']')
+        if (start === -1 || end <= start) return []
+        try { arr = JSON.parse(txt.slice(start, end + 1)) } catch { return [] }
+    }
+    if (!Array.isArray(arr)) return []
+    const segs: Segment[] = []
+    for (const s of arr) {
+        const t = (s as { type?: unknown })?.type
+        const c = (s as { content?: unknown })?.content
+        if ((t === 'character_clause' || t === 'dialogue_line' || t === 'action_direction') && typeof c === 'string') {
+            segs.push({ type: t, content: c })
+        }
+    }
+    return segs
+}
+
+const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
+
+// Commas (and ; :) are reserved separators in DramaBox grammar, so strip them
+// from outside-the-quote clauses; also drop wrapping/trailing punctuation we
+// control ourselves.
+function sanitizeClause(s: string): string {
+    return cap(
+        s.replace(/[“”‘’"']/g, '')
+            .replace(/[,;:—–]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .replace(/[.\s]+$/, '')
+            .trim()
+    )
+}
+
+const cleanDialogue = (s: string) =>
+    s.replace(/^[\s"'“”]+|[\s"'“”]+$/g, '')
+        // Em/en-dashes (and `--`) inside spoken text make the model hallucinate;
+        // they read as a pause, so render them as a comma — which is fine inside
+        // quotes (only the clause/quote-separating comma is reserved).
+        .replace(/\s*(?:[—–]|--)\s*/g, ', ')
+        .replace(/\s+([,.!?])/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+/**
+ * Render segments into DramaBox grammar: `<clause>, "<dialogue>" <clause>, "..."`.
+ * Each non-dialogue segment is the lead-in for the dialogue that follows (joined
+ * by the single reserved comma). A non-dialogue segment with no dialogue after
+ * it becomes a standalone beat ending in a period — except a *trailing* one,
+ * which is dropped, since a DramaBox prompt must end on a closing quote.
+ */
+export function segmentsToPrompt(segments: Segment[]): string {
+    const parts: string[] = []
+    let clause: string | null = null
+    for (const seg of segments) {
+        if (seg.type === 'dialogue_line') {
+            const quote = `"${cleanDialogue(seg.content)}"`
+            if (clause) { parts.push(`${clause}, ${quote}`); clause = null }
+            else parts.push(quote)
+        } else {
+            if (clause) parts.push(`${clause}.`) // prior clause had no quote → standalone beat
+            clause = sanitizeClause(seg.content)
+        }
+    }
+    // Dangling trailing clause intentionally dropped (end on a quote).
+    return parts.join(' ').trim()
+}
+
 export async function composeVoicePrompt(cfg: FeatureConfig, input: ComposeInput): Promise<string> {
     const endpoint = String(cfg.values.composerEndpoint ?? '').replace(/\/+$/, '')
     const model = String(cfg.values.composerModel ?? '')
@@ -108,7 +185,7 @@ export async function composeVoicePrompt(cfg: FeatureConfig, input: ComposeInput
                 { role: 'user', content: userMsg },
             ],
             temperature: 0.7,
-            max_tokens: 400,
+            max_tokens: 500,
             stream: false,
         }),
     })
@@ -119,5 +196,13 @@ export async function composeVoicePrompt(cfg: FeatureConfig, input: ComposeInput
     const data = await res.json() as { choices?: { message?: { content?: string } }[] }
     const out = data.choices?.[0]?.message?.content?.trim()
     if (!out) throw new Error('composer returned empty output')
-    return out
+
+    // Transform the structured intermediate format into DramaBox grammar.
+    const segments = coerceSegments(out)
+    if (!segments.some(s => s.type === 'dialogue_line')) {
+        throw new Error('composer produced no dialogue lines')
+    }
+    const prompt = segmentsToPrompt(segments)
+    if (!prompt) throw new Error('composer produced an empty prompt')
+    return prompt
 }

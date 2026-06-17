@@ -59,6 +59,13 @@ export function ChatMessage(props: { message: ChatMessageType }) {
         props.message.role === 'assistant' &&
         blocks().length === 1 && blocks()[0]?.type === 'choicePrompt'
 
+    // A future assistant message that playback hasn't reached yet stays hidden,
+    // so a fast provider can't show later dialogue/narration before the user
+    // taps to it. User/system messages (and already-played ones) always show.
+    const isVisible = () =>
+        (props.message.role !== 'assistant' || playback.isMessageRevealed(props.message.id)) &&
+        !hideForActivePrompt()
+
     /**
      * Message-level tap target. While this message is mid-playback, a tap
      * anywhere in the message routes to `playback.tap()` (skip-scroll if the
@@ -113,7 +120,7 @@ export function ChatMessage(props: { message: ChatMessageType }) {
     }
 
     return (
-        <Show when={!hideForActivePrompt()}>
+        <Show when={isVisible()}>
         <div
             class="chat-message"
             classList={{ 'chat-message-playing': isPlaying() }}

@@ -199,13 +199,11 @@ function handleExec(req: ExecRequest) {
 
     // Fire-and-forget voice synthesis for speech lines (no-op unless the TTS
     // feature is enabled). Never awaited — must not block the agent's exec.
-    // In degraded mode the agent supplies the DramaBox prompt via a `voice`
-    // arg; the schema strips unknown keys, so read it raw from req.args and keep
-    // it out of the block (metadata-only).
-    const agentVoicePrompt = req.command === 'speech' && typeof req.args.voice === 'string'
-        ? req.args.voice as string
-        : undefined;
-    maybeEnqueueSpeechTts(message, block, agentVoicePrompt);
+    // In degraded mode the agent supplies the delivery via a `voice` arg (an
+    // array of segments); the command schema strips unknown keys, so read it raw
+    // from req.args and keep it out of the block (it's rendered to metadata).
+    const agentVoice = req.command === 'speech' ? req.args.voice : undefined;
+    maybeEnqueueSpeechTts(message, block, agentVoice);
 
     return {
         ok: true,
