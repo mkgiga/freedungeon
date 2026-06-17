@@ -34,19 +34,19 @@ function defineCommand<S extends z.ZodTypeAny>(spec: CommandSpec<S>): CommandSpe
     return spec;
 }
 
-const speechPredefinedSchema = z.object({
-    // NOTE: `actorId` here is the agent-facing id (backed internally by
-    // the DB's Actor.customId column). The Actor type's nanoid `id`
-    // primary key is intentionally never exposed to the agent.
-    actorId: z.string().describe('Id of a predefined actor in the chat. Use list_active_actors / list_chat_actors to discover ids.'),
+// One unified speech schema. Provide an `actorId` (a predefined actor, or any
+// made-up id for a new recurring speaker — id-based speakers are tracked in the
+// active scene), and/or a `name` (required for a one-off ad-hoc speaker with no
+// id; an optional display override when actorId is set). Note: `actorId` is the
+// agent-facing id (backed by Actor.customId); the nanoid primary key is never
+// exposed. (No top-level .refine — that would wrap the schema in ZodEffects and
+// the MCP layer's shape-unwrap only reads ZodObject; "provide one of them" is
+// conveyed via the description instead.)
+const speechSchema = z.object({
+    actorId: z.string().optional().describe('Id of a predefined actor (via list_chat_actors), or a made-up id for a new recurring speaker. Omit for a one-off unnamed speaker and pass `name`.'),
+    name: z.string().optional().describe('Display name. Required when actorId is omitted (ad-hoc speaker); optional override when actorId is set.'),
     dialogue: z.string().describe('The line of dialogue, present tense.'),
-    name: z.string().optional().describe('Override display name. Rarely needed when actorId is set.'),
     expression: z.string().optional().describe('Expression name. Must exactly match one of the actor\'s defined expressions.'),
-});
-
-const speechAdHocSchema = z.object({
-    name: z.string().describe('Display name for the ad-hoc actor (no actorId).'),
-    dialogue: z.string().describe('The line of dialogue, present tense.'),
 });
 
 export const COMMANDS = {
@@ -61,26 +61,21 @@ export const COMMANDS = {
 
     speech: defineCommand({
         name: 'speech',
-        description: 'Dialogue from a predefined actor. Use the actor\'s id (discoverable via list_chat_actors). Auto-adds the actor to the active scene if absent.',
-        schema: speechPredefinedSchema,
-        toBlock: (args) => ({
-            type: 'speech',
-            actorId: args.actorId,
-            dialogue: args.dialogue,
-            ...(args.name ? { name: args.name } : {}),
-            ...(args.expression ? { expression: args.expression } : {}),
-        }),
-    }),
-
-    speech_adhoc: defineCommand({
-        name: 'speech_adhoc',
-        description: 'Dialogue from an ad-hoc unnamed actor (e.g., a guard, a passerby). Use this when the speaker is not one of the predefined actors and doesn\'t need to persist.',
-        schema: speechAdHocSchema,
-        toBlock: (args) => ({
-            type: 'speech',
-            dialogue: args.dialogue,
-            name: args.name,
-        }),
+        description: 'Dialogue from an actor. Three uses: a predefined actor\'s id (via list_chat_actors); a made-up id for a new recurring speaker (auto-added to the active scene); or just a `name` for a one-off ad-hoc speaker like a guard or passerby (not tracked). Id-based speakers are auto-added to the active scene if absent.',
+        schema: speechSchema,
+        toBlock: (args) => args.actorId
+            ? {
+                type: 'speech',
+                actorId: args.actorId,
+                dialogue: args.dialogue,
+                ...(args.name ? { name: args.name } : {}),
+                ...(args.expression ? { expression: args.expression } : {}),
+            }
+            : {
+                type: 'speech',
+                dialogue: args.dialogue,
+                name: args.name,
+            },
     }),
 
     pause: defineCommand({

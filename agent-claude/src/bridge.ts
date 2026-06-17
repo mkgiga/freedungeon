@@ -17,6 +17,7 @@ export type PromptArgs = {
     resumeSessionId: string | null;
     model: string;
     enableChoicePrompts?: boolean;
+    agentComposesVoice?: boolean;
 };
 
 let currentAbort: AbortController | null = null;
@@ -40,7 +41,7 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
     const abort = new AbortController();
     currentAbort = abort;
 
-    const mcpServer = buildGameStateMcpServer(args.enableChoicePrompts ?? false);
+    const mcpServer = buildGameStateMcpServer(args.enableChoicePrompts ?? false, args.agentComposesVoice ?? false);
 
     let capturedSessionId: string | null = args.resumeSessionId;
     let caughtError: { name?: string; message: string } | null = null;

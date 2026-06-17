@@ -24,6 +24,13 @@ export type FeatureConfig = {
 }
 
 export const FEATURES: Record<string, FeatureSpec> = {
+    choicePrompts: {
+        key: 'choicePrompts',
+        name: 'Multiple-choice prompts',
+        description: 'Let the agent optionally end a turn with a menu of suggested actions. You can always type your own instead.',
+        schema: [],
+        defaults: {},
+    },
     tts: {
         key: 'tts',
         name: 'Actor voice acting (DramaBox)',
@@ -66,4 +73,17 @@ export function resolveFeatureConfig(
         enabled: stored?.enabled ?? false,
         values: { ...(spec?.defaults ?? {}), ...(stored?.values ?? {}) },
     }
+}
+
+/**
+ * Whether a feature is enabled, with a one-time migration for choice prompts'
+ * legacy standalone boolean (`enableChoicePrompts`) that predates the registry.
+ */
+export function featureEnabled(
+    prefs: { features?: Record<string, FeatureConfig>; enableChoicePrompts?: boolean },
+    key: FeatureKey,
+): boolean {
+    if (resolveFeatureConfig(key, prefs.features?.[key]).enabled) return true
+    if (key === 'choicePrompts' && prefs.enableChoicePrompts === true) return true
+    return false
 }

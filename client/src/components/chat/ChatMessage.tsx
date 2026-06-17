@@ -22,6 +22,7 @@ import { SetLocationBlock } from './blocks/SetLocationBlock'
 import { ChoicePromptBlock } from './blocks/ChoicePromptBlock'
 import { ChoiceBlock } from './blocks/ChoiceBlock'
 import { latestMessageId } from './latest'
+import { featureEnabled } from '@shared/features'
 import { state } from '../../state'
 import { usePlayback } from './playback'
 
@@ -45,7 +46,7 @@ export function ChatMessage(props: { message: ChatMessageType }) {
     // Choice prompts are interactive only while they're the latest message and
     // unanswered, and only when the global setting is on.
     const isLatest = () => latestMessageId() === props.message.id
-    const choiceEnabled = () => state.userPreferences.enableChoicePrompts === true
+    const choiceEnabled = () => featureEnabled(state.userPreferences, 'choicePrompts')
     const chosenIndex = () => props.message.metadata?.chosenIndex as number | undefined
 
     // While a choice prompt is the active, unanswered prompt, its options are

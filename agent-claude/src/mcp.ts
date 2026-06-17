@@ -16,9 +16,16 @@ import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProd
  * registered under `game_state`. We pass that pattern to `allowedTools` so
  * the model can call them without permission prompts.
  */
-export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
+export function buildGameStateMcpServer(enableChoicePrompts: boolean, agentComposesVoice: boolean) {
     const writeTools = commandEntries().map(([key, spec]) => {
-        const shape = unwrapToShape(spec.schema);
+        let shape = unwrapToShape(spec.schema);
+        // Degraded TTS fallback: when the composer LLM is down, the agent writes
+        // the voice prompt itself, so `speech` gains a `voice` field this turn.
+        // The server reads it raw from the tool args (the command schema strips
+        // unknown keys) and keeps it out of the persisted block.
+        if (key === 'speech' && agentComposesVoice) {
+            shape = { ...shape, voice: z.string().optional().describe('DramaBox TTS prompt for this line: a short speaker description, the dialogue in double quotes, and stage directions outside the quotes. Required while voice acting is active.') };
+        }
         return tool(
             spec.name,
             spec.description,

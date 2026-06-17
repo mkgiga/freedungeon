@@ -7,16 +7,19 @@ import type { FeatureConfig } from '@shared/features'
  * sees any of this.
  */
 
-const SYSTEM_PROMPT = `You convert a single line of character dialogue into a DramaBox TTS prompt. DramaBox is an expressive text-to-speech model.
-
-Format rules:
+/**
+ * The DramaBox prompt-format rules + examples. Exported so the degraded-mode
+ * fallback (where the MAIN agent writes the voice prompt because this composer
+ * is unreachable) can teach the agent the exact same format.
+ */
+export const DRAMABOX_RULES = `Format rules:
 - Output ONE line: a short speaker description, then the dialogue in double quotes, with stage directions OUTSIDE the quotes between/after quoted segments.
 - Voiced non-verbals go INSIDE the quotes as words: "Hahaha", "Hehehe", "Hmm", "Mmmmm", "Ugh", "Argh", "Ahhh".
 - Stage directions go OUTSIDE the quotes: She sighs deeply. His voice cracks. A long pause. He clears his throat.
 - NEVER put these inside quotes: Ahem, Pfft, Sigh, Gasp, Cough.
 - End the prompt on a closing quote — no trailing description after the final quote.
 - Preserve the dialogue's exact words; you may split it into multiple quoted segments to reflect shifts in tone within the line.
-- Make the speaker description and directions fit the given character. Use the recent scene only to judge tone — never voice it.
+- Make the speaker description and directions fit the given character.
 - Output ONLY the prompt. No preamble, no explanation, no markdown, no quotes around the whole thing.
 
 Examples:
@@ -27,6 +30,33 @@ A shadowy villain speaks with cold menace, "You have entered my domain, mortal."
 Character: A tender woman saying goodnight to her partner.
 Line: It has been a long day, my love. Close your eyes, I am right here.
 A woman speaks tenderly, "It has been a long day, my love." She whispers, "Close your eyes. I am right here."`
+
+const SYSTEM_PROMPT = `You convert a single line of character dialogue into a DramaBox TTS prompt. DramaBox is an expressive text-to-speech model. Use the recent scene only to judge tone — never voice it.
+
+${DRAMABOX_RULES}`
+
+/**
+ * Cheap reachability check for the composer endpoint (OpenAI `/models`). Used
+ * per-turn to decide whether to fall back to agent-authored voice prompts.
+ */
+export async function probeComposer(cfg: FeatureConfig): Promise<boolean> {
+    const endpoint = String(cfg.values.composerEndpoint ?? '').replace(/\/+$/, '')
+    if (!endpoint) return false
+    const apiKey = String(cfg.values.composerApiKey ?? '')
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 1500)
+    try {
+        const res = await fetch(`${endpoint}/models`, {
+            headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+            signal: ctrl.signal,
+        })
+        return res.ok
+    } catch {
+        return false
+    } finally {
+        clearTimeout(timer)
+    }
+}
 
 export type ComposeInput = {
     actorName: string

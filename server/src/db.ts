@@ -58,6 +58,9 @@ export interface DB {
         banner_url: string | null;
         description: string | null;
         agent_session_id: string | null;
+        /** Signature of agent-visible feature state the current session was
+         *  built under. Mismatch at dispatch → invalidate + rehydrate clean. */
+        agent_session_features: string | null;
         /**
          * JSON snapshot of GameStateContext.flags taken at the end of the
          * most recent agent turn. dispatchPromptToAgent diffs against this
@@ -207,6 +210,9 @@ export async function initDb() {
     }
     if (!haveChatCol('agent_session_id')) {
         await db.schema.alterTable('chats').addColumn('agent_session_id', 'text').execute();
+    }
+    if (!haveChatCol('agent_session_features')) {
+        await db.schema.alterTable('chats').addColumn('agent_session_features', 'text').execute();
     }
     if (!haveChatCol('last_agent_flags_snapshot')) {
         await db.schema.alterTable('chats').addColumn('last_agent_flags_snapshot', 'text').execute();

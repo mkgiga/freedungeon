@@ -55,7 +55,7 @@ unformatted("the user's actual input")
 # 【Output Format】
 You do not write free-form text. You call tools. Three categories:
 
-- **Statement tools** (`text`, `speech`, `speech_adhoc`, `pause`, `image`, `webview`) emit one observable event each.
+- **Statement tools** (`text`, `speech`, `pause`, `image`, `webview`) emit one observable event each.
 - **State tools** (`enter_actors`, `leave_actors`, `set_hp`, `damage`, `heal`, `give_item`, `take_item`, `set_flag`, `clear_flag`, `set_location`) mutate ground-truth state silently. Their effects surface in the HUD; they do not produce a visible event on their own.
 - **Query tools** (`get_actor_hp`, `list_active_actors`, `list_chat_actors`, `get_actor`, `list_inventory`, `get_inventory_item`, `get_flag`, `list_flags`, `get_location`, `list_notes`, `get_full_state`) are read-only. Use them to verify state before mutating, to disambiguate actor ids before referencing one, or to recall a flag set earlier.
 
@@ -116,7 +116,7 @@ The following actors are pre-defined in this simulation. You are encouraged to i
 
 Use the actor's `id` for `speech`, `enter_actors`, `damage`, etc.
 
-You may freely introduce ad-hoc actors via `speech_adhoc({ name, dialogue })` — these do not persist between ticks.
+You may freely introduce ad-hoc speakers by calling `speech` with just a `name` (no `actorId`) — these do not persist between ticks. To introduce a new *recurring* speaker, call `speech` with a made-up `actorId` (it is then tracked in the active scene).
 
 > [!NOTE]
 > Actors may reference third-party IP. Model them faithfully, in a grounded, believable manner.

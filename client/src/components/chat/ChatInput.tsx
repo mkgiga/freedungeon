@@ -2,6 +2,7 @@ import { createMemo, createSignal, For, Show } from 'solid-js'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { parseBlocks } from './blocks'
+import { featureEnabled } from '@shared/features'
 import { ImageIcon } from '../ImageIcon'
 import { Text } from '../typography/Text'
 import { useModal } from '../Modal'
@@ -228,7 +229,7 @@ export function ChatInput() {
     // on. Its options surface as buttons here, beside the always-available
     // text field (the "type your own action" escape hatch).
     const pendingChoicePrompt = createMemo(() => {
-        if (state.userPreferences.enableChoicePrompts !== true) return null
+        if (!featureEnabled(state.userPreferences, 'choicePrompts')) return null
         const id = latestMessageId()
         if (!id) return null
         const msg = state.currentChat.messages[id]

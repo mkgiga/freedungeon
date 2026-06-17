@@ -10,6 +10,8 @@ import { state, setState } from './server';
 import { db, saveMessage } from './db';
 import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { maybeEnqueueSpeechTts } from './tts/pipeline';
+import { probeComposer, DRAMABOX_RULES } from './tts/composer';
+import { featureEnabled, resolveFeatureConfig } from '@shared/features';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { log } from './logger';
 
@@ -197,7 +199,13 @@ function handleExec(req: ExecRequest) {
 
     // Fire-and-forget voice synthesis for speech lines (no-op unless the TTS
     // feature is enabled). Never awaited — must not block the agent's exec.
-    maybeEnqueueSpeechTts(message, block);
+    // In degraded mode the agent supplies the DramaBox prompt via a `voice`
+    // arg; the schema strips unknown keys, so read it raw from req.args and keep
+    // it out of the block (metadata-only).
+    const agentVoicePrompt = req.command === 'speech' && typeof req.args.voice === 'string'
+        ? req.args.voice as string
+        : undefined;
+    maybeEnqueueSpeechTts(message, block, agentVoicePrompt);
 
     return {
         ok: true,
@@ -259,10 +267,23 @@ function handleQuery(req: QueryRequest) {
     return { ok: true, result };
 }
 
+/**
+ * Signature of agent-visible feature state. Stored alongside the SDK session;
+ * a mismatch at dispatch means a feature that affects what the agent sees in
+ * its own history (currently: TTS, whose degraded-mode `voice` tool-args live
+ * in the session transcript) was toggled, so we rebuild the session clean from
+ * content. Choice prompts are NOT included — their data lives in message
+ * content and we intentionally keep prior choices visible.
+ */
+function agentFeatureSignature(): string {
+    const tts = resolveFeatureConfig('tts', state.userPreferences.features?.tts).enabled ? 1 : 0;
+    return `tts:${tts}`;
+}
+
 function handleAnnounce(req: AnnouncementRequest) {
     if (req.event === 'session_captured' && req.sessionId) {
         db.updateTable('chats')
-            .set({ agent_session_id: req.sessionId })
+            .set({ agent_session_id: req.sessionId, agent_session_features: agentFeatureSignature() })
             .where('id', '=', req.chatId)
             .execute();
         // Clear the rehydration warning now that a session exists — the
@@ -460,16 +481,39 @@ export async function dispatchPromptToAgent(args: {
     // instruction and capability stay in lockstep. The user can position the
     // text precisely via the `@MULTICHOICE_PROMPT_INSTRUCTIONS()` macro; only
     // when they haven't do we append it trailing so toggling needs no edits.
-    const enableChoicePrompts = state.userPreferences.enableChoicePrompts === true;
+    const enableChoicePrompts = featureEnabled(state.userPreferences, 'choicePrompts');
     if (enableChoicePrompts && !macroFeatures['MULTICHOICE_PROMPT_INSTRUCTIONS']) {
         expandedSystemPrompt += `\n\n${MULTICHOICE_PROMPT_INSTRUCTIONS}`;
     }
 
+    // Degraded TTS fallback: when voice is on but the composer LLM is
+    // unreachable, the main agent writes the voice prompt itself via a `voice`
+    // field on `speech` (exposed only this turn). Probed per turn so it
+    // self-heals when the composer comes back.
+    const ttsCfg = resolveFeatureConfig('tts', state.userPreferences.features?.tts);
+    let agentComposesVoice = false;
+    if (ttsCfg.enabled) {
+        agentComposesVoice = !(await probeComposer(ttsCfg));
+        if (agentComposesVoice) {
+            expandedSystemPrompt += `\n\n# 【Voice Acting】\n\nThe voice synthesizer's prompt-writer is offline, so on EVERY \`speech\` call you must also pass a \`voice\` field: a DramaBox TTS prompt for that exact line.\n\n${DRAMABOX_RULES}`;
+        }
+    }
+
     const sessionRow = await db.selectFrom('chats')
-        .select('agent_session_id')
+        .select(['agent_session_id', 'agent_session_features'])
         .where('id', '=', args.chatId)
         .executeTakeFirst();
-    const resumeSessionId = sessionRow?.agent_session_id ?? null;
+    let resumeSessionId = sessionRow?.agent_session_id ?? null;
+
+    // If an agent-visible feature toggled since this session was built, rebuild
+    // it clean from message content (the accepted one-time cache miss) so the
+    // agent's history reflects the current feature state — e.g. drop its past
+    // `voice` tool-args after TTS is turned off.
+    if (resumeSessionId && sessionRow?.agent_session_features !== agentFeatureSignature()) {
+        log.server.info(`Agent feature signature changed for chat ${args.chatId}; invalidating session to rehydrate clean`);
+        await invalidateAgentSession(args.chatId);
+        resumeSessionId = null;
+    }
 
     // When there's no SDK session to resume — pre-MCP chats, branched/
     // cloned chats whose source had no session, anything orphaned by
@@ -542,6 +586,7 @@ export async function dispatchPromptToAgent(args: {
                 resumeSessionId,
                 model: llmConfig.model || 'claude-sonnet-4-6',
                 enableChoicePrompts,
+                agentComposesVoice,
             }),
         });
     } catch (err) {
@@ -722,7 +767,7 @@ export async function forkAgentSession(args: {
     }
     const { newSessionId } = await response.json() as { newSessionId: string };
     await db.updateTable('chats')
-        .set({ agent_session_id: newSessionId })
+        .set({ agent_session_id: newSessionId, agent_session_features: agentFeatureSignature() })
         .where('id', '=', args.chatId)
         .execute();
     log.server.info(`Forked agent session for chat ${args.chatId}: ${oldSessionId} -> ${newSessionId} @ ${anchor.slice(0, 8)}…`);
@@ -792,7 +837,7 @@ export async function forkAgentSessionForChat(
     }
     const { newSessionId } = await response.json() as { newSessionId: string };
     await db.updateTable('chats')
-        .set({ agent_session_id: newSessionId })
+        .set({ agent_session_id: newSessionId, agent_session_features: agentFeatureSignature() })
         .where('id', '=', args.targetChatId)
         .execute();
     log.server.info(`Forked session ${sourceSessionId} -> ${newSessionId} for ${args.sourceChatId} -> ${args.targetChatId}${anchor ? ` @ ${anchor.slice(0, 8)}…` : ' (full copy)'}`);
