@@ -13,14 +13,14 @@ import type { FeatureConfig } from '@shared/features'
  * is unreachable) can teach the agent the exact same format.
  */
 export const DRAMABOX_RULES = `Format rules:
-- Output ONE line: a short speaker description, then the dialogue in double quotes, with stage directions OUTSIDE the quotes between/after quoted segments.
-- Voiced non-verbals go INSIDE the quotes as words: "Hahaha", "Hehehe", "Hmm", "Mmmmm", "Ugh", "Argh", "Ahhh".
-- Stage directions go OUTSIDE the quotes: She sighs deeply. His voice cracks. A long pause. He clears his throat.
-- NEVER put these inside quotes: Ahem, Pfft, Sigh, Gasp, Cough.
+- The prompt is ONE line of segments. Each segment is a short descriptive clause ending in a comma, then the spoken words in double quotes — e.g. \`A shadowy villain speaks with cold menace, "..."\`. Chain segments to shift delivery: \`He chuckles darkly, "..." His voice rises with fury, "..."\`.
+- Voiced non-verbals go INSIDE the quotes as words the voice performs: "Hahaha", "Hehehe", "Hmm", "Mmmmm", "Ugh", "Argh", "Ahhh".
+- Everything not spoken aloud — actions, tone, pauses — goes OUTSIDE the quotes as a descriptive clause: "He sighs deeply,", "His voice cracks,", "A long pause.", "He clears his throat,".
+- Do NOT write a gasp, sigh, cough, throat-clear, or "ahem"/"pfft" as a word inside the quotes — render it as an outside clause instead (a gasp → "A sudden gasp," or "He gasps,"; a sigh → "He sighs deeply,"; a cough → "He clears his throat,").
+- Preserve the dialogue's exact words; you may split it across multiple quoted segments to reflect tone shifts within the line.
 - End the prompt on a closing quote — no trailing description after the final quote.
-- Preserve the dialogue's exact words; you may split it into multiple quoted segments to reflect shifts in tone within the line.
-- Make the speaker description and directions fit the given character.
-- Output ONLY the prompt. No preamble, no explanation, no markdown, no quotes around the whole thing.
+- Make the speaker description and clauses fit the given character.
+- Output ONLY the prompt. No preamble, explanation, markdown, or quotes wrapping the whole thing.
 
 Examples:
 Character: A shadowy villain, cold and menacing.
@@ -29,9 +29,23 @@ A shadowy villain speaks with cold menace, "You have entered my domain, mortal."
 
 Character: A tender woman saying goodnight to her partner.
 Line: It has been a long day, my love. Close your eyes, I am right here.
-A woman speaks tenderly, "It has been a long day, my love." She whispers, "Close your eyes. I am right here."`
+A woman speaks tenderly, "It has been a long day, my love." She whispers, "Close your eyes. I am right here."
+
+Character: An excitable talk-show host reacting in disbelief.
+Line: No, you did not just say that! I cannot breathe right now!
+A talk show host gasps with shock, "No! You did NOT just say that!" He bursts into uncontrollable laughter, "Hahaha! I cannot, I literally cannot breathe right now!"`
 
 const SYSTEM_PROMPT = `You convert a single line of character dialogue into a DramaBox TTS prompt. DramaBox is an expressive text-to-speech model. Use the recent scene only to judge tone — never voice it.
+
+${DRAMABOX_RULES}`
+
+/**
+ * The degraded-mode system-prompt section injected into the MAIN agent when the
+ * composer is unreachable. Exported so it can be placed via the
+ * `@VOICE_ACTING_INSTRUCTIONS()` macro or appended trailing as a fallback —
+ * mirroring the multi-choice instruction.
+ */
+export const VOICE_ACTING_INSTRUCTIONS = `# 【Voice Acting】
 
 ${DRAMABOX_RULES}`
 

@@ -8,9 +8,9 @@ import { applyBlockToCtx } from '@shared/game-state';
 import { serializeBlocks } from '@shared/blocks';
 import { state, setState } from './server';
 import { db, saveMessage } from './db';
-import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
+import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS, setVoiceActing } from './macro';
 import { maybeEnqueueSpeechTts } from './tts/pipeline';
-import { probeComposer, DRAMABOX_RULES } from './tts/composer';
+import { probeComposer, VOICE_ACTING_INSTRUCTIONS } from './tts/composer';
 import { featureEnabled, resolveFeatureConfig } from '@shared/features';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { log } from './logger';
@@ -465,6 +465,15 @@ export async function dispatchPromptToAgent(args: {
     setState('currentChat', 'gameState', turnResult.ctx);
     setCurrentTurnResult(turnResult);
 
+    // Degraded TTS fallback: when voice is on but the composer LLM is
+    // unreachable, the main agent writes the voice prompt itself via a `voice`
+    // field on `speech`. Probed per turn so it self-heals when the composer
+    // returns. Computed BEFORE macro expansion so the
+    // `@VOICE_ACTING_INSTRUCTIONS()` macro can reflect it if the user placed it.
+    const ttsCfg = resolveFeatureConfig('tts', state.userPreferences.features?.tts);
+    const agentComposesVoice = ttsCfg.enabled ? !(await probeComposer(ttsCfg)) : false;
+    setVoiceActing(agentComposesVoice);
+
     let expandedSystemPrompt = '';
     let macroFeatures: Record<string, unknown> = {};
     try {
@@ -473,30 +482,20 @@ export async function dispatchPromptToAgent(args: {
         macroFeatures = result.features;
     } finally {
         setCurrentTurnResult(null);
+        setVoiceActing(false);
     }
 
-    // Conditional capability: when the multiple-choice setting is on, make the
-    // agent aware of the `choice_prompt` tool and of how a chosen option arrives
-    // back. The tool itself is only exposed agent-side under the same flag, so
-    // instruction and capability stay in lockstep. The user can position the
-    // text precisely via the `@MULTICHOICE_PROMPT_INSTRUCTIONS()` macro; only
-    // when they haven't do we append it trailing so toggling needs no edits.
+    // Each feature's instruction can be positioned by the user via its macro
+    // (`@MULTICHOICE_PROMPT_INSTRUCTIONS()` / `@VOICE_ACTING_INSTRUCTIONS()`);
+    // only when they haven't placed it do we append it trailing, so toggling
+    // needs no prompt edits. The matching tool/field is exposed agent-side under
+    // the same flag, keeping instruction and capability in lockstep.
     const enableChoicePrompts = featureEnabled(state.userPreferences, 'choicePrompts');
     if (enableChoicePrompts && !macroFeatures['MULTICHOICE_PROMPT_INSTRUCTIONS']) {
         expandedSystemPrompt += `\n\n${MULTICHOICE_PROMPT_INSTRUCTIONS}`;
     }
-
-    // Degraded TTS fallback: when voice is on but the composer LLM is
-    // unreachable, the main agent writes the voice prompt itself via a `voice`
-    // field on `speech` (exposed only this turn). Probed per turn so it
-    // self-heals when the composer comes back.
-    const ttsCfg = resolveFeatureConfig('tts', state.userPreferences.features?.tts);
-    let agentComposesVoice = false;
-    if (ttsCfg.enabled) {
-        agentComposesVoice = !(await probeComposer(ttsCfg));
-        if (agentComposesVoice) {
-            expandedSystemPrompt += `\n\n# 【Voice Acting】\n\nThe voice synthesizer's prompt-writer is offline, so on EVERY \`speech\` call you must also pass a \`voice\` field: a DramaBox TTS prompt for that exact line.\n\n${DRAMABOX_RULES}`;
-        }
+    if (agentComposesVoice && !macroFeatures['VOICE_ACTING_INSTRUCTIONS']) {
+        expandedSystemPrompt += `\n\n${VOICE_ACTING_INSTRUCTIONS}`;
     }
 
     const sessionRow = await db.selectFrom('chats')

@@ -2,6 +2,8 @@ import path from 'path'
 import fs from 'fs'
 import { state } from "./server"
 import { getCurrentTurnResult } from "./game-state"
+import { VOICE_ACTING_INSTRUCTIONS } from "./tts/composer"
+import { featureEnabled } from "@shared/features"
 
 const promptsDir = path.join(import.meta.dirname, 'prompts')
 
@@ -142,7 +144,17 @@ export const MULTICHOICE_PROMPT_INSTRUCTIONS = `# 【Choice Prompts】
 When you call \`end_turn\`, you may pass a \`choices\` array — an enumerated set of 2+ candidate next actions salient to the focus actor at this branch point. Enumerate them only when the branch genuinely narrows to a few distinct, material actions; otherwise leave the next move open, as usual. The focus actor's controller may select one — it returns next tick as \`choice("...")\` rather than \`unformatted("...")\` — or disregard the set entirely and supply any other action. A selection is the focus actor's action; treat it exactly as the equivalent \`unformatted(...)\` input. Never assume the controller is bound to the enumerated set.`
 
 registry.set('MULTICHOICE_PROMPT_INSTRUCTIONS', { kind: 'fn', fn: () => {
-    return state.userPreferences.enableChoicePrompts === true ? MULTICHOICE_PROMPT_INSTRUCTIONS : ''
+    return featureEnabled(state.userPreferences, 'choicePrompts') ? MULTICHOICE_PROMPT_INSTRUCTIONS : ''
+} });
+
+// Voice-acting fallback instruction. Active only when the composer is offline
+// (degraded TTS mode) — set per turn by dispatchPromptToAgent before macro
+// expansion, since it depends on a live probe, not just stored state.
+let voiceActingActive = false
+export function setVoiceActing(active: boolean) { voiceActingActive = active }
+
+registry.set('VOICE_ACTING_INSTRUCTIONS', { kind: 'fn', fn: () => {
+    return voiceActingActive ? VOICE_ACTING_INSTRUCTIONS : ''
 } });
 
 // ── Scope builders ───────────────────────────────────────────────────────────
