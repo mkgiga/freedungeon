@@ -459,6 +459,12 @@ export async function dispatchPromptToAgent(args: {
     const llmConfig = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!];
     if (!llmConfig) throw new Error('No active LLM config selected');
 
+    // Flag generation up front so the UI shows feedback immediately — before
+    // the composer probe (up to ~1.5s) and macro expansion, and so a failure in
+    // either still surfaces as a cleared spinner via generateResponse's finally
+    // rather than no feedback at all.
+    setState('isGenerating', true);
+
     // Re-run replay so any state effects from the just-appended user message
     // are visible to the agent's queries from the very first tool call.
     const turnResult = runTurn(Object.values(state.currentChat.messages));
@@ -569,8 +575,6 @@ export async function dispatchPromptToAgent(args: {
     if (sections.length > 0) {
         userContent = wrapWithSystemNotice(sections, userContent);
     }
-
-    setState('isGenerating', true);
 
     let response: Response;
     try {
