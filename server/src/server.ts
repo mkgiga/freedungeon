@@ -62,6 +62,7 @@ export const [state, _setState] = createStore({
         playerCharacterId: null,
         activeLLMConfigId: null,
         enableChoicePrompts: false,
+        features: {},
     }
 } as AppState);
 

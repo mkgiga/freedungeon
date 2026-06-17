@@ -43,6 +43,7 @@ function RouteComponent() {
     name: string
     description: string
     avatarUrl: string
+    voiceRef?: string
     group?: string
     expressions: Record<string, string>
     createdAt: number
@@ -54,6 +55,7 @@ function RouteComponent() {
       name: 'New Actor',
       description: '',
       avatarUrl: '',
+      voiceRef: undefined,
       group: undefined,
       expressions: {} as Record<string, string>,
       createdAt: Date.now(),
@@ -67,6 +69,7 @@ function RouteComponent() {
       name: draft.name,
       description: draft.description,
       avatarUrl: draft.avatarUrl,
+      voiceRef: draft.voiceRef,
       customId: draft.customId,
       group: draft.group,
       expressions: draft.expressions as Record<string, string>,
@@ -74,6 +77,24 @@ function RouteComponent() {
     if (edit()) {
       navigate({ to: '/actors/$id', params: { id: result.customId }, search: { edit: false }, replace: true })
     }
+  }
+
+  const pickVoiceRef = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'audio/*'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/uploads', { method: 'POST', body: formData })
+      if (res.ok) {
+        const { url } = await res.json()
+        setDraft('voiceRef', url)
+      }
+    }
+    input.click()
   }
 
   const initials = () => draft.name?.charAt(0)?.toUpperCase() ?? '?'
@@ -248,6 +269,28 @@ function RouteComponent() {
             onInput={(v) => setDraft('description', v)}
             readOnly={!edit()}
           />
+        </section>
+
+        {/* Voice reference (DramaBox TTS voice cloning) */}
+        <section class="mb-6">
+          <Heading level={2} class="mb-1">Voice</Heading>
+          <Text size="sm" class="opacity-50 mb-3">Optional ~10s audio clip used to clone this actor's voice when the DramaBox TTS feature is enabled. Without one, the actor is voiced from its description.</Text>
+          <Show
+            when={draft.voiceRef}
+            fallback={
+              <Show when={edit()} fallback={<Text size="sm" class="opacity-50">No voice reference.</Text>}>
+                <button class="p-2 rounded bg-(--primary) text-(--bg) font-semibold" onClick={pickVoiceRef}>Upload voice sample</button>
+              </Show>
+            }
+          >
+            <div class="flex items-center gap-3">
+              <audio controls src={draft.voiceRef} class="flex-1" />
+              <Show when={edit()}>
+                <button class="chat-input-btn" title="Replace" onClick={pickVoiceRef}><MdFillUpload size={20} /></button>
+                <button class="modal-btn modal-btn-cancel" onClick={() => setDraft('voiceRef', undefined)}>Remove</button>
+              </Show>
+            </div>
+          </Show>
         </section>
 
         {/* Expressions */}

@@ -1385,6 +1385,33 @@ button {
   50.01%, 100% { opacity: 0; }
 }
 
+/* TTS "generating voice" indicator shown in place of dialogue while the active
+ * speech block waits for its audio. */
+.chat-block-tts-pending {
+  display: inline-block;
+  font-size: var(--text-sm);
+  opacity: 0.6;
+  animation: chat-tts-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes chat-tts-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.75; }
+}
+
+/* Small replay button next to a past speech line that has generated audio. */
+.chat-block-replay {
+  margin-left: 6px;
+  font-size: var(--text-xs);
+  color: var(--primary);
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.chat-block-replay:hover {
+  opacity: 1;
+}
+
 /* ── AutoContinue separator block ── */
 
 .chat-message:has(.chat-block-continue) {

@@ -1,5 +1,6 @@
 import { createMemo, Show } from 'solid-js'
 import type { SpeechBlock as SpeechBlockType } from '../blocks'
+import type { SpeechTtsMeta } from '@shared/types'
 import { state } from '../../../state'
 import { ImageIcon } from '../../ImageIcon'
 import { useModal } from '../../Modal'
@@ -17,6 +18,8 @@ export function SpeechBlock(props: {
     /** Kept for API compatibility; advance is now driven by the message-level
      *  click handler in ChatMessage via `playback.tap()`. */
     onAdvance?: () => void
+    /** TTS state from the message metadata (when the voice feature is on). */
+    tts?: SpeechTtsMeta
 }) {
     const modal = useModal()
     const playback = usePlayback()
@@ -54,6 +57,12 @@ export function SpeechBlock(props: {
 
     const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : props.block.dialogue.length)
     const isScrolling = () => props.isActive && playback.isActiveScrolling()
+    const awaitingTts = () => !!props.isActive && playback.isAwaitingTts()
+
+    const replay = (e: MouseEvent) => {
+        e.stopPropagation()
+        if (props.tts?.audioUrl) new Audio(props.tts.audioUrl).play().catch(() => {})
+    }
 
     return (
         <div class="chat-block chat-block-speech" classList={{ 'chat-block-active': props.isActive }}>
@@ -70,7 +79,12 @@ export function SpeechBlock(props: {
                 />
             </button>
             <div class="chat-block-content">
-                <div class="chat-block-name">{displayName()}</div>
+                <div class="chat-block-name">
+                    {displayName()}
+                    <Show when={!props.isActive && props.tts?.status === 'ready' && props.tts.audioUrl}>
+                        <button class="chat-block-replay" title="Play voice" onClick={replay}>▶</button>
+                    </Show>
+                </div>
                 <Show
                     when={props.isActive}
                     fallback={
@@ -90,8 +104,15 @@ export function SpeechBlock(props: {
                         <span class="chat-block-dialogue-pending">
                             {props.block.dialogue.slice(revealedCount())}
                         </span>
-                        <Show when={!isScrolling()}>
-                            <span class="chat-block-tap-indicator">▶</span>
+                        <Show
+                            when={awaitingTts()}
+                            fallback={
+                                <Show when={!isScrolling()}>
+                                    <span class="chat-block-tap-indicator">▶</span>
+                                </Show>
+                            }
+                        >
+                            <span class="chat-block-tts-pending">🎙 generating voice…</span>
                         </Show>
                     </div>
                 </Show>

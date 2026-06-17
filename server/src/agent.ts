@@ -9,6 +9,7 @@ import { serializeBlocks } from '@shared/blocks';
 import { state, setState } from './server';
 import { db, saveMessage } from './db';
 import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
+import { maybeEnqueueSpeechTts } from './tts/pipeline';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { log } from './logger';
 
@@ -193,6 +194,10 @@ function handleExec(req: ExecRequest) {
     };
     setState('currentChat', 'messages', messageId, message);
     saveMessage(message);
+
+    // Fire-and-forget voice synthesis for speech lines (no-op unless the TTS
+    // feature is enabled). Never awaited — must not block the agent's exec.
+    maybeEnqueueSpeechTts(message, block);
 
     return {
         ok: true,

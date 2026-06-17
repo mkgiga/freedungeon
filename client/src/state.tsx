@@ -35,6 +35,7 @@ const [state, _setState] = createStore<AppState>({
     activeLLMConfigId: null,
     playerCharacterId: null,
     enableChoicePrompts: false,
+    features: {},
   }
 });
 

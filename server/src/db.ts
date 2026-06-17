@@ -20,6 +20,7 @@ export interface DB {
         name: Generated<string>;
         description: Generated<string>;
         avatar_url: string;
+        voice_ref: string | null;
         group: string | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
@@ -131,15 +132,20 @@ export async function initDb() {
         .addColumn('name', 'text', (col) => col.notNull().defaultTo('Unnamed Actor'))
         .addColumn('description', 'text', (col) => col.defaultTo('').notNull())
         .addColumn('avatar_url', 'text')
+        .addColumn('voice_ref', 'text')
         .addColumn('group', 'text')
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .execute();
 
-    // Self-healing migration: add `group` column to pre-existing actors tables.
+    // Self-healing migrations: add columns to pre-existing actors tables.
+    // Purely additive ALTERs (no drop/recreate) so existing data is preserved.
     const actorCols = await sql<{ name: string }>`PRAGMA table_info(actors)`.execute(db);
     if (!actorCols.rows.some(r => r.name === 'group')) {
         await db.schema.alterTable('actors').addColumn('group', 'text').execute();
+    }
+    if (!actorCols.rows.some(r => r.name === 'voice_ref')) {
+        await db.schema.alterTable('actors').addColumn('voice_ref', 'text').execute();
     }
 
     await db.schema
@@ -301,6 +307,7 @@ export function hydrateActor(row: ActorRow, expressions: ExpressionRow[]): Actor
         name: row.name,
         description: row.description,
         avatarUrl: row.avatar_url,
+        voiceRef: row.voice_ref ?? undefined,
         group: row.group ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
@@ -401,6 +408,7 @@ export function dehydrateActor(actor: Actor): Omit<Selectable<DB['actors']>, 'id
         name: actor.name,
         description: actor.description,
         avatar_url: actor.avatarUrl,
+        voice_ref: actor.voiceRef ?? null,
         group: actor.group ?? null,
         created_at: actor.createdAt,
         updated_at: actor.updatedAt,

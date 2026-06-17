@@ -12,6 +12,8 @@ import { useModal } from '../../components/Modal'
 import { PlayerCharacterPicker } from '../../components/chat/AssetPicker'
 import { ImageIcon } from '../../components/ImageIcon'
 import { LLM_PRESETS } from '@shared/llm-presets'
+import { FEATURES, resolveFeatureConfig, type FeatureKey } from '@shared/features'
+import { SchemaForm } from '../../components/json-ui'
 import { installAvailable, isStandalone, triggerInstall } from '../../pwa-install'
 
 export const Route = createFileRoute('/preferences/')({
@@ -116,6 +118,42 @@ function RouteComponent() {
                 <Text size="sm" class="opacity-50">Let the agent optionally end a turn with a menu of suggested actions. You can always type your own instead.</Text>
               </span>
             </label>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section class="mb-8">
+          <Heading level={2} class="mb-4">Features</Heading>
+          <div class="flex flex-col gap-4">
+            <For each={Object.values(FEATURES)}>
+              {(spec) => {
+                const cfg = () => resolveFeatureConfig(spec.key as FeatureKey, state.userPreferences.features?.[spec.key])
+                return (
+                  <div class="flex flex-col gap-3 p-3 rounded-lg border border-[color-mix(in_oklch,var(--text),transparent_85%)]">
+                    <label class="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={cfg().enabled}
+                        onChange={(e) => trpc.preferences.setFeature.mutate({ key: spec.key, enabled: e.currentTarget.checked })}
+                      />
+                      <span class="flex flex-col">
+                        <Text><Em semibold>{spec.name}</Em></Text>
+                        <Text size="sm" class="opacity-50">{spec.description}</Text>
+                      </span>
+                    </label>
+                    <Show when={cfg().enabled}>
+                      <div class="pl-7">
+                        <SchemaForm
+                          fields={spec.schema}
+                          values={cfg().values}
+                          onChange={(values) => trpc.preferences.setFeature.mutate({ key: spec.key, values })}
+                        />
+                      </div>
+                    </Show>
+                  </div>
+                )
+              }}
+            </For>
           </div>
         </section>
 
