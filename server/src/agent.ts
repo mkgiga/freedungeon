@@ -154,17 +154,29 @@ function handleSdkUuid(req: SdkUuidRequest) {
     return { ok: true };
 }
 
-function handleExec(req: ExecRequest) {
-    const spec = COMMANDS[req.command];
-    if (!spec) return { error: `unknown_command: ${req.command}` };
+/**
+ * Execute one command against the current chat: validate args, build + apply its
+ * Block, persist the resulting ChatMessage, and return the effect text the agent
+ * sees as the tool result. This is the single execution path shared by the agent
+ * RPC handler (Claude subprocess) and the in-process AI SDK loop — both routes
+ * call this so they cannot diverge on validation, state mutation, or persistence.
+ */
+export function execCommand(
+    chatId: string,
+    command: CommandName,
+    args: Record<string, unknown>,
+    sdkUuid?: string,
+) {
+    const spec = COMMANDS[command];
+    if (!spec) return { error: `unknown_command: ${command}` };
 
-    const parsed = spec.schema.safeParse(req.args);
+    const parsed = spec.schema.safeParse(args);
     if (!parsed.success) {
         return { error: `invalid_args: ${parsed.error.message}` };
     }
 
-    if (state.currentChat.id !== req.chatId) {
-        return { error: `chat_mismatch: agent is acting on ${req.chatId} but server's current chat is ${state.currentChat.id}` };
+    if (state.currentChat.id !== chatId) {
+        return { error: `chat_mismatch: agent is acting on ${chatId} but server's current chat is ${state.currentChat.id}` };
     }
 
     // Zod has already validated the args against this spec's schema; the
@@ -181,12 +193,12 @@ function handleExec(req: ExecRequest) {
     const serialized = serializeBlocks([block]);
 
     const metadata: Record<string, unknown> = { agent: true };
-    if (req.sdkUuid) metadata.sdkUuid = req.sdkUuid;
+    if (sdkUuid) metadata.sdkUuid = sdkUuid;
 
     const message = {
         id: messageId,
         role: 'assistant' as const,
-        chatId: req.chatId,
+        chatId,
         content: serialized,
         createdAt: now,
         updatedAt: now,
@@ -198,8 +210,12 @@ function handleExec(req: ExecRequest) {
     return {
         ok: true,
         messageId,
-        effects: effects.length > 0 ? effects.join('\n') : describeNoOp(req.command, parsed.data, ctxBefore, state.currentChat.gameState),
+        effects: effects.length > 0 ? effects.join('\n') : describeNoOp(command, parsed.data, ctxBefore, state.currentChat.gameState),
     };
+}
+
+function handleExec(req: ExecRequest) {
+    return execCommand(req.chatId, req.command, req.args, req.sdkUuid);
 }
 
 function describeNoOp(command: string, args: any, ctxBefore: any, ctxAfter: any): string {
@@ -209,17 +225,22 @@ function describeNoOp(command: string, args: any, ctxBefore: any, ctxAfter: any)
     return `${command} accepted. args: ${JSON.stringify(args)}`;
 }
 
-function handleQuery(req: QueryRequest) {
-    const spec = QUERIES[req.query];
-    if (!spec) return { error: `unknown_query: ${req.query}` };
+/**
+ * Run one read-only query against the current chat and return its textual
+ * result. Shared by the agent RPC handler and the in-process AI SDK loop (same
+ * rationale as execCommand).
+ */
+export function runQuery(chatId: string, query: QueryName, args: Record<string, unknown>) {
+    const spec = QUERIES[query];
+    if (!spec) return { error: `unknown_query: ${query}` };
 
-    const parsed = spec.schema.safeParse(req.args);
+    const parsed = spec.schema.safeParse(args);
     if (!parsed.success) {
         return { error: `invalid_args: ${parsed.error.message}` };
     }
 
-    if (state.currentChat.id !== req.chatId) {
-        return { error: `chat_mismatch: agent is querying ${req.chatId} but server's current chat is ${state.currentChat.id}` };
+    if (state.currentChat.id !== chatId) {
+        return { error: `chat_mismatch: agent is querying ${chatId} but server's current chat is ${state.currentChat.id}` };
     }
 
     const actors = state.currentChat.assets.actors
@@ -253,6 +274,10 @@ function handleQuery(req: QueryRequest) {
     // Cast around the same union-of-generic narrowing limitation as toBlock above.
     const result = (spec.run as (a: unknown, d: typeof deps) => string)(parsed.data, deps);
     return { ok: true, result };
+}
+
+function handleQuery(req: QueryRequest) {
+    return runQuery(req.chatId, req.query, req.args);
 }
 
 function handleAnnounce(req: AnnouncementRequest) {

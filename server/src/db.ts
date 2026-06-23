@@ -66,6 +66,10 @@ export interface DB {
          * defensively every turn.
          */
         last_agent_flags_snapshot: string | null;
+        /** OpenAI-v1 agentic loop transcript (JSON ModelMessage[]) — the model's
+         *  memory for the AI SDK path, the provider-agnostic analog of
+         *  agent_session_id (which points at the Claude SDK's own session). */
+        ai_transcript: string | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
@@ -205,6 +209,9 @@ export async function initDb() {
     }
     if (!haveChatCol('last_agent_flags_snapshot')) {
         await db.schema.alterTable('chats').addColumn('last_agent_flags_snapshot', 'text').execute();
+    }
+    if (!haveChatCol('ai_transcript')) {
+        await db.schema.alterTable('chats').addColumn('ai_transcript', 'text').execute();
     }
 
     await db.schema
