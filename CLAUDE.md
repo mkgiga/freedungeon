@@ -74,6 +74,7 @@ This is freedungeon, a roleplaying experience that leverages an LLM as the dunge
 - **Actor**: A reusable character card that can be imported into any chat.
 - **Note**: A text string that gets injected into the chat completion system prompt at prompt time. This lets the user provide additional context to the LLM to steer its behavior.
 - **LLM Config**: A set of parameters that govern the behavior of the LLM, such as temperature and max tokens. These are different depending on provider and model and the backend has a system for building UI forms for creating or editing LLM configs using JSON schema. See `client\src\components\json-ui\index.tsx` to learn more about our custom generative UI renderer.
+- **Chat Template**: A chat template is a blueprint of a chat which you can use to create new chats. Under the hood, a chat template is the same db model as regular chats, but marked with the field `isTemplate`, which is used to determine whether they should be rendered in the user's list of chats. <!-- **TODO:** It is currently a boolean value in the db - a nullable foreign key encodes more information so we should use that instead (chats that were created from a template get a `template` field (foreign key) and actual chat templates get to be null which is how we'd infer whether a chat is a template or not (as opposed to a simple boolean value) -->
 
 ## Architecture
 
