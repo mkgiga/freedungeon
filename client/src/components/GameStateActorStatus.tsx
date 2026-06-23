@@ -46,18 +46,14 @@ export function GameStateActorStatus(props: Props): JSXElement {
                 </Match>
 
                 <Match when={props.variant === 'small'}>
-                    <div class="flex items-center">
-                        <ImageIcon url={avatarUrl()} size={props.avatarSize ?? 60} />
-                        <div class="flex flex-col min-w-0 flex-1 h-full">
-                            <div class="flex flex-col items-start h-full justify-end">
-                                <Text size="sm" class="opacity-70">{props.hp}/{maxHp()}</Text>
-                                <div class="hp-bar hp-bar-horizontal">
-                                    <div class="hp-bar-fill" style={{ width: `${pct()}%` }} />
-                                </div>
-                            </div>
-                            <Text size="sm" class="truncate">{displayName()}</Text>
+                    <button type="button" class="game-state-actor-card" onClick={props.onClick}>
+                        <ImageIcon url={avatarUrl()} size={props.avatarSize ?? 64} />
+                        <Text size="sm" class="game-state-actor-card-name truncate">{displayName()}</Text>
+                        <div class="hp-bar hp-bar-horizontal">
+                            <div class="hp-bar-fill" style={{ width: `${pct()}%` }} />
                         </div>
-                    </div>
+                        <span class="game-state-actor-card-hp">{props.hp}/{maxHp()}</span>
+                    </button>
                 </Match>
 
                 <Match when={props.variant === 'presentation'}>

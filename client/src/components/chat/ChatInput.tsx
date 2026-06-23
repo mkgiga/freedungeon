@@ -3,67 +3,24 @@ import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { parseBlocks } from './blocks'
 import { featureEnabled } from '@shared/features'
-import { ImageIcon } from '../ImageIcon'
 import { Text } from '../typography/Text'
 import { useModal } from '../Modal'
-import { PlayerCharacterPicker } from './AssetPicker'
 import {
-    MdFillArrow_upward,
     MdFillRefresh,
     MdFillFast_forward,
-    MdFillAuto_fix_high,
     MdFillSend,
     MdFillStop,
-    MdFillPerson,
-    MdFillInventory_2,
     MdFillWarning,
     MdFillEdit_note,
 } from 'solid-icons/md'
 import { Em } from '../typography/Em'
-import { GameStateActorStatus } from '../GameStateActorStatus'
 import { ChatHotbar } from './ChatHotbar'
-import { InventoryModal } from './InventoryModal'
-import { Toolbar } from '../Toolbar'
 import { usePlayback } from './playback'
 
 export function ChatInput() {
     const [message, setMessage] = createSignal('')
     const modal = useModal()
     const playback = usePlayback()
-
-    const currentActor = createMemo(() => {
-        const id = state.userPreferences.playerCharacterId
-        if (id == null) return null
-        return state.assets.actors?.[id] ?? null
-    })
-
-    const playerHp = createMemo(() => {
-        const actor = currentActor()
-        if (!actor) return null
-        return playback.effectiveGameState().scene.actors.active[actor.customId]?.hp ?? null
-    })
-
-    // Mirrors GameStateActorStatus's percentage math — default max is 100 since
-    // per-actor max HP isn't tracked in the game state today.
-    const hpPct = createMemo(() => {
-        const hp = playerHp()
-        if (hp == null) return 0
-        return Math.max(0, Math.min(100, (hp / 100) * 100))
-    })
-
-    const openPlayerCharacterPicker = () => {
-        modal.open({
-            title: 'Player Character',
-            content: () => <PlayerCharacterPicker onPick={() => modal.close()} />,
-        })
-    }
-
-    const openInventory = () => {
-        modal.open({
-            title: 'Inventory',
-            content: () => <InventoryModal gameState={() => playback.effectiveGameState()} />,
-        })
-    }
 
     const openDirectorNote = () => {
         const initial = state.currentChat.pendingSystemNotice ?? ''
@@ -252,78 +209,9 @@ export function ChatInput() {
 
     return (
         <div class="chat-input-container relative">
-            <Show when={playback.effectiveGameState().scene.actors.active[currentActor()?.customId ?? '']}>
-                <div class="hp-bar" style={{ position: 'absolute', top: "-12px", left: 0, right: 0, height: '12px' }}>
-                    <div class="hp-bar-fill relative" style={{ width: `${hpPct()}%`, height: '100%' }} />
-                    <Text shadow='sm' size="sm" class="hp-bar-text absolute inset-0 flex items-center justify-center pointer-events-none">
-                        {playerHp() ?? 'N/A'}
-                    </Text>
-                </div>
-            </Show>
-            <Toolbar class="chat-input-toolbar" slots={{
-                left: (
-                    <Show
-                        when={currentActor()}
-                        fallback={
-                            <button
-                                type="button"
-                                class="chat-input-btn"
-                                onClick={openPlayerCharacterPicker}
-                                title="Set player character"
-                            >
-                                <MdFillPerson size={20} />
-                            </button>
-                        }
-                    >
-                        {(actor) => (
-                            <button
-                                type="button"
-                                class="chat-input-current-actor"
-                                onClick={openPlayerCharacterPicker}
-                                title="Change player character"
-                            >
-                                <ImageIcon url={actor().avatarUrl} size={64} />
-                            </button>
-                        )}
-                    </Show>
-                ),
-                right: (
-                    <>
-                        <Show when={state.currentChat.agentRehydration}>
-                            {(r) => (
-                                <button
-                                    class="chat-input-btn text-emphasis-warning"
-                                    title={`Agent has no live session — next turn will inject ${r().messageCount} prior messages (~${r().estimatedTokens.toLocaleString()} input tokens) to rebuild context. Click for details.`}
-                                    onClick={openRehydrationInfo}
-                                >
-                                    <MdFillWarning size={20} />
-                                </button>
-                            )}
-                        </Show>
-                        <ChatHotbar />
-                        <button
-                            class="chat-input-btn"
-                            classList={{ 'is-active-notice': hasPendingNotice() }}
-                            onClick={openDirectorNote}
-                            title={hasPendingNotice()
-                                ? "Director's note pending — will attach to next turn"
-                                : "Director's note for next turn"}
-                        >
-                            <MdFillEdit_note size={20} />
-                        </button>
-                        <button class="chat-input-btn" onClick={openInventory} title="Inventory">
-                            <MdFillInventory_2 size={20} />
-                        </button>
-                        <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
-                            <MdFillRefresh size={20} />
-                        </button>
-                        <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
-                            <MdFillFast_forward size={20} />
-                        </button>
-                    </>
-                )
-            }} />
-
+            {/* Choice menu sits directly above the textarea so the two read as one
+              * unit (no action strip wedged between them) when the latest agent
+              * message is a menu. */}
             <Show when={pendingChoicePrompt()}>
                 {(p) => (
                     <div class="choice-prompt-bar" role="group" aria-label="Choices">
@@ -368,6 +256,38 @@ export function ChatInput() {
                         <MdFillStop size={20} />
                     </button>
                 </Show>
+            </div>
+
+            {/* Turn-action controls, kept below the textarea. */}
+            <div class="chat-input-actions">
+                <ChatHotbar />
+                <Show when={state.currentChat.agentRehydration}>
+                    {(r) => (
+                        <button
+                            class="chat-input-btn text-emphasis-warning"
+                            title={`Agent has no live session — next turn will inject ${r().messageCount} prior messages (~${r().estimatedTokens.toLocaleString()} input tokens) to rebuild context. Click for details.`}
+                            onClick={openRehydrationInfo}
+                        >
+                            <MdFillWarning size={20} />
+                        </button>
+                    )}
+                </Show>
+                <button
+                    class="chat-input-btn"
+                    classList={{ 'is-active-notice': hasPendingNotice() }}
+                    onClick={openDirectorNote}
+                    title={hasPendingNotice()
+                        ? "Director's note pending — will attach to next turn"
+                        : "Director's note for next turn"}
+                >
+                    <MdFillEdit_note size={20} />
+                </button>
+                <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
+                    <MdFillRefresh size={20} />
+                </button>
+                <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
+                    <MdFillFast_forward size={20} />
+                </button>
             </div>
         </div>
     )

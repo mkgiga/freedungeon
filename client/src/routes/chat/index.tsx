@@ -12,12 +12,10 @@ import { ChatInput } from '../../components/chat/ChatInput'
 import { ChatSidebar } from '../../components/chat/ChatSidebar'
 import { useDrawer } from '../../components/Drawer'
 import { useModal } from '../../components/Modal'
-import { GameStateActorStatus } from '../../components/GameStateActorStatus'
+import { GameStatePanel } from '../../components/chat/GameStatePanel'
 import { ChatList } from '../../components/chats'
 import { Em } from '../../components/typography/Em'
 import type { Chat, ChatMessage as ChatMessageType } from '@shared/types'
-import { Spacer } from '../../components/Spacer'
-import { Toolbar } from '../../components/Toolbar'
 import { PlaybackProvider, usePlayback } from '../../components/chat/playback'
 
 const PAGE_SIZE = 30    // how many messages to load per sentinel-trigger
@@ -208,21 +206,7 @@ function ConversationView(props: { onBack: () => void }) {
 
 function ConversationViewBody(props: { onBack: () => void }) {
   const drawer = useDrawer()
-  const modal = useModal()
   const playback = usePlayback()
-
-  const resolveActorName = (customId: string) => {
-    for (const a of Object.values(state.assets.actors)) {
-      if (a.customId === customId) return a.name
-    }
-    return customId
-  }
-
-  const resolvePlayerActor = () => {
-    const playerId = state.userPreferences.playerCharacterId
-    if (!playerId) return null
-    return state.assets.actors?.[playerId] ?? null
-  }
 
   /**
    * Pagination model:
@@ -416,40 +400,6 @@ function ConversationViewBody(props: { onBack: () => void }) {
         backButton={props.onBack}
         height="60px"
         slots={{
-          left: (
-            <>
-              <Spacer dir={'horizontal'} size={'md'} />
-              <div class="chat-topbar-actors">
-                <For each={Object.entries(playback.effectiveGameState().scene.actors.active).sort(([idA], [idB]) => {
-                  const hasAvatarA = Boolean(state.assets.actors[idA]?.avatarUrl?.length)
-                  const hasAvatarB = Boolean(state.assets.actors[idB]?.avatarUrl?.length)
-                  if (hasAvatarA !== hasAvatarB) return hasAvatarA ? -1 : 1
-                  return resolveActorName(idA).localeCompare(resolveActorName(idB))
-                })}>
-                  {([customId, actorState]) => (
-                    /* Only render NPCs here - the player character is rendered elsewhere */
-                    <Show when={customId !== resolvePlayerActor()?.customId}>
-                      <GameStateActorStatus
-                        customId={customId}
-                        hp={actorState.hp}
-                        variant="compact"
-                        onClick={() => modal.open({
-                          title: resolveActorName(customId),
-                          content: () => (
-                            <GameStateActorStatus
-                              customId={customId}
-                              hp={actorState.hp}
-                              variant="presentation"
-                            />
-                          ),
-                        })}
-                      />
-                    </Show>
-                  )}
-                </For>
-              </div>
-            </>
-          ),
           right: (
             <button onClick={openSidebar}>
               <MdFillView_sidebar size={48} />
@@ -481,6 +431,7 @@ function ConversationViewBody(props: { onBack: () => void }) {
             {(message) => <ChatMessage message={message} />}
           </For>
           <div ref={bottomSentinelRef} class="chat-messages-sentinel" />
+          <ChatInput />
         </div>
 
         <Show when={pinnedIds() !== null && unreadCount() > 0}>
@@ -491,8 +442,7 @@ function ConversationViewBody(props: { onBack: () => void }) {
             {unreadCount()} new — jump to latest
           </button>
         </Show>
-        <Spacer dir='vertical' size={12} />
-        <ChatInput />
+        <GameStatePanel />
       </div>
     </>
   )

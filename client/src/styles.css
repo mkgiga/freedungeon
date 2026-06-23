@@ -1527,16 +1527,21 @@ button {
   display: flex;
   flex-direction: column;
   padding: 0;
+  margin-top: 8px;
+  border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
   background: var(--bg);
 }
 
-.chat-input-toolbar {
+/* Turn-action controls below the inline textarea. The hotbar grows to fill,
+   pushing the action buttons to the right. */
+.chat-input-actions {
   display: flex;
   align-items: center;
-  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
   border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
-  border-collapse: separate;
-  border-spacing: 1px 0;
+}
+
+.chat-input-actions .chat-hotbar {
+  flex: 1;
 }
 
 .chat-input-spacer {
@@ -1583,26 +1588,6 @@ button {
     filter: brightness(1.1);
   }
 }
-
-.chat-input-current-actor {
-  display: flex;
-  font-size: var(--text-sm);
-  max-width: 180px;
-  padding: 0 !important;
-  flex-shrink: 0;
-
-  p {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-  }
-
-  .image-icon {
-    border-radius: 0;
-  }
-}
-
 
 .chat-input-row {
   display: flex;
@@ -2281,17 +2266,6 @@ menu#main-nav {
 
 /* ── Chat TopBar actor row ── */
 
-.chat-topbar-actors {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  height: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-  width: fit-content;
-  max-width: 100%;
-}
-
 /* Compact avatar wrapper: takes remaining vertical space above the HP bar, stays square */
 .game-state-actor-compact-avatar {
   height: calc(100% - 8px);
@@ -2341,10 +2315,6 @@ menu#main-nav {
 
 .chat-hotbar-item.is-enabled:hover {
   background: color-mix(in oklch, var(--primary), transparent 65%);
-}
-
-.chat-topbar-actors::-webkit-scrollbar {
-  display: none;
 }
 
 /* ── GameStateActorStatus — HP bars ── */
@@ -2430,6 +2400,167 @@ menu#main-nav {
   flex-direction: column;
   gap: 12px;
   padding: 4px 0;
+}
+
+/* ── Game-state bottom panel (persistent band below the feed) ──
+   Laid out as [ actors | inventory ]: a wide, horizontally-scrolling row of
+   actor cards on the left, a narrow 2-column inventory grid (scrolls down) on
+   the right. */
+
+.chat-status-panel {
+  display: flex;
+  flex-direction: row;
+  flex: none;
+  height: 150px;
+  background: var(--bg);
+  border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
+}
+
+.chat-status-actors {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chat-status-actors::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-status-player {
+  display: flex;
+  flex-shrink: 0;
+}
+
+/* "This is your character" tell. */
+.chat-status-player .game-state-actor-card,
+.chat-status-player-avatar {
+  outline: 2px solid color-mix(in oklch, var(--primary), transparent 30%);
+  outline-offset: -2px;
+}
+
+.chat-status-set-player,
+.chat-status-player-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  opacity: 0.65;
+  cursor: pointer;
+  transition: opacity 120ms, background-color 120ms;
+}
+
+.chat-status-set-player:hover,
+.chat-status-player-avatar:hover {
+  opacity: 1;
+  background: var(--bg-2);
+}
+
+.chat-status-player-avatar .image-icon {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+}
+
+/* A small vertical actor card (GameStateActorStatus variant="small"). */
+.game-state-actor-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 84px;
+  flex-shrink: 0;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+
+.game-state-actor-card:hover {
+  background: var(--bg-2);
+}
+
+.game-state-actor-card .image-icon {
+  width: 64px;
+  height: 64px;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+}
+
+.game-state-actor-card-name {
+  max-width: 100%;
+}
+
+.game-state-actor-card .hp-bar-horizontal {
+  width: 100%;
+}
+
+.game-state-actor-card-hp {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.chat-status-inventory {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 44px);
+  grid-auto-rows: 44px;
+  gap: 4px;
+  align-content: start;
+  padding: 8px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  border-left: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+}
+
+.chat-status-inventory::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-status-inventory-empty {
+  grid-column: 1 / -1;
+  font-size: var(--text-sm);
+  opacity: 0.4;
+  padding: 0 4px;
+}
+
+.chat-inventory-slot {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xl);
+  line-height: 1;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--text), transparent 92%);
+}
+
+.chat-inventory-slot-qty {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--bg), transparent 10%);
+  color: var(--text);
+  text-shadow: var(--text-shadow);
 }
 
 /* ── Choice prompts ── */
