@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@formkit/auto-animate": "^0.9.0",
     "@solid-primitives/intersection-observer": "^2.2.4",
     "@solidjs/meta": "^0.29.4",
     "@tailwindcss/vite": "^4.1.18",
@@ -20,8 +21,8 @@
     "emojilib": "^4.0.3",
     "nanoid": "catalog:",
     "pluralize": "^8.0.0",
-    "solid-emoji-picker": "^0.3.0",
     "socket.io-client": "^4.8.3",
+    "solid-emoji-picker": "^0.3.0",
     "solid-icons": "^1.2.0",
     "solid-js": "catalog:",
     "tailwindcss": "^4.1.18",
