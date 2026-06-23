@@ -20,7 +20,6 @@ export interface DB {
         name: Generated<string>;
         description: Generated<string>;
         avatar_url: string;
-        voice_ref: string | null;
         group: string | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
@@ -58,9 +57,6 @@ export interface DB {
         banner_url: string | null;
         description: string | null;
         agent_session_id: string | null;
-        /** Signature of agent-visible feature state the current session was
-         *  built under. Mismatch at dispatch → invalidate + rehydrate clean. */
-        agent_session_features: string | null;
         /**
          * JSON snapshot of GameStateContext.flags taken at the end of the
          * most recent agent turn. dispatchPromptToAgent diffs against this
@@ -135,7 +131,6 @@ export async function initDb() {
         .addColumn('name', 'text', (col) => col.notNull().defaultTo('Unnamed Actor'))
         .addColumn('description', 'text', (col) => col.defaultTo('').notNull())
         .addColumn('avatar_url', 'text')
-        .addColumn('voice_ref', 'text')
         .addColumn('group', 'text')
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
@@ -146,9 +141,6 @@ export async function initDb() {
     const actorCols = await sql<{ name: string }>`PRAGMA table_info(actors)`.execute(db);
     if (!actorCols.rows.some(r => r.name === 'group')) {
         await db.schema.alterTable('actors').addColumn('group', 'text').execute();
-    }
-    if (!actorCols.rows.some(r => r.name === 'voice_ref')) {
-        await db.schema.alterTable('actors').addColumn('voice_ref', 'text').execute();
     }
 
     await db.schema
@@ -210,9 +202,6 @@ export async function initDb() {
     }
     if (!haveChatCol('agent_session_id')) {
         await db.schema.alterTable('chats').addColumn('agent_session_id', 'text').execute();
-    }
-    if (!haveChatCol('agent_session_features')) {
-        await db.schema.alterTable('chats').addColumn('agent_session_features', 'text').execute();
     }
     if (!haveChatCol('last_agent_flags_snapshot')) {
         await db.schema.alterTable('chats').addColumn('last_agent_flags_snapshot', 'text').execute();
@@ -291,6 +280,21 @@ export async function initDb() {
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .execute();
 
+    // ── One-time TTS teardown ──
+    // The DramaBox voice-acting feature was removed; drop its columns and strip
+    // its message metadata if present. Guarded + idempotent: a no-op on DBs that
+    // never had the feature and safe to re-run. No data loss beyond the dead TTS
+    // fields. (SQLite DROP COLUMN needs 3.35+, which Bun bundles.)
+    const ttsActorCols = await sql<{ name: string }>`PRAGMA table_info(actors)`.execute(db);
+    if (ttsActorCols.rows.some(r => r.name === 'voice_ref')) {
+        await db.schema.alterTable('actors').dropColumn('voice_ref').execute();
+    }
+    const ttsChatCols = await sql<{ name: string }>`PRAGMA table_info(chats)`.execute(db);
+    if (ttsChatCols.rows.some(r => r.name === 'agent_session_features')) {
+        await db.schema.alterTable('chats').dropColumn('agent_session_features').execute();
+    }
+    await sql`UPDATE chat_messages SET metadata = json_remove(metadata, '$.tts') WHERE metadata IS NOT NULL AND json_extract(metadata, '$.tts') IS NOT NULL`.execute(db);
+
     console.log('Database initialized.');
 }
 
@@ -313,7 +317,6 @@ export function hydrateActor(row: ActorRow, expressions: ExpressionRow[]): Actor
         name: row.name,
         description: row.description,
         avatarUrl: row.avatar_url,
-        voiceRef: row.voice_ref ?? undefined,
         group: row.group ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
@@ -414,7 +417,6 @@ export function dehydrateActor(actor: Actor): Omit<Selectable<DB['actors']>, 'id
         name: actor.name,
         description: actor.description,
         avatar_url: actor.avatarUrl,
-        voice_ref: actor.voiceRef ?? null,
         group: actor.group ?? null,
         created_at: actor.createdAt,
         updated_at: actor.updatedAt,

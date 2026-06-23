@@ -16,23 +16,9 @@ import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProd
  * registered under `game_state`. We pass that pattern to `allowedTools` so
  * the model can call them without permission prompts.
  */
-export function buildGameStateMcpServer(enableChoicePrompts: boolean, agentComposesVoice: boolean) {
+export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
     const writeTools = commandEntries().map(([key, spec]) => {
-        let shape = unwrapToShape(spec.schema);
-        // Degraded TTS fallback: when the composer LLM is down, the agent writes
-        // the delivery itself, so `speech` gains a `voice` field this turn — an
-        // ordered array of delivery segments (see the Voice Acting instructions).
-        // The server reads it raw from the tool args (the command schema strips
-        // unknown keys) and keeps it out of the persisted block.
-        if (key === 'speech' && agentComposesVoice) {
-            shape = {
-                ...shape,
-                voice: z.array(z.object({
-                    type: z.enum(['character_clause', 'dialogue_line', 'action_direction']),
-                    content: z.string(),
-                })).optional().describe('How to voice this line: ordered delivery segments (one character_clause first, then dialogue_line / action_direction).'),
-            };
-        }
+        const shape = unwrapToShape(spec.schema);
         return tool(
             spec.name,
             spec.description,

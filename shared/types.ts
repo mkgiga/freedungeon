@@ -70,9 +70,6 @@ export type Actor = {
     description: string;
     avatarUrl: string;
     expressions: ActorExpressions;
-    /** Optional ~10s reference clip (upload URL) for DramaBox voice cloning.
-     *  When unset, the TTS feature voices the actor from its description only. */
-    voiceRef?: string;
     /**
      * Optional user-authored category label. Used to bucket actors in the
      * character list and as additional search text in pickers. Compared
@@ -175,19 +172,6 @@ export type CurrentChatState = {
     pendingSystemNotice: string;
     createdAt: number | null;
     updatedAt: number | null;
-}
-
-/** TTS state attached to a `speech` message's metadata under `tts`. */
-export type SpeechTtsMeta = {
-    provider: 'dramabox';
-    status: 'pending' | 'ready' | 'failed';
-    /** hash(actorId + dialogue + voiceRef + params) — detects staleness on edit. */
-    sourceHash: string;
-    /** The composed DramaBox prompt (once composed). */
-    prompt?: string;
-    /** Served URL of the generated audio (once ready). */
-    audioUrl?: string;
-    error?: string;
 }
 
 export type ChatMessage = {

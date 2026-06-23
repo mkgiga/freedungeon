@@ -147,7 +147,6 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                                     onUpdate={(b) => updateBlock(i(), b)}
                                     isActive={playback.isActiveBlock(props.message.id, i())}
                                     onAdvance={() => playback.advance()}
-                                    tts={props.message.metadata?.tts}
                                 />
                             </Match>
                             <Match when={block.type === 'text'}>

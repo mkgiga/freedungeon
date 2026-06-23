@@ -32,32 +32,6 @@ async function generateThumbnail(buffer: ArrayBuffer, filename: string): Promise
         .toFile(thumbPath)
 }
 
-/**
- * Persist a raw buffer to the uploads store (content-hashed, deduped) and
- * return its served URL. Used by server-side producers like the TTS pipeline
- * that have bytes in hand rather than a multipart upload.
- */
-export async function saveUploadBuffer(buffer: ArrayBuffer | Uint8Array, ext: string): Promise<string> {
-    ensureDirs()
-    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
-    const hash = new Bun.CryptoHasher('sha256').update(bytes).digest('hex')
-    const filename = `${hash}.${ext}`
-    const filePath = path.join(UPLOADS_DIR, filename)
-    if (!fs.existsSync(filePath)) {
-        await Bun.write(filePath, bytes)
-    }
-    return `/uploads/${filename}`
-}
-
-/** Read an upload's bytes back from a `/uploads/<filename>` URL, or null if absent. */
-export async function readUploadByUrl(url: string): Promise<Uint8Array | null> {
-    const filename = url.split('/').pop()
-    if (!filename) return null
-    const filePath = path.join(UPLOADS_DIR, filename)
-    if (!fs.existsSync(filePath)) return null
-    return new Uint8Array(await Bun.file(filePath).arrayBuffer())
-}
-
 export const uploadsRouter = new Hono()
 
 // Serve thumbnails — must be before /:filename

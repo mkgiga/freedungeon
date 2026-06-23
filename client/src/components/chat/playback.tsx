@@ -1,9 +1,7 @@
 import { createContext, createEffect, createMemo, createSignal, onCleanup, untrack, useContext, type JSX } from 'solid-js'
-import type { ChatMessage, GameStateContext, SpeechTtsMeta } from '@shared/types'
+import type { ChatMessage, GameStateContext } from '@shared/types'
 import { applyBlockToCtx, runTurn } from '@shared/game-state'
 import { parseBlocks, isBlockingBlock, type Block } from '@shared/blocks'
-import { resolveFeatureConfig } from '@shared/features'
-import { playDialogue, stopDialogue } from './dialogueAudio'
 import { state } from '../../state'
 
 type PlaybackApi = {
@@ -34,9 +32,6 @@ type PlaybackApi = {
      *  scrolling, otherwise advance to the next block. Called by the
      *  message-level click handler in ChatMessage. */
     tap: () => void
-    /** True while the active speech block is held waiting for its TTS audio to
-     *  finish generating. The block frame is shown; the dialogue is masked. */
-    isAwaitingTts: () => boolean
     /** Whether playback has reached (started) this assistant message yet.
      *  Future, not-yet-played messages return false so the UI can hide them. */
     isMessageRevealed: (id: string) => boolean
@@ -87,34 +82,8 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
      */
     const isMessageRevealed = (id: string) => { seenVersion(); return seenAssistantIds.has(id) }
 
-    // While a speech block's TTS audio is still generating we "hold" on it:
-    // the block is revealed (frame visible) but the typewriter doesn't start
-    // until the audio resolves (ready → play+typewriter, failed → typewriter
-    // only). { id, index } identifies the held block; a resume effect watches
-    // its tts status.
-    const [holdingTts, setHoldingTts] = createSignal<{ id: string; index: number } | null>(null)
-
     let pauseTimer: ReturnType<typeof setTimeout> | null = null
     let typewriterTimer: ReturnType<typeof setInterval> | null = null
-
-    const ttsEnabled = () => resolveFeatureConfig('tts', state.userPreferences.features?.tts).enabled
-
-    // Whether a speech line will actually be synthesized — mirrors the server's
-    // pipeline gate (feature on AND the speaking actor has a voiceRef). Ad-hoc
-    // speakers (no actorId) and ref-less actors are never synthesized, so
-    // playback must not hold on them.
-    const speechWillSynthesize = (block: Extract<Block, { type: 'speech' }>): boolean => {
-        if (!ttsEnabled() || !block.actorId) return false
-        const a = Object.values(state.assets.actors ?? {}).find(
-            x => x.customId === block.actorId || x.id === block.actorId
-        )
-        return !!a?.voiceRef
-    }
-
-    // Auto-play routes through the shared dialogue buffer so it can't overlap
-    // with a manual per-message toggle — one clip at a time, app-wide.
-    const stopAudio = () => stopDialogue()
-    const playAudio = (url: string) => playDialogue(url)
 
     const clearPauseTimer = () => {
         if (pauseTimer !== null) {
@@ -147,14 +116,6 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
     const isActiveScrolling = createMemo(() =>
         activeRevealedCount() < activeTypewriterText().length
     )
-
-    /** Start a speech block's reveal: play its audio if ready, then typewriter. */
-    const revealSpeech = (block: Extract<Block, { type: 'speech' }>, tts: SpeechTtsMeta | undefined) => {
-        setHoldingTts(null)
-        if (tts?.status === 'ready' && tts.audioUrl) playAudio(tts.audioUrl)
-        else stopAudio()
-        startTypewriter(block.dialogue)
-    }
 
     const getPlayingBlocks = (): Block[] | null => {
         const id = untrack(playingMessageId)
@@ -203,36 +164,17 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         if (!revealedBlocking) {
             setPlayingMessageId(null)
             stopTypewriter()
-            stopAudio()
             playNextUnseen()
             return
         }
 
         // Configure per-blocking-type behavior for the new active block.
         if (lastRevealed?.type === 'text') {
-            stopAudio()
             startTypewriter(lastRevealed.content)
         } else if (lastRevealed?.type === 'speech') {
-            const id = untrack(playingMessageId)!
-            const tts = state.currentChat.messages[id]?.metadata?.tts as SpeechTtsMeta | undefined
-            // Hold ONLY while audio for this line is actually coming — i.e. the
-            // line will synthesize (feature on + the actor has a voiceRef) and it
-            // isn't resolved yet. Lines that won't synthesize (ad-hoc speakers,
-            // ref-less actors) must NOT hold, or they'd hang forever waiting for
-            // a status that never arrives. The resume effect fires when a held
-            // line resolves.
-            if (speechWillSynthesize(lastRevealed) && tts?.status !== 'ready' && tts?.status !== 'failed') {
-                stopTypewriter()
-                stopAudio()
-                setActiveTypewriterText('')
-                setActiveRevealedCount(0)
-                setHoldingTts({ id, index: c - 1 })
-            } else {
-                revealSpeech(lastRevealed, tts)
-            }
+            startTypewriter(lastRevealed.dialogue)
         } else if (lastRevealed?.type === 'pause') {
             stopTypewriter()
-            stopAudio()
             const ms = Math.max(0, lastRevealed.seconds * 1000)
             pauseTimer = setTimeout(() => {
                 pauseTimer = null
@@ -274,8 +216,6 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
     const skipAll = () => {
         clearPauseTimer()
         stopTypewriter()
-        stopAudio()
-        setHoldingTts(null)
         const id = untrack(playingMessageId)
         if (id === null) return
         const blocks = getPlayingBlocks()
@@ -293,14 +233,10 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
      */
     const tap = () => {
         if (untrack(playingMessageId) === null) return
-        // Held waiting for audio: ignore taps — the line's text stays gated
-        // until TTS resolves, at which point it reveals and plays on its own.
-        if (untrack(holdingTts)) return
         if (untrack(isActiveScrolling)) {
-            // First tap: full text + skip audio.
+            // First tap: snap to full text.
             stopTypewriter()
             setActiveRevealedCount(untrack(activeTypewriterText).length)
-            stopAudio()
         } else {
             advance()
         }
@@ -345,30 +281,9 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         untrack(() => playNextUnseen())
     })
 
-    // Resume a held speech block once its TTS audio resolves (ready → audio +
-    // typewriter, failed → typewriter only). Tracks holdingTts() and the held
-    // message's tts status; the pipeline's patch flips it and re-runs this.
-    createEffect(() => {
-        const hold = holdingTts()
-        if (!hold) return
-        const tts = state.currentChat.messages[hold.id]?.metadata?.tts as SpeechTtsMeta | undefined
-        if (tts?.status !== 'ready' && tts?.status !== 'failed') return
-        untrack(() => {
-            if (playingMessageId() !== hold.id || cursor() - 1 !== hold.index) {
-                setHoldingTts(null)
-                return
-            }
-            const blocks = getPlayingBlocks()
-            const block = blocks?.[hold.index]
-            if (block?.type === 'speech') revealSpeech(block, tts)
-            else setHoldingTts(null)
-        })
-    })
-
     onCleanup(() => {
         clearPauseTimer()
         stopTypewriter()
-        stopAudio()
     })
 
     /**
@@ -417,7 +332,6 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         activeRevealedCount,
         isActiveScrolling,
         tap,
-        isAwaitingTts: () => holdingTts() !== null,
         isMessageRevealed,
     }
 

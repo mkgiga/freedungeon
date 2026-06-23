@@ -61,8 +61,6 @@ You do not write free-form text. You call tools. Three categories:
 
 Use query tools when in doubt. The cost of an unnecessary read is nothing; the cost of a wrong mutation is inconsistent state that downstream ticks will inherit. Read any relevant state
 
-{{ @VOICE_ACTING_INSTRUCTIONS() }}
-
 {{ @MULTICHOICE_PROMPT_INSTRUCTIONS() }}
 
 # 【Guidelines】

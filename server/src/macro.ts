@@ -2,7 +2,6 @@ import path from 'path'
 import fs from 'fs'
 import { state } from "./server"
 import { getCurrentTurnResult } from "./game-state"
-import { VOICE_ACTING_INSTRUCTIONS } from "./tts/composer"
 import { featureEnabled } from "@shared/features"
 
 const promptsDir = path.join(import.meta.dirname, 'prompts')
@@ -145,16 +144,6 @@ When you call \`end_turn\`, you may pass a \`choices\` array — an enumerated s
 
 registry.set('MULTICHOICE_PROMPT_INSTRUCTIONS', { kind: 'fn', fn: () => {
     return featureEnabled(state.userPreferences, 'choicePrompts') ? MULTICHOICE_PROMPT_INSTRUCTIONS : ''
-} });
-
-// Voice-acting fallback instruction. Active only when the composer is offline
-// (degraded TTS mode) — set per turn by dispatchPromptToAgent before macro
-// expansion, since it depends on a live probe, not just stored state.
-let voiceActingActive = false
-export function setVoiceActing(active: boolean) { voiceActingActive = active }
-
-registry.set('VOICE_ACTING_INSTRUCTIONS', { kind: 'fn', fn: () => {
-    return voiceActingActive ? VOICE_ACTING_INSTRUCTIONS : ''
 } });
 
 // ── Scope builders ───────────────────────────────────────────────────────────
