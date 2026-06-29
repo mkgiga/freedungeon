@@ -4,7 +4,7 @@ import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
 import { runTurn, createInitialContext } from "./game-state";
-import { dispatchPromptToAgent, forkAgentSession, forkAgentSessionForChat, resetFlagsSnapshotToCurrent } from "./agent";
+import { dispatchPromptToAgent, forkAgentSession, forkAgentSessionForChat, invalidateAgentSession, resetFlagsSnapshotToCurrent } from "./agent";
 import { notification } from "./notifications";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
@@ -334,6 +334,15 @@ export class CurrentChat {
                 chatId: state.currentChat.id!,
                 keepUntilMessageId: messageBeforeLastUser.id,
             });
+        } else {
+            // Nothing survives before the prompt (e.g. regenerating the very
+            // first message): there's no turn boundary to fork at, so reset the
+            // agent's memory entirely. The next dispatch rehydrates from the
+            // pruned log (just this prompt) instead of resuming the full
+            // pre-prune conversation — which is what made regenerate silently
+            // "continue" instead of rewinding. Covers both loops (invalidate
+            // clears the Claude session AND the AI-SDK transcript).
+            await invalidateAgentSession(state.currentChat.id!);
         }
 
         await CurrentChat.refreshStateAndResetSnapshot();
@@ -437,19 +446,15 @@ export class CurrentChat {
         logChat(`Branched new chat "${newChat.title}" with id ${newChat.id} from message ${messageId}.`);
         logChat(`[BRANCH] Source chat ${sourceChatId} had ${sourceChatTotal} messages; branch slice has ${Object.keys(newChatMessagesObject).length} messages.`);
 
-        // Fork the source SDK session at the target message's turn-closer
-        // anchor so the branched chat inherits the agent's memory. Must
-        // run BEFORE loadChat below, because loadChat swaps
-        // state.currentChat — after that we'd lose addressability of the
-        // source's original message ids (the branched copies have new
-        // nanoid ids).
-        await forkAgentSessionForChat({
-            sourceChatId,
-            targetChatId: newChat.id,
-            mode: 'untilMessage',
-            sourceMessages: state.currentChat.messages,
-            keepUntilMessageId: messageId,
-        });
+        // The branch's agent memory is rebuilt from its sliced messages on the
+        // first prompt (rehydration), NOT forked from the source session. A
+        // branch slice ends at an arbitrary message (often a turn-starting user
+        // prompt), but SDK forks can only land on turn boundaries — so a fork
+        // can't match the slice and over-copies the source's memory (the bug
+        // where a branch "remembered" events not in its visible history). The
+        // new chat starts with no session/transcript, so the next dispatch
+        // rehydrates from exactly the displayed slice for whichever provider
+        // runs it. (Branch only — clone/template still fully copy below.)
 
         const countAfterSave = await countChatMessages(newChat.id);
         const sourceCountAfterSave = await countChatMessages(sourceChatId);

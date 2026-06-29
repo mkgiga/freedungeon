@@ -12,6 +12,13 @@ import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { featureEnabled } from '@shared/features';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { log } from './logger';
+import type { ModelMessage } from 'ai';
+import type { LLMConfig } from '@shared/types';
+// In-process OpenAI-v1 loop. Note: ai-agent.ts imports execCommand/runQuery from
+// here, forming a cycle — benign because both sides only call across it inside
+// function bodies (hoisted `export function` bindings resolve via ESM live
+// bindings). Extracting the executors to a dedicated module would remove it.
+import { runAiSdkTurn, loadAiTranscript, saveAiTranscript } from './ai-agent';
 
 const AGENT_PORT = Number(process.env.AGENT_PORT ?? 8076);
 const AGENT_URL = `http://127.0.0.1:${AGENT_PORT}`;
@@ -451,6 +458,57 @@ function wrapWithHistoryPreamble(
     ].join('\n');
 }
 
+// In-flight in-process AI SDK turns, keyed by chatId, so `cancelAgentTurn` can
+// abort them (the Claude path cancels via the subprocess instead).
+const inFlightAiTurns = new Map<string, AbortController>();
+
+/**
+ * Run one OpenAI-v1 turn in-process. Unlike the Claude subprocess (which
+ * announces `turn_ended` over RPC), this path clears its own bookkeeping:
+ * persist the extended transcript and snapshot post-turn flags for the next
+ * turn's `<system_notice>` delta. `isGenerating` is cleared by generateResponse's
+ * finally. Aborts are swallowed (clean cancel); other errors propagate so the
+ * caller can notify the user.
+ */
+async function runAiTurn(args: {
+    chatId: string;
+    systemPrompt: string;
+    userContent: string;
+    llmConfig: LLMConfig;
+    transcript: ModelMessage[];
+    enableChoicePrompts: boolean;
+}) {
+    const controller = new AbortController();
+    inFlightAiTurns.set(args.chatId, controller);
+    try {
+        const { transcript } = await runAiSdkTurn({
+            chatId: args.chatId,
+            systemPrompt: args.systemPrompt,
+            userContent: args.userContent,
+            llmConfig: args.llmConfig,
+            transcript: args.transcript,
+            enableChoicePrompts: args.enableChoicePrompts,
+            signal: controller.signal,
+        });
+        await saveAiTranscript(args.chatId, transcript);
+        void writeFlagsSnapshot(args.chatId, state.currentChat.gameState.flags);
+        // No session_captured event on this path (that's what clears the Claude
+        // rehydration warning), so clear it here now that the transcript is
+        // rebuilt — otherwise a post-invalidate AI-SDK turn leaves it stuck on.
+        if (state.currentChat.id === args.chatId && state.currentChat.agentRehydration !== null) {
+            setState('currentChat', 'agentRehydration', null);
+        }
+    } catch (err) {
+        if (controller.signal.aborted) {
+            log.server.info(`AI SDK turn aborted for chat ${args.chatId}`);
+            return;
+        }
+        throw new Error(`AI SDK turn failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+        inFlightAiTurns.delete(args.chatId);
+    }
+}
+
 export async function dispatchPromptToAgent(args: {
     chatId: string;
     userMessageId: string;
@@ -491,21 +549,40 @@ export async function dispatchPromptToAgent(args: {
         expandedSystemPrompt += `\n\n${MULTICHOICE_PROMPT_INSTRUCTIONS}`;
     }
 
-    const sessionRow = await db.selectFrom('chats')
-        .select(['agent_session_id'])
+    // Provider → loop. Anthropic uses the Claude Agent SDK subprocess; OpenAI-v1
+    // (openai/custom) uses the in-process AI SDK loop. Each keeps private memory
+    // (Claude session id vs ai_transcript), both rebuildable from the canonical
+    // ChatMessage log — so a provider switch just rehydrates the active loop.
+    const currentLoop: 'claude' | 'ai-sdk' =
+        llmConfig.provider === 'anthropic' ? 'claude'
+            : (llmConfig.provider === 'openai' || llmConfig.provider === 'custom') ? 'ai-sdk'
+                : (() => { throw new Error(`Provider "${llmConfig.provider}" isn't supported by the agent loop yet — use an Anthropic config or an OpenAI-v1-compatible (openai/custom) endpoint.`); })();
+
+    const chatRow = await db.selectFrom('chats')
+        .select(['agent_session_id', 'last_agent_loop', 'last_agent_flags_snapshot'])
         .where('id', '=', args.chatId)
         .executeTakeFirst();
-    const resumeSessionId = sessionRow?.agent_session_id ?? null;
 
-    // When there's no SDK session to resume — pre-MCP chats, branched/
-    // cloned chats whose source had no session, anything orphaned by
-    // session-file loss — synthesize a context preamble from the chat's
-    // persisted ChatMessages and prepend it to the user's input. The
-    // SDK creates a new session containing that preamble + the new
-    // prompt; the resulting session_id is captured and saved, and every
-    // subsequent prompt resumes normally from there. So this expensive
-    // preamble happens at most ONCE per chat (or once per re-orphaning).
-    let userContent = resumeSessionId === null
+    // On a provider switch the now-active loop's private memory is stale, so it
+    // rehydrates from the ChatMessage log (shared truth) rather than resuming.
+    const providerSwitched = (chatRow?.last_agent_loop ?? null) !== null
+        && chatRow!.last_agent_loop !== currentLoop;
+
+    // Claude resumes its SDK session; the AI SDK loop resumes its transcript —
+    // unless switched/absent, in which case both fall back to rehydration.
+    const resumeSessionId = currentLoop === 'claude' && !providerSwitched
+        ? (chatRow?.agent_session_id ?? null)
+        : null;
+    const transcript: ModelMessage[] = currentLoop === 'ai-sdk' && !providerSwitched
+        ? await loadAiTranscript(args.chatId)
+        : [];
+    const needsPreamble = currentLoop === 'claude' ? resumeSessionId === null : transcript.length === 0;
+
+    // No live memory for the active loop — first turn, provider switch, or a
+    // branched/cloned/orphaned chat — so synthesize a context preamble from the
+    // persisted ChatMessages and prepend it. At most once per (re-)orphaning;
+    // subsequent turns resume the loop's own memory.
+    let userContent = needsPreamble
         ? wrapWithHistoryPreamble(
             Object.values(state.currentChat.messages),
             args.userMessageId,
@@ -513,21 +590,12 @@ export async function dispatchPromptToAgent(args: {
         )
         : args.userContent;
 
-    // Diff flags since the end of the previous turn and prepend a
-    // <system_notice> block if anything has changed out-of-band (user
-    // toggles, prior-message edits that re-replayed differently). The
-    // Anthropic API has no mid-conversation system-role channel — every
-    // message is user or assistant — so the convention is to mark
-    // instruction-like content with an XML tag the model recognizes as
-    // distinct from user dialogue. RP_PROMPT.md teaches the agent that
-    // <system_notice> blocks are out-of-band state updates, not user
-    // input.
-    const flagsSnapshotRow = await db.selectFrom('chats')
-        .select('last_agent_flags_snapshot')
-        .where('id', '=', args.chatId)
-        .executeTakeFirst();
-    const flagsSnapshot = flagsSnapshotRow?.last_agent_flags_snapshot
-        ? JSON.parse(flagsSnapshotRow.last_agent_flags_snapshot) as Record<string, unknown>
+    // <system_notice>: out-of-band flag deltas + a one-shot director's note.
+    // Provider-agnostic — both loops receive the same wrapped userContent. The
+    // convention (an XML tag the model treats as distinct from user dialogue) is
+    // taught by RP_PROMPT.md; works for any model, not just Anthropic.
+    const flagsSnapshot = chatRow?.last_agent_flags_snapshot
+        ? JSON.parse(chatRow.last_agent_flags_snapshot) as Record<string, unknown>
         : null;
     const flagsDelta = buildFlagsDelta(flagsSnapshot, state.currentChat.gameState.flags);
 
@@ -553,51 +621,72 @@ export async function dispatchPromptToAgent(args: {
         userContent = wrapWithSystemNotice(sections, userContent);
     }
 
-    let response: Response;
-    try {
-        response = await fetch(`${AGENT_URL}/prompt`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chatId: args.chatId,
-                userMessageId: args.userMessageId,
-                userContent,
-                systemPrompt: expandedSystemPrompt,
-                resumeSessionId,
-                model: llmConfig.model || 'claude-sonnet-4-6',
-                enableChoicePrompts,
-            }),
+    if (currentLoop === 'claude') {
+        let response: Response;
+        try {
+            response = await fetch(`${AGENT_URL}/prompt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chatId: args.chatId,
+                    userMessageId: args.userMessageId,
+                    userContent,
+                    systemPrompt: expandedSystemPrompt,
+                    resumeSessionId,
+                    model: llmConfig.model || 'claude-sonnet-4-6',
+                    enableChoicePrompts,
+                }),
+            });
+        } catch (err) {
+            // Network-level failure: subprocess unreachable, crashed, restarted
+            // mid-request. generateResponse's finally clears isGenerating.
+            throw new Error(`Agent unreachable: ${err instanceof Error ? err.message : String(err)}`);
+        }
+
+        if (!response.ok) {
+            // The subprocess always returns 200 with a structured body, so a
+            // non-OK status is something it couldn't catch — defensive only.
+            const errText = await response.text().catch(() => '');
+            throw new Error(`Agent transport error ${response.status}: ${errText.slice(0, 200)}`);
+        }
+
+        // ok=false means an internal agent failure (SDK Overloaded, transport
+        // closed, etc.) the subprocess caught cleanly — surface it as a throw so
+        // generateResponse's catch notifies the user.
+        const result = await response.json().catch(() => ({ ok: false, error: 'invalid agent response body' })) as
+            | { ok: true; sessionId: string | null; aborted?: boolean }
+            | { ok: false; sessionId: string | null; error: string; errorName?: string };
+        if (!result.ok) {
+            throw new Error(`Agent reported failure${result.errorName ? ` (${result.errorName})` : ''}: ${result.error}`);
+        }
+        log.server.info(`Agent turn complete for chat ${args.chatId}: ${JSON.stringify(result).slice(0, 200)}`);
+    } else {
+        await runAiTurn({
+            chatId: args.chatId,
+            systemPrompt: expandedSystemPrompt,
+            userContent,
+            llmConfig,
+            transcript,
+            enableChoicePrompts,
         });
-    } catch (err) {
-        // Network-level failure: agent process unreachable, crashed,
-        // restarted mid-request. The caller (generateResponse) clears
-        // isGenerating in its finally and notifies the user.
-        throw new Error(`Agent unreachable: ${err instanceof Error ? err.message : String(err)}`);
+        log.server.info(`AI SDK turn complete for chat ${args.chatId}`);
     }
 
-    if (!response.ok) {
-        // The agent now always returns 200 with a structured body, so
-        // a non-OK status means something the agent itself couldn't
-        // catch — defensive only.
-        const errText = await response.text().catch(() => '');
-        throw new Error(`Agent transport error ${response.status}: ${errText.slice(0, 200)}`);
-    }
-
-    // Structured result from runAgentPrompt: { ok, sessionId, error?, errorName?, aborted? }.
-    // ok=false means an internal agent failure (SDK Overloaded, transport
-    // closed, etc.) that the agent caught cleanly. Surface to the
-    // caller as a thrown Error so generateResponse's catch can notify
-    // the user.
-    const result = await response.json().catch(() => ({ ok: false, error: 'invalid agent response body' })) as
-        | { ok: true; sessionId: string | null; aborted?: boolean }
-        | { ok: false; sessionId: string | null; error: string; errorName?: string };
-    if (!result.ok) {
-        throw new Error(`Agent reported failure${result.errorName ? ` (${result.errorName})` : ''}: ${result.error}`);
-    }
-    log.server.info(`Agent turn complete for chat ${args.chatId}: ${JSON.stringify(result).slice(0, 200)}`);
+    // Record which loop owns this chat's live memory, so a later provider switch
+    // rehydrates the other loop from the message log.
+    await db.updateTable('chats').set({ last_agent_loop: currentLoop }).where('id', '=', args.chatId).execute();
 }
 
 export async function cancelAgentTurn() {
+    // In-process AI SDK turns abort directly via their AbortController.
+    let abortedAi = false;
+    for (const ctrl of inFlightAiTurns.values()) {
+        ctrl.abort();
+        abortedAi = true;
+    }
+    if (abortedAi) return;
+
+    // Otherwise it's a Claude subprocess turn — cancel over RPC.
     try {
         const response = await fetch(`${AGENT_URL}/cancel`, { method: 'POST' });
         if (!response.ok) {
@@ -623,7 +712,7 @@ export async function cancelAgentTurn() {
  */
 export async function invalidateAgentSession(chatId: string) {
     await db.updateTable('chats')
-        .set({ agent_session_id: null })
+        .set({ agent_session_id: null, ai_transcript: null })
         .where('id', '=', chatId)
         .execute();
     if (state.currentChat.id === chatId) {
@@ -722,7 +811,12 @@ export async function forkAgentSession(args: {
         .executeTakeFirst();
     const oldSessionId = sessionRow?.agent_session_id;
     if (!oldSessionId) {
-        log.server.info(`No agent session to fork for chat ${args.chatId}; first prompt will rehydrate`);
+        // No Claude session — but this chat may be on the AI SDK loop, whose
+        // memory is `ai_transcript`. A structural edit (regen/rewind) just
+        // changed the message log, so clear the transcript too; the next AI-SDK
+        // turn rehydrates from the edited log instead of resuming stale memory.
+        await db.updateTable('chats').set({ ai_transcript: null }).where('id', '=', args.chatId).execute();
+        log.server.info(`No agent session to fork for chat ${args.chatId}; cleared ai_transcript; first prompt will rehydrate`);
         return null;
     }
 
@@ -746,7 +840,7 @@ export async function forkAgentSession(args: {
     }
     const { newSessionId } = await response.json() as { newSessionId: string };
     await db.updateTable('chats')
-        .set({ agent_session_id: newSessionId })
+        .set({ agent_session_id: newSessionId, ai_transcript: null })
         .where('id', '=', args.chatId)
         .execute();
     log.server.info(`Forked agent session for chat ${args.chatId}: ${oldSessionId} -> ${newSessionId} @ ${anchor.slice(0, 8)}…`);
@@ -816,7 +910,7 @@ export async function forkAgentSessionForChat(
     }
     const { newSessionId } = await response.json() as { newSessionId: string };
     await db.updateTable('chats')
-        .set({ agent_session_id: newSessionId })
+        .set({ agent_session_id: newSessionId, ai_transcript: null })
         .where('id', '=', args.targetChatId)
         .execute();
     log.server.info(`Forked session ${sourceSessionId} -> ${newSessionId} for ${args.sourceChatId} -> ${args.targetChatId}${anchor ? ` @ ${anchor.slice(0, 8)}…` : ' (full copy)'}`);

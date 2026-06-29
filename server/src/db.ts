@@ -70,6 +70,10 @@ export interface DB {
          *  memory for the AI SDK path, the provider-agnostic analog of
          *  agent_session_id (which points at the Claude SDK's own session). */
         ai_transcript: string | null;
+        /** Which agent loop last advanced this chat ('claude' | 'ai-sdk'). On a
+         *  provider switch the now-active loop rehydrates from the ChatMessage
+         *  log instead of resuming its (stale) private memory. */
+        last_agent_loop: string | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
@@ -212,6 +216,9 @@ export async function initDb() {
     }
     if (!haveChatCol('ai_transcript')) {
         await db.schema.alterTable('chats').addColumn('ai_transcript', 'text').execute();
+    }
+    if (!haveChatCol('last_agent_loop')) {
+        await db.schema.alterTable('chats').addColumn('last_agent_loop', 'text').execute();
     }
 
     await db.schema
@@ -536,8 +543,12 @@ export async function loadChatById(chatId: string) {
     // prompt. Estimated tokens use a char/4 heuristic — fast and good
     // enough for a warning; real token count comes from the API on the
     // first response.
+    // Only when neither loop has live memory — no Claude session AND no AI-SDK
+    // transcript — does the next prompt actually rehydrate. An AI-SDK chat keeps
+    // its memory in ai_transcript (agent_session_id stays null), so without the
+    // transcript check the warning would show on every AI-SDK chat load.
     let agentRehydration: { messageCount: number; estimatedTokens: number } | null = null;
-    if ((loadedChat.agent_session_id ?? null) === null) {
+    if ((loadedChat.agent_session_id ?? null) === null && !loadedChat.ai_transcript) {
         const msgs = Object.values(messagesRecord);
         if (msgs.length > 0) {
             const chars = msgs.reduce((sum, m) => sum + m.content.length, 0);
