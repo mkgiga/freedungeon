@@ -27,6 +27,7 @@ const [state, _setState] = createStore<AppState>({
     agentRehydration: null,
     createdAt: null,
     updatedAt: null,
+    pendingSystemNotice: "",
   } as CurrentChatState,
   isGenerating: false,
   notifications: [],
@@ -35,6 +36,7 @@ const [state, _setState] = createStore<AppState>({
     activeLLMConfigId: null,
     playerCharacterId: null,
     enableChoicePrompts: false,
+    debug: false,
     features: {},
   }
 });

@@ -62,6 +62,7 @@ export const [state, _setState] = createStore({
         playerCharacterId: null,
         activeLLMConfigId: null,
         enableChoicePrompts: false,
+        debug: false,
         features: {},
     }
 } as AppState);
@@ -159,6 +160,21 @@ async function initHttp() {
 
 const activeSockets = new Set<Socket>();
 async function initWebSocket() {
+    // Mirror the HTTP gate (initHttp) on the WebSocket port: only private-range
+    // peers may connect. On 'init' we emit the full state — including LLM
+    // config API keys — so an unauthenticated public connection would leak
+    // secrets. socket.io's cors.origin only restrains browsers; this rejects
+    // any non-browser client too. isPrivateIP handles IPv6 loopback and
+    // IPv4-mapped peers itself.
+    io.use((socket, next) => {
+        const clientIp = socket.handshake.address;
+        if (clientIp && isPrivateIP(clientIp)) {
+            return next();
+        }
+        log.server.info(`Rejected non-local WebSocket connection from ${clientIp || 'unknown'}`);
+        return next(new Error('Who are you?'));
+    });
+
     io.on('connection', (socket) => {
         log.server.info(`New WebSocket connection: ${socket.id}`);
         activeSockets.add(socket);

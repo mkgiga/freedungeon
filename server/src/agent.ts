@@ -11,6 +11,7 @@ import { db, saveMessage } from './db';
 import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { featureEnabled } from '@shared/features';
 import { runTurn, setCurrentTurnResult } from './game-state';
+import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
 import type { ModelMessage } from 'ai';
 import type { LLMConfig } from '@shared/types';
@@ -619,6 +620,27 @@ export async function dispatchPromptToAgent(args: {
     }
     if (sections.length > 0) {
         userContent = wrapWithSystemNotice(sections, userContent);
+    }
+
+    // Debug snapshot of the exact payload about to be dispatched. Gated on the
+    // debug pref so nothing is captured/synced when off. In-memory only (never
+    // persisted). AI-SDK sends the full transcript + this user turn; Claude sends
+    // only this user turn (prior turns live in its resumed session, unless we
+    // rehydrated from the log, in which case the full history is inside userContent).
+    if (state.userPreferences.debug) {
+        const messages = currentLoop === 'ai-sdk'
+            ? [...transcript.map(normalizeModelMessage), { role: 'user', content: userContent }]
+            : [{ role: 'user', content: userContent }];
+        setState('currentChat', 'lastPrompt', {
+            capturedAt: Date.now(),
+            provider: llmConfig.provider,
+            model: llmConfig.model,
+            loop: currentLoop,
+            systemPrompt: expandedSystemPrompt,
+            messages,
+            rehydratedFromLog: needsPreamble,
+            resumedSessionId: resumeSessionId,
+        });
     }
 
     if (currentLoop === 'claude') {

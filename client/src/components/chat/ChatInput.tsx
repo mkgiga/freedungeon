@@ -15,6 +15,7 @@ import {
 } from 'solid-icons/md'
 import { Em } from '../typography/Em'
 import { ChatHotbar } from './ChatHotbar'
+import { DebugPromptButton } from './DebugPromptButton'
 import { usePlayback } from './playback'
 
 export function ChatInput() {
@@ -288,6 +289,9 @@ export function ChatInput() {
                 <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
                     <MdFillFast_forward size={20} />
                 </button>
+                <Show when={state.userPreferences.debug}>
+                    <DebugPromptButton />
+                </Show>
             </div>
         </div>
     )

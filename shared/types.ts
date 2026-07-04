@@ -170,9 +170,34 @@ export type CurrentChatState = {
      * Cleared by the server after the next prompt dispatch.
      */
     pendingSystemNotice: string;
+    /**
+     * Debug-only snapshot of the exact prompt last dispatched to the provider,
+     * captured server-side only when `userPreferences.debug` is on. In-memory /
+     * synced, never persisted — resets on chat switch. Lets the UI show what the
+     * model actually saw, which can diverge from the visible chat on
+     * regenerate/rewind/branch.
+     */
+    lastPrompt?: LastPrompt | null;
     createdAt: number | null;
     updatedAt: number | null;
 }
+
+export type LastPromptMessage = { role: string; content: string };
+
+export type LastPrompt = {
+    capturedAt: number;
+    provider: string;
+    model: string;
+    loop: 'claude' | 'ai-sdk';
+    systemPrompt: string;
+    messages: LastPromptMessage[];
+    /** True when history was rebuilt from the ChatMessage log (first turn /
+     *  provider switch / branch) rather than resumed from the loop's own memory. */
+    rehydratedFromLog: boolean;
+    /** Claude only: the session id resumed from; null on the AI-SDK path or when
+     *  rehydrating from the log. */
+    resumedSessionId: string | null;
+};
 
 export type ChatMessage = {
     id: string;
@@ -195,6 +220,9 @@ export type UserPreferences = {
     /** When true, the agent is offered the `choice_prompt` tool and may end a
      *  turn with a multiple-choice menu. */
     enableChoicePrompts?: boolean;
+    /** When true, the chat UI exposes a button to inspect the exact prompt last
+     *  dispatched to the provider (see CurrentChatState.lastPrompt). Dev-only. */
+    debug?: boolean;
     /** Per-feature config keyed by feature key (see shared/features.ts).
      *  Stores only what the user changed; registry defaults are merged on read
      *  via resolveFeatureConfig. */

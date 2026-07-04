@@ -79,6 +79,19 @@ function RouteComponent() {
 
   const initials = () => draft.name?.charAt(0)?.toUpperCase() ?? '?'
 
+  // Rename an expression. Expressions are keyed by name, so this rebuilds the
+  // record with the key swapped — iterating preserves insertion order, so the
+  // renamed row stays put instead of jumping to the end. Committed to the draft
+  // only (persists on Save). Caller guards against empty/duplicate names.
+  const renameExpression = (oldName: string, newName: string) => {
+    if (newName === oldName) return
+    const rebuilt: Record<string, string> = {}
+    for (const [k, v] of Object.entries(draft.expressions ?? {})) {
+      rebuilt[k === oldName ? newName : k] = v
+    }
+    setDraft('expressions', rebuilt)
+  }
+
   const addExpression = () => {
     modal.open({
       title: 'Add Expression',
@@ -272,7 +285,37 @@ function RouteComponent() {
                       <td class="py-2">
                         <img src={url as string} alt={name} class="w-10 h-10 rounded object-cover" />
                       </td>
-                      <td class="py-2">{name}</td>
+                      <td class="py-2">
+                        <Show when={edit()} fallback={<span>{name}</span>}>
+                          {(() => {
+                            // Local buffer so each keystroke doesn't re-key the
+                            // record (which would reorder rows + drop focus). Commit
+                            // on blur/Enter; revert on empty, no-op, duplicate, or Esc.
+                            const [val, setVal] = createSignal(name)
+                            const commit = () => {
+                              const trimmed = val().trim()
+                              if (!trimmed || trimmed === name || draft.expressions[trimmed] !== undefined) {
+                                setVal(name)
+                                return
+                              }
+                              renameExpression(name, trimmed)
+                            }
+                            return (
+                              <input
+                                type="text"
+                                value={val()}
+                                class="text-sm bg-transparent border-b border-(--primary) outline-none opacity-70 focus:opacity-100"
+                                onInput={(e) => setVal(e.currentTarget.value)}
+                                onBlur={commit}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+                                  else if (e.key === 'Escape') { setVal(name); e.currentTarget.blur() }
+                                }}
+                              />
+                            )
+                          })()}
+                        </Show>
+                      </td>
                       <Show when={edit()}>
                         <td class="py-2 text-right">
                           <Dropdown

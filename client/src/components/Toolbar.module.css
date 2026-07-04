@@ -34,6 +34,12 @@
 
 .toolbar-left {
     flex: 0 1 auto;
+    /* Allow the left slot to shrink below its content width so the title's
+     * `truncate` can engage. Without this, min-width: auto locks the slot to its
+     * full (un-truncated) title width and pushes the right-slot actions off the
+     * edge — every flex item in the chain needs min-width: 0, not just the
+     * Heading. Mirrors .toolbar-right below. */
+    min-width: 0;
     justify-content: flex-start;
 }
 

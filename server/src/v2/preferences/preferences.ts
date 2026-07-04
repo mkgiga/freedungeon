@@ -14,6 +14,7 @@ export const preferencesRouter = router({
             activeLLMConfigId: z.string().nullable().optional(),
             playerCharacterId: z.string().nullable().optional(),
             enableChoicePrompts: z.boolean().optional(),
+            debug: z.boolean().optional(),
         }).loose())
         .mutation(({ input }) => {
             for (const [key, value] of Object.entries(input)) {

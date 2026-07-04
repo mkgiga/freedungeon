@@ -104,6 +104,18 @@ function RouteComponent() {
                 })()}
               </button>
             </label>
+
+            <label class="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={state.userPreferences.debug ?? false}
+                onChange={(e) => trpc.preferences.update.mutate({ debug: e.currentTarget.checked })}
+              />
+              <span class="flex flex-col">
+                <Text>Debug mode</Text>
+                <Text size="sm" class="opacity-50">Show a button in chats to inspect the exact prompt sent to the provider.</Text>
+              </span>
+            </label>
           </div>
         </section>
 

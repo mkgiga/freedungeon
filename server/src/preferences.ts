@@ -8,6 +8,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     activeLLMConfigId: null,
     playerCharacterId: null,
     theme: 'system',
+    debug: false,
     features: {},
 }
 
