@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { COMMANDS } from '@shared/game-state/commands';
 import { QUERIES } from '@shared/game-state/queries';
 import { rpcExec, rpcQuery } from './rpc';
-import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProducedMessageId } from './bridge-state';
+import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn } from './bridge-state';
 
 /**
  * Build the MCP server for one user prompt. The chatId is closed over by the
@@ -39,7 +39,6 @@ export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
                         isError: true,
                     };
                 }
-                recordProducedMessageId(result.messageId);
                 return {
                     content: [{ type: 'text', text: result.effects }],
                 };
@@ -99,8 +98,7 @@ export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
                 const chatId = getActiveChatId();
                 if (chatId) {
                     const sdkUuid = getCurrentSdkAssistantUuid();
-                    const result = await rpcExec(chatId, 'choice_prompt', { options: choices }, sdkUuid);
-                    if (!('error' in result)) recordProducedMessageId(result.messageId);
+                    await rpcExec(chatId, 'choice_prompt', { options: choices }, sdkUuid);
                     // On error we still end the turn — the menu just won't persist.
                 }
             }
