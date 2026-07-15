@@ -50,9 +50,9 @@ Bun.serve({
 
         '/fork': {
             POST: async (req) => {
-                let body: { sessionId: string; keepUserTurns?: number };
+                let body: { sessionId: string; upToMessageId: string };
                 try {
-                    body = await req.json() as { sessionId: string; keepUserTurns?: number };
+                    body = await req.json() as { sessionId: string; upToMessageId: string };
                 } catch {
                     return new Response('invalid_json', { status: 400 });
                 }
