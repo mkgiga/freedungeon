@@ -1,7 +1,7 @@
 import type { ChatMessage, GameStateContext } from '@shared/types';
 import { runTurn as runTurnShared, type SharedTurnResult } from '@shared/game-state';
 
-export { createInitialContext, applyBlockToCtx, executeContent } from '@shared/game-state';
+export { createInitialContext, applyBlockToCtx } from '@shared/game-state';
 
 export type TurnResult = SharedTurnResult & {
     systemPromptGameState: string;

@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import { getConnInfo, serveStatic } from "hono/bun";
 import { log } from './logger';
 import { initDb, saveStateToDb, loadStateFromDb, db } from './db';
+import { markDirtyFromPath, clearDirty } from './dirty';
 import { sql } from 'kysely';
 import './macro.ts';
 import { loadPreferences, savePreferences } from './preferences';
@@ -72,6 +73,7 @@ export function setState(...args: any[]) {
     (_setState as Function)(...args);
     const value = args.at(-1);
     const path = args.slice(0, -1);
+    markDirtyFromPath(path);
     io.emit('state', { path, value });
 }
 
@@ -83,6 +85,7 @@ export function deleteState(...path: string[]) {
         for (const p of parentPath) target = target[p];
         delete target[key];
     }));
+    markDirtyFromPath(path);
     io.emit('delete', { path: parentPath, key });
 }
 
@@ -92,6 +95,9 @@ function start() {
         const loaded = await loadStateFromDb();
         setState('assets', loaded.assets);
         setState('userPreferences', loadPreferences());
+        // Boot hydration came FROM the DB — writing it back would be a no-op
+        // full sweep on the first auto-save tick.
+        clearDirty();
         await logChatMessageCounts();
         await initProcessHandlers();
         await initHttp();
@@ -233,7 +239,7 @@ async function initProcessHandlers() {
         }
 
         savePreferences(state.userPreferences)
-        saveStateToDb({ state })
+        saveStateToDb({ state, full: true })
         checkpointWal()
         killAgentProcess()
         console.log('State saved, exiting now.')

@@ -48,10 +48,6 @@ socket.on('init', (data: AppState) => {
 
 socket.on('state', ({ path, value }: { path: string[], value: any }) => {
   if (!path || path.length === 0 || path.some(p => p == null)) return;
-  const valueSummary = value === null || typeof value !== 'object'
-    ? value
-    : Array.isArray(value) ? `[array len=${value.length}]` : `{${Object.keys(value).join(',')}}`;
-  console.log('[CLIENT/recv state]', path, valueSummary);
   try {
     (_setState as Function)(...path, value);
   } catch (e) {

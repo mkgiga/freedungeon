@@ -70,7 +70,20 @@ export function isBlockingBlock(b: Block): boolean {
 
 // ── Parser ──
 
+// Parse results are deterministic per content string, and message content is
+// immutable (edits produce a new string via serializeBlocks), so results are
+// cached. Callers must treat the returned Block[] as read-only — mutating a
+// block in place would corrupt the cache for every other reader.
+// FIFO eviction (drop oldest insertion) rather than clear-on-overflow: a full
+// clear right at the cap thrashes when one chat's message count is near it,
+// forcing complete re-parses on every replay.
+const parseCache = new Map<string, Block[]>()
+const PARSE_CACHE_MAX = 50_000
+
 export function parseBlocks(content: string): Block[] {
+    const cached = parseCache.get(content)
+    if (cached) return cached
+
     const blocks: Block[] = []
 
     const api = {
@@ -154,6 +167,9 @@ export function parseBlocks(content: string): Block[] {
         choice: (text: string) => {
             blocks.push({ type: 'choice', text })
         },
+        // No-op parity with createScope (shared/game-state/scope.ts) so legacy
+        // content calling attack() doesn't abort the parse mid-message.
+        attack: (_target: string) => {},
     }
 
     if (!content || !content.trim()) return blocks
@@ -168,6 +184,10 @@ export function parseBlocks(content: string): Block[] {
         console.error('Failed to parse blocks', e, '\ncontent:', content)
     }
 
+    if (parseCache.size >= PARSE_CACHE_MAX) {
+        parseCache.delete(parseCache.keys().next().value!)
+    }
+    parseCache.set(content, blocks)
     return blocks
 }
 

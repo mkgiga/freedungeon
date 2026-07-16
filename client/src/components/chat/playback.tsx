@@ -287,27 +287,44 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
     })
 
     /**
-     * The playback-aware game state. Reruns shared `runTurn` over messages
-     * strictly before the playing one, then applies blocks 0..cursor of the
-     * playing message via `applyBlockToCtx`. When no playback is active it
-     * just returns the server-authoritative ctx.
+     * The playback-aware game state. Replays history strictly before the
+     * playing message, then applies blocks 0..cursor of the playing message
+     * via `applyBlockToCtx`. When no playback is active it just returns the
+     * server-authoritative ctx.
+     *
+     * The prefix replay is cached per playingMessageId and computed inside
+     * `untrack`: the prefix is immutable while that message plays, and
+     * without the cache every mid-turn message insertion (the agent emits
+     * one message per block) re-replayed the entire history. The memo only
+     * depends on `playingMessageId` and `cursor`.
      */
+    let prefixCache: { playingId: string; ctx: GameStateContext } | null = null
     const localCtx = createMemo<GameStateContext | null>(() => {
         const playingId = playingMessageId()
-        if (playingId === null) return null
+        if (playingId === null) {
+            prefixCache = null
+            return null
+        }
 
-        const messages = Object.values(state.currentChat.messages).sort(sortByCreatedAt)
-        const idx = messages.findIndex(m => m.id === playingId)
-        if (idx < 0) return null
+        if (prefixCache?.playingId !== playingId) {
+            const prefixCtx = untrack(() => {
+                const messages = Object.values(state.currentChat.messages).sort(sortByCreatedAt)
+                const idx = messages.findIndex(m => m.id === playingId)
+                if (idx < 0) return null
+                return runTurn(messages.slice(0, idx)).ctx
+            })
+            if (!prefixCtx) return null
+            prefixCache = { playingId, ctx: prefixCtx }
+        }
 
-        const before = messages.slice(0, idx)
-        const { ctx } = runTurn(before)
-
-        const playingMsg = messages[idx]!
+        // Clone per run: applyBlockToCtx mutates, the cached prefix must stay
+        // pristine, and downstream memos compare by reference.
+        const ctx = structuredClone(prefixCache.ctx)
+        const playingMsg = untrack(() => state.currentChat.messages[playingId])
+        if (!playingMsg) return null
         const blocks = parseBlocks(playingMsg.content)
-        const c = cursor()
         const arr: string[] = []
-        const limit = Math.min(c, blocks.length)
+        const limit = Math.min(cursor(), blocks.length)
         for (let i = 0; i < limit; i++) {
             applyBlockToCtx(ctx, blocks[i]!, arr)
         }

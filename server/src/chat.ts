@@ -27,9 +27,8 @@ export const logChat = (message: string) => {
 
 export class CurrentChat {
     static async loadChat(id: string) {
-        // 1. Save the currently-loaded chat's messages to the DB before replacing.
-        //    Chat messages are the one thing that doesn't live in memory across chats,
-        //    so they MUST be persisted immediately or they'd be lost when we swap.
+        // 1. Persist the outgoing chat's row/refs before replacing. Its messages
+        //    are already on disk (written at every mutation site).
         if (state.currentChat.id) {
             CurrentChat.saveCurrentChat();
         }
@@ -115,22 +114,19 @@ export class CurrentChat {
     }
 
     /**
-     * Persists the currently-loaded chat (row, refs, and messages) to the DB.
+     * Persists the currently-loaded chat's row and asset refs to the DB.
      *
-     * Called on chat swap and shutdown — chat messages only live in memory for
-     * the currently-loaded chat (to avoid keeping hundreds of thousands of
-     * messages across all chats in RAM), so they MUST be written to disk before
-     * `currentChat` is replaced or they're gone.
-     *
-     * Message deletions are handled immediately at their call site in
-     * `deleteMessage`; this function only upserts.
+     * Messages are NOT swept here: every message create/edit/delete already
+     * writes to the DB at its mutation site (`saveMessage`/`deleteMessage`),
+     * so the on-disk messages are always current. Sweeping the full history
+     * on swap was pure event-loop-blocking redundancy at large chat sizes.
      */
     static saveCurrentChat() {
         const currentChat = state.currentChat;
         if (!currentChat.id) return;
         const chat = state.assets.chats[currentChat.id];
         if (!chat) return;
-        saveChat(chat, currentChat.messages);
+        saveChat(chat);
     }
 
     /**
@@ -152,10 +148,9 @@ export class CurrentChat {
             return;
         }
 
-        // Recompute authoritative game-state from current message history
-        // before the agent starts. The agent's query tools read this directly.
-        const turnResult = runTurn(Object.values(state.currentChat.messages));
-        setState('currentChat', 'gameState', turnResult.ctx);
+        // Game-state recompute happens in dispatchPromptToAgent (which runs
+        // immediately below and is the consumer via @GAME_STATE()) — doing it
+        // here too would replay the full history twice per prompt.
 
         // Critical: NEVER let this method's rejection escape. The tRPC
         // mutation that triggers it is fire-and-forget (it doesn't
