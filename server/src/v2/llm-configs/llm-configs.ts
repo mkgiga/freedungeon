@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
-import { deleteLLMConfig } from '../../db'
 import { nanoid } from 'nanoid'
 import { LLM_PRESETS, defaultValuesFromSchema } from '@shared/llm-presets'
 import type { LLMConfig } from '@shared/types'
@@ -99,7 +98,6 @@ export const llmConfigsRouter = router({
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
             deleteState('assets', 'llmConfigs', input.id)
-            deleteLLMConfig(input.id)
             return { success: true }
         }),
 })

@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState } from '../../server'
-import { savePreferences } from '../../preferences'
 
 export const preferencesRouter = router({
     get: procedure
@@ -22,7 +21,6 @@ export const preferencesRouter = router({
                     setState('userPreferences', key, value)
                 }
             }
-            savePreferences(state.userPreferences)
             return state.userPreferences
         }),
 
@@ -42,7 +40,6 @@ export const preferencesRouter = router({
             // `features` is initialized to {} in initial state, so this nested
             // path set is safe and emits a granular reactive update.
             setState('userPreferences', 'features', input.key, next)
-            savePreferences(state.userPreferences)
             return state.userPreferences.features?.[input.key]
         }),
 })

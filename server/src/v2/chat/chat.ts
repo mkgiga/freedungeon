@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { state, setState, deleteState } from '../../server'
 import { CurrentChat, logChat } from '../../chat'
-import { deleteChat, saveMessage } from '../../db'
 import { parseBlocks } from '@shared/blocks'
 import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
@@ -274,10 +273,9 @@ export const chatRouter = router({
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
-            // Remove from state and DB together. CASCADE deletes chat_messages,
+            // DB delete via persistPath; CASCADE removes chat_messages,
             // chat_actor_refs, and chat_note_refs for this chat.
             deleteState('assets', 'chats', input.id)
-            deleteChat(input.id)
 
             // If the deleted chat was current, clear currentChat
             if (state.currentChat.id === input.id) {
@@ -340,7 +338,6 @@ export const chatRouter = router({
                 updatedAt: Date.now(),
             }
             setState('currentChat', 'messages', input.messageId, updated)
-            saveMessage(updated)
 
             // Submit the pick as a distinct `choice(...)` user message (vs the
             // normal `unformatted(...)`), then let the agent respond.

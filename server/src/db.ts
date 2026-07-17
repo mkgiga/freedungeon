@@ -6,7 +6,7 @@ import { nanoid } from 'nanoid';
 import path from 'node:path';
 import fs from 'node:fs';
 import { state } from './server';
-import { dirty, clearDirty } from './dirty';
+import { savePreferences } from './preferences';
 import type { Actor, Note, ChatMessage, AppState, Chat, LLMConfig, AppNotification, CurrentChatState }  from '@shared/types';
 export interface DB {
     actor_expressions: {
@@ -703,11 +703,8 @@ export function saveMessage(msg: ChatMessage) {
 
 /**
  * Persists a single chat's row, actor/note refs, and optionally its messages.
- * Called by `saveStateToDb` (without messages, for all chats) and by
- * `CurrentChat.saveCurrentChat` (with messages, for the loaded chat).
- *
- * Message deletions are not handled here — those are issued immediately at the
- * call site of `deleteMessage` to avoid resurrection on restart/swap.
+ * Called by `persistPath` (without messages, on every chat mutation) and by
+ * branch/clone (with messages, for bulk copies).
  */
 export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
     const row = {
@@ -745,7 +742,7 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
 
     if (messages) {
         // SAVEPOINT so a large message set commits once instead of once per
-        // row (nests fine under saveStateToDb's savepoint).
+        // row.
         rawDb.exec('SAVEPOINT save_chat_messages')
         try {
             for (const msg of Object.values(messages)) {
@@ -763,80 +760,90 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
     }
 }
 
-/**
- * Persists dirty assets (or everything with `full: true` — used at shutdown).
- * Messages are NOT swept here: every message create/edit/delete already
- * writes to the DB at its mutation site (`saveMessage`/`deleteMessage`), so
- * the periodic save only covers assets whose mutations rely on it.
- *
- * Runs on the 5s auto-save timer, synchronously on the event loop — it must
- * stay cheap. Dirty tracking keeps the steady-state near-zero; the SAVEPOINT
- * batches whatever remains into one commit.
- */
-export function saveStateToDb({ state: appState, full = false }: { state: AppState; full?: boolean }) {
-    const pick = <T>(record: Record<string, T>, d: { ids: Set<string>; all: boolean }): T[] => {
-        if (full || d.all) return Object.values(record)
-        const out: T[] = []
-        for (const id of d.ids) {
-            const entry = record[id]
-            // Deleted entries stay in the dirty set but are persisted at their
-            // deletion call site — nothing to write here.
-            if (entry !== undefined) out.push(entry)
-        }
-        return out
+/** Upserts a single actor row and rewrites its expressions. */
+export function saveActor(actor: Actor) {
+    db.insertInto('actors')
+        .values({ id: actor.id, ...dehydrateActor(actor) })
+        .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateActor(actor)))
+        .execute()
+
+    db.deleteFrom('actor_expressions').where('actor_id', '=', actor.id).execute()
+    for (const [name, url] of Object.entries(actor.expressions)) {
+        db.insertInto('actor_expressions').values({ id: nanoid(), actor_id: actor.id, name, url }).execute()
     }
-
-    // No await — bun:sqlite is synchronous, Kysely wraps in Promise.resolve()
-    // .execute() completes the DB write synchronously regardless of await
-    rawDb.exec('SAVEPOINT save_state')
-    try {
-        for (const actor of pick(appState.assets.actors, dirty.actors)) {
-            db.insertInto('actors')
-                .values({ id: actor.id, ...dehydrateActor(actor) })
-                .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateActor(actor)))
-                .execute()
-
-            db.deleteFrom('actor_expressions').where('actor_id', '=', actor.id).execute()
-            for (const [name, url] of Object.entries(actor.expressions)) {
-                db.insertInto('actor_expressions').values({ id: nanoid(), actor_id: actor.id, name, url }).execute()
-            }
-        }
-
-        for (const note of pick(appState.assets.notes, dirty.notes)) {
-            db.insertInto('notes')
-                .values({ id: note.id, ...dehydrateNote(note) })
-                .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateNote(note)))
-                .execute()
-        }
-
-        for (const config of pick(appState.assets.llmConfigs, dirty.llmConfigs)) {
-            db.insertInto('llm_configs')
-                .values({ id: config.id, ...dehydrateLLMConfig(config) })
-                .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateLLMConfig(config)))
-                .execute()
-        }
-
-        // Persist chat metadata + asset refs. Messages are handled at their
-        // mutation sites, never swept.
-        for (const chat of pick(appState.assets.chats, dirty.chats)) {
-            saveChat(chat)
-        }
-
-        if (full || dirty.preferences) {
-            const prefsJson = JSON.stringify(appState.userPreferences)
-            db.insertInto('settings')
-                .values({ key: 'userPreferences', value: prefsJson })
-                .onConflict((oc) => oc.column('key').doUpdateSet({ value: prefsJson }))
-                .execute()
-        }
-
-        rawDb.exec('RELEASE save_state')
-    } catch (err) {
-        rawDb.exec('ROLLBACK TO save_state')
-        rawDb.exec('RELEASE save_state')
-        throw err
-    }
-    clearDirty()
 }
 
-export default { get db() { return db }, initDb, saveStateToDb };
+/** Upserts a single note row. */
+export function saveNote(note: Note) {
+    db.insertInto('notes')
+        .values({ id: note.id, ...dehydrateNote(note) })
+        .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateNote(note)))
+        .execute()
+}
+
+/** Upserts a single LLM config row. */
+export function saveLLMConfig(config: LLMConfig) {
+    db.insertInto('llm_configs')
+        .values({ id: config.id, ...dehydrateLLMConfig(config) })
+        .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateLLMConfig(config)))
+        .execute()
+}
+
+/**
+ * Persist whatever entity a state path touches. Called by the `setState`/
+ * `deleteState` wrappers in server.ts — the same interception point that
+ * emits socket patches to the client — so the DB stays in sync with app
+ * state without call sites remembering to save.
+ *
+ * Entity present in state → upsert; absent → delete. That single rule covers
+ * both setState and deleteState. Non-persistable roots (currentChat.gameState,
+ * isGenerating, notifications, …) fall through. All writes are synchronous
+ * (bun:sqlite) and per-entity, ~tens of µs each.
+ *
+ * NOTE: whole-collection writes (path shorter than [root, collection, id])
+ * are intentionally ignored — the only such write is boot hydration, whose
+ * data just came FROM the db.
+ */
+export function persistPath(path: readonly unknown[]) {
+    const [root, a, b] = path
+    if (root === 'userPreferences') {
+        savePreferences(state.userPreferences)
+        return
+    }
+    if (root === 'currentChat' && a === 'messages' && typeof b === 'string') {
+        const msg = state.currentChat.messages[b]
+        if (msg) saveMessage(msg)
+        else db.deleteFrom('chat_messages').where('id', '=', b).execute()
+        return
+    }
+    if (root !== 'assets' || typeof b !== 'string') return
+    switch (a) {
+        case 'chats': {
+            const chat = state.assets.chats[b]
+            // CASCADE removes chat_messages and ref rows on delete.
+            if (chat) saveChat(chat)
+            else deleteChat(b)
+            return
+        }
+        case 'actors': {
+            const actor = state.assets.actors[b]
+            if (actor) saveActor(actor)
+            else deleteActor(b)
+            return
+        }
+        case 'notes': {
+            const note = state.assets.notes[b]
+            if (note) saveNote(note)
+            else deleteNote(b)
+            return
+        }
+        case 'llmConfigs': {
+            const config = state.assets.llmConfigs[b]
+            if (config) saveLLMConfig(config)
+            else deleteLLMConfig(b)
+            return
+        }
+    }
+}
+
+export default { get db() { return db }, initDb };

@@ -1,5 +1,5 @@
 import { bold, brightGreen, ComfyLogger, reset, style, white } from "comfylogger";
-import { db, loadChatById, saveChat, saveMessage } from "./db";
+import { db, loadChatById, saveChat } from "./db";
 import { state, setState, deleteState } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
@@ -27,13 +27,10 @@ export const logChat = (message: string) => {
 
 export class CurrentChat {
     static async loadChat(id: string) {
-        // 1. Persist the outgoing chat's row/refs before replacing. Its messages
-        //    are already on disk (written at every mutation site).
-        if (state.currentChat.id) {
-            CurrentChat.saveCurrentChat();
-        }
+        // The outgoing chat needs no flush — every mutation (messages, chat
+        // row, refs) persisted at write time via persistPath.
 
-        // 2. Load the new chat
+        // Load the new chat
         const loadedChat = await loadChatById(id);
         if (loadedChat) {
             setState('currentChat', loadedChat);
@@ -90,17 +87,10 @@ export class CurrentChat {
             setState('currentChat', 'messages', message.id, message);
         }
 
-        saveMessage(currentChat.messages[message.id]!);
         return currentChat.messages[message.id];
     }
 
-    /**
-     * Removes a message from the currently-loaded chat, in memory and in the DB.
-     *
-     * Both writes happen here (rather than state-only + auto-save) because message
-     * deletions need to propagate immediately — otherwise a restart or chat swap
-     * between delete and next save could resurrect the message from disk.
-     */
+    /** Removes a message from the currently-loaded chat (DB delete via persistPath). */
     static deleteMessage(messageId: string) {
         const currentChat = state.currentChat;
         if (!currentChat.id) {
@@ -110,23 +100,6 @@ export class CurrentChat {
         if (!currentChat.messages[messageId]) return;
 
         deleteState('currentChat', 'messages', messageId);
-        db.deleteFrom('chat_messages').where('id', '=', messageId).execute();
-    }
-
-    /**
-     * Persists the currently-loaded chat's row and asset refs to the DB.
-     *
-     * Messages are NOT swept here: every message create/edit/delete already
-     * writes to the DB at its mutation site (`saveMessage`/`deleteMessage`),
-     * so the on-disk messages are always current. Sweeping the full history
-     * on swap was pure event-loop-blocking redundancy at large chat sizes.
-     */
-    static saveCurrentChat() {
-        const currentChat = state.currentChat;
-        if (!currentChat.id) return;
-        const chat = state.assets.chats[currentChat.id];
-        if (!chat) return;
-        saveChat(chat);
     }
 
     /**

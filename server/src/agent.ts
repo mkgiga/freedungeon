@@ -7,7 +7,7 @@ import { QUERIES, type QueryName } from '@shared/game-state/queries';
 import { applyBlockToCtx } from '@shared/game-state';
 import { serializeBlocks } from '@shared/blocks';
 import { state, setState } from './server';
-import { db, saveMessage } from './db';
+import { db } from './db';
 import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { featureEnabled } from '@shared/features';
 import { runTurn, setCurrentTurnResult } from './game-state';
@@ -145,7 +145,6 @@ function handleTurnClosed(req: TurnClosedRequest) {
         };
         const updated = { ...msg, metadata: nextMeta, updatedAt: Date.now() };
         setState('currentChat', 'messages', messageId, updated);
-        saveMessage(updated);
         stamped++;
     }
     log.server.info(`Turn closer ${req.trailingWrapperUuid.slice(0, 8)}… in session ${req.trailingWrapperSessionId.slice(0, 8)}… stamped on ${stamped}/${req.messageIds.length} messages for chat ${req.chatId}`);
@@ -158,7 +157,6 @@ function handleSdkUuid(req: SdkUuidRequest) {
     const nextMeta = { ...(msg.metadata ?? {}), sdkUuid: req.sdkUuid };
     const updated = { ...msg, metadata: nextMeta, updatedAt: Date.now() };
     setState('currentChat', 'messages', req.messageId, updated);
-    saveMessage(updated);
     return { ok: true };
 }
 
@@ -213,7 +211,6 @@ export function execCommand(
         metadata,
     };
     setState('currentChat', 'messages', messageId, message);
-    saveMessage(message);
 
     return {
         ok: true,

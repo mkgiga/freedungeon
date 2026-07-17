@@ -5,11 +5,10 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { getConnInfo, serveStatic } from "hono/bun";
 import { log } from './logger';
-import { initDb, saveStateToDb, loadStateFromDb, db } from './db';
-import { markDirtyFromPath, clearDirty } from './dirty';
+import { initDb, persistPath, loadStateFromDb, db } from './db';
 import { sql } from 'kysely';
 import './macro.ts';
-import { loadPreferences, savePreferences } from './preferences';
+import { loadPreferences } from './preferences';
 import { Server, Socket } from "socket.io";
 import { createServer } from 'node:http';
 import { createEffect } from 'solid-js';
@@ -73,7 +72,7 @@ export function setState(...args: any[]) {
     (_setState as Function)(...args);
     const value = args.at(-1);
     const path = args.slice(0, -1);
-    markDirtyFromPath(path);
+    persistPath(path);
     io.emit('state', { path, value });
 }
 
@@ -85,7 +84,7 @@ export function deleteState(...path: string[]) {
         for (const p of parentPath) target = target[p];
         delete target[key];
     }));
-    markDirtyFromPath(path);
+    persistPath(path);
     io.emit('delete', { path: parentPath, key });
 }
 
@@ -95,9 +94,6 @@ function start() {
         const loaded = await loadStateFromDb();
         setState('assets', loaded.assets);
         setState('userPreferences', loadPreferences());
-        // Boot hydration came FROM the DB — writing it back would be a no-op
-        // full sweep on the first auto-save tick.
-        clearDirty();
         await logChatMessageCounts();
         await initProcessHandlers();
         await initHttp();
@@ -232,17 +228,16 @@ async function initProcessHandlers() {
 
 
         console.log(`Received ${signal}, shutting down...`)
-        clearInterval(autoSaveInterval)
 
         for (const socket of activeSockets) {
             socket.disconnect(true)
         }
 
-        savePreferences(state.userPreferences)
-        saveStateToDb({ state, full: true })
+        // Nothing to flush — every mutation persists at write time via
+        // persistPath. Just fold the WAL back into the main db file.
         checkpointWal()
         killAgentProcess()
-        console.log('State saved, exiting now.')
+        console.log('Exiting now.')
         process.exit(0)
     }
     process.prependOnceListener('beforeExit', gracefulShutdown);
@@ -250,17 +245,6 @@ async function initProcessHandlers() {
     process.prependOnceListener('SIGINT', gracefulShutdown);
     process.prependOnceListener('SIGTERM', gracefulShutdown);
 
-    // Periodic auto-save — primary persistence mechanism
-    // Bun on Windows doesn't reliably fire SIGINT/SIGTERM handlers
-    const autoSaveInterval = setInterval(() => {
-        try {
-            saveStateToDb({ state })
-            savePreferences(state.userPreferences)
-            checkpointWal()
-        } catch (err) {
-            log.server.error(`Auto-save failed: ${err}`)
-        }
-    }, 5_000)
 }
 
 start();
