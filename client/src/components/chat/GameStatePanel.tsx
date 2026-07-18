@@ -1,7 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onMount, Show, untrack } from 'solid-js'
 import autoAnimate from '@formkit/auto-animate'
 import { state } from '../../state'
-import { ImageIcon } from '../ImageIcon'
 import { useModal } from '../Modal'
 import { GameStateActorStatus } from '../GameStateActorStatus'
 import { PlayerCharacterPicker } from './AssetPicker'
@@ -137,21 +136,12 @@ export function GameStatePanel() {
                 >
                     {(p) => (
                         <div class="chat-status-card is-player">
-                            <Show
-                                when={hpOf(p().customId) != null}
-                                fallback={
-                                    <button class="chat-status-player-avatar" onClick={openPlayerPicker} title="Change player character">
-                                        <ImageIcon url={p().avatarUrl} />
-                                    </button>
-                                }
-                            >
-                                <GameStateActorStatus
-                                    customId={p().customId}
-                                    hp={hpOf(p().customId)!}
-                                    variant="small"
-                                    onClick={openPlayerPicker}
-                                />
-                            </Show>
+                            <GameStateActorStatus
+                                customId={p().customId}
+                                hp={hpOf(p().customId) ?? 100}
+                                variant="small"
+                                onClick={openPlayerPicker}
+                            />
                         </div>
                     )}
                 </Show>
