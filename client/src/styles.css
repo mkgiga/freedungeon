@@ -1102,9 +1102,13 @@ button {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   padding-right: 8px;
   padding-left: 8px;
+  /* Reading measure: cap the prose column and center it so lines stay a
+     comfortable length on wide viewports. */
+  max-width: 44rem;
+  width: 100%;
+  margin-inline: auto;
   /* Universal separator for all messages. Disabled for now. */
   /* border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%); */
   /* Skip paint + layout for messages scrolled off-screen. Browser measures on
@@ -1113,27 +1117,24 @@ button {
   content-visibility: auto;
   contain-intrinsic-size: auto 100px;
 
-  .block-container > [class*="chat-block-"] {
-    margin-top: 16px;
-  }
-
-  .chat-block-unformatted {
-    background-color: color-mix(in oklch, var(--primary), transparent 88%);
-    margin-left: -8px;
-    margin-right: -8px;
-    padding-left: 8px;
-    padding-right: 8px;
-
-    .editable-text {
-      justify-content: end;
-      color: var(--primary);
-      opacity: 1;
-    }
-  }
-
   :has(.chat-block-continue) + & {
     border-top: none;
   }
+}
+
+.chat-message + .chat-message {
+  margin-top: 16px;
+}
+
+/* Block rhythm: consecutive narration blocks read as paragraphs of the same
+ * scene (tight), while any change of register — narration to speech, speech
+ * to player input, etc. — gets a fuller beat of air. */
+.block-container + .block-container {
+  margin-top: 16px;
+}
+
+.block-container:has(> .chat-block-text) + .block-container:has(> .chat-block-text) {
+  margin-top: 9px;
 }
 
 .chat-messages-sentinel {
@@ -1191,10 +1192,6 @@ button {
  * width once it clears the avatar's height. */
 .chat-block-speech {
   display: flow-root;
-  margin-top: 8px;
-  &:not(:last-of-type) {
-    margin-bottom: 8px;
-  }
 }
 
 .chat-block-avatar {
@@ -1244,8 +1241,8 @@ button {
 
 .chat-block-dialogue {
   font-size: var(--text-md);
-  line-height: 1.5;
-  font-weight: 500;
+  line-height: 1.55;
+  font-weight: 400;
 }
 
 .chat-block-expression-badge {
@@ -1264,12 +1261,17 @@ button {
   gap: 8px;
 }
 
+/* Narration is the book voice: the serif, roman, at a reading size. Italics
+ * are deliberately NOT used here — a whole story in slanted sans is fatiguing
+ * and leaves italics with no job; the serif/sans contrast against speech and
+ * UI is what marks narration now, and italics inside the text regain meaning
+ * as emphasis. */
 .chat-block-text-content {
   flex: 1;
-  font-size: var(--text-md);
-  line-height: 1.55;
-  opacity: 0.85;
-  font-style: italic;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.68;
+  opacity: 0.92;
 }
 
 /* ── Image Block ── */
@@ -1527,10 +1529,27 @@ button {
   opacity: 0.85;
 }
 
+.block-container > .chat-block-unformatted {
+  text-align: left;
+}
+/* Player's typed action — a primary-tinted bar bleeding across the message
+ * column's 8px side padding (hence the negative inline margins + widened
+ * width: a sized flex child is placed by margin-left, so a negative
+ * margin-right alone can't reach the right edge). */
 .chat-block-unformatted-content {
-  font-family: 'Courier New', monospace;
   font-size: var(--text-md);
-  opacity: 0.6;
+  line-height: 1.5;
+  color: var(--primary);
+  background: color-mix(in oklch, var(--primary), transparent 88%);
+  border-top: 1px solid color-mix(in oklch, var(--primary), transparent 78%);
+  border-bottom: 1px solid color-mix(in oklch, var(--primary), transparent 78%);
+  border-radius: 0;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  padding-left: 8px;
+  padding-right: 8px;
+  margin-inline: -8px;
+  width: calc(100% + 16px);
   white-space: pre-wrap;
 }
 
@@ -1539,8 +1558,10 @@ button {
 .chat-input-container {
   display: flex;
   flex-direction: column;
-  margin-left: 8px;
-  margin-right: 8px;
+  /* Aligned with the .chat-message reading column above it. */
+  max-width: calc(44rem - 16px);
+  width: calc(100% - 16px);
+  margin-inline: auto;
   outline: 1px dashed color-mix(in oklch, var(--text), transparent 66.25%);
   border-radius: 8px;
   background: var(--bg);
@@ -2123,14 +2144,13 @@ button {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 8px;
   border-radius: 4px;
   aspect-ratio: 1;
   height: 100%;
   width: auto;
   svg {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
   }
 }
 
@@ -2149,13 +2169,13 @@ button {
   margin-top: 4px;
   min-width: 160px;
   background: var(--bg-2);
-  border: 1px solid color-mix(in oklch, var(--primary), transparent 60%);
+  outline: 1px solid color-mix(in oklch, var(--primary), transparent 60%);
   border-radius: 8px;
-  padding: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -4px -16px rgba(0, 0, 0, 1);
   z-index: 1000;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg);
 }
 
 .dropdown-menu-portal {
@@ -2172,7 +2192,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-radius: 4px;
   font-size: var(--text-sm);
   text-align: left;
@@ -2181,6 +2201,19 @@ button {
 
 .dropdown-item:hover {
   background-color: color-mix(in oklch, var(--primary), transparent 80%);
+  border-radius: 0px;
+}
+
+.dropdown-item:first-child {
+  padding-top: 12px;
+  border-top-right-radius: 8px;
+  border-top-left-radius: 8px;
+}
+
+.dropdown-item:last-child {
+  padding-bottom: 12px;
+  border-bottom-right-radius: 8px;
+  border-bottom-left-radius: 8px;
 }
 
 .dropdown-item-danger {
