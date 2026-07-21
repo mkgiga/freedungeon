@@ -988,10 +988,14 @@ button {
 /* ── Chat ── */
 
 .chat-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   min-width: 0;
 }
 
 .chat-messages {
+  box-sizing: border-box;
   padding: 8px 0;
   overscroll-behavior: contain;
 }
@@ -1101,8 +1105,8 @@ button {
   gap: 6px;
   padding-top: 12px;
   padding-bottom: 12px;
-  padding-right: 16px;
-  padding-left: 0px;
+  padding-right: 8px;
+  padding-left: 8px;
   /* Universal separator for all messages. Disabled for now. */
   /* border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%); */
   /* Skip paint + layout for messages scrolled off-screen. Browser measures on
@@ -1111,12 +1115,24 @@ button {
   content-visibility: auto;
   contain-intrinsic-size: auto 100px;
 
+  :has(.chat-block-unformatted) {
+    .editable-text {
+      color: var(--primary);
+      opacity: 1;
+    }
+  }
+
   :has(.chat-block-continue) + & {
     border-top: none;
   }
 
+  &:first-child {
+    padding-top: 0;
+    border-top: none;
+  }
+
   &:last-child {
-    padding-bottom: 0;
+    padding-bottom: 12px;
     border-bottom: none;
     background: red;
   }
@@ -1171,16 +1187,11 @@ button {
   display: flex;
 }
 
-/* Shared indent for non-speech blocks so they align with speech block text.
- * Should equal .chat-block-avatar width + .chat-block-speech gap. */
-:root {
-  --chat-block-indent: 76px;
-}
-
+/* flow-root (not flex) contains the floated avatar, so the name sits beside
+ * it and dialogue line boxes wrap around it — text uses the full message
+ * width once it clears the avatar's height. */
 .chat-block-speech {
-  flex-direction: row;
-  gap: 12px;
-  align-items: flex-start;
+  display: flow-root;
   margin-top: 8px;
   &:not(:last-of-type) {
     margin-bottom: 8px;
@@ -1188,12 +1199,11 @@ button {
 }
 
 .chat-block-avatar {
-  flex-shrink: 0;
+  float: left;
+  margin-right: 12px;
   width: 64px;
   height: 64px;
   padding: 0;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
   overflow: hidden;
   background: var(--bg-1);
   cursor: pointer;
@@ -1201,8 +1211,6 @@ button {
   
   /* Override .image-icon styles when used as a chat block avatar */
   & .image-icon {
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
     width: 100% !important;
     height: 100% !important;
   }
@@ -1228,18 +1236,11 @@ button {
   font-size: var(--text-md);
 }
 
-.chat-block-content {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .chat-block-name {
   font-weight: 700;
   font-size: var(--text-md);
   line-height: 1;
+  margin-bottom: 2px;
 }
 
 .chat-block-dialogue {
@@ -1262,7 +1263,6 @@ button {
   flex-direction: row;
   align-items: flex-start;
   gap: 8px;
-  padding-left: var(--chat-block-indent); /* align with speech block content */
 }
 
 .chat-block-text-content {
@@ -1278,7 +1278,6 @@ button {
 .chat-block-image {
   flex-direction: column;
   gap: 4px;
-  padding-left: var(--chat-block-indent);
 }
 
 .chat-block-image img {
@@ -1314,7 +1313,7 @@ button {
 
 .chat-block-pause-ellipsis {
   position: absolute;
-  left: var(--chat-block-indent);
+  left: 0;
   top: 0;
   transform: translateY(-50%);
   display: inline-flex;
@@ -1452,12 +1451,6 @@ button {
   min-height: 200px;
 }
 
-/* ── Unformatted Block ── */
-
-.chat-block-unformatted {
-  padding-left: var(--chat-block-indent);
-}
-
 /* ── Damage / Heal event blocks ── */
 
 .chat-block-event {
@@ -1465,7 +1458,6 @@ button {
    * text nodes between children, which would swallow the spaces between the
    * actor name, the verb, the amount, and the trailing word. */
   display: block;
-  padding-left: var(--chat-block-indent);
   opacity: 0.75;
   font-style: italic;
 }
@@ -2548,7 +2540,6 @@ menu#main-nav {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-left: var(--chat-block-indent);
   padding-top: 4px;
 }
 
@@ -2595,11 +2586,6 @@ menu#main-nav {
   flex-direction: column;
   gap: 6px;
   padding: 8px 0;
-}
-
-/* User's chosen action, rendered as a chip in chat history. */
-.chat-block-choice {
-  padding-left: var(--chat-block-indent);
 }
 
 .chat-block-choice-text {

@@ -69,34 +69,32 @@ export function SpeechBlock(props: {
                     placeholder={<div class="chat-block-avatar-fallback">{initials()}</div>}
                 />
             </button>
-            <div class="chat-block-content">
-                <div class="chat-block-name">
-                    {displayName()}
-                </div>
-                <Show
-                    when={props.isActive}
-                    fallback={
-                        <EditableText
-                            class="chat-block-dialogue"
-                            initial={props.block.dialogue}
-                            onCommit={(dialogue) => props.onUpdate({ ...props.block, dialogue })}
-                        />
-                    }
-                >
-                    <div class="chat-block-dialogue chat-block-dialogue-locked">
-                        {props.block.dialogue.slice(0, revealedCount())}
-                        {/* Pending dialogue rendered with `visibility: hidden` so it
-                         * contributes to layout (line wrapping + total height) without
-                         * being painted. The block sits at its final size from char 0. */}
-                        <span class="chat-block-dialogue-pending">
-                            {props.block.dialogue.slice(revealedCount())}
-                        </span>
-                        <Show when={!isScrolling()}>
-                            <span class="chat-block-tap-indicator">▶</span>
-                        </Show>
-                    </div>
-                </Show>
+            <div class="chat-block-name">
+                {displayName()}
             </div>
+            <Show
+                when={props.isActive}
+                fallback={
+                    <EditableText
+                        class="chat-block-dialogue"
+                        initial={props.block.dialogue}
+                        onCommit={(dialogue) => props.onUpdate({ ...props.block, dialogue })}
+                    />
+                }
+            >
+                <div class="chat-block-dialogue chat-block-dialogue-locked">
+                    {props.block.dialogue.slice(0, revealedCount())}
+                    {/* Pending dialogue rendered with `visibility: hidden` so it
+                     * contributes to layout (line wrapping + total height) without
+                     * being painted. The block sits at its final size from char 0. */}
+                    <span class="chat-block-dialogue-pending">
+                        {props.block.dialogue.slice(revealedCount())}
+                    </span>
+                    <Show when={!isScrolling()}>
+                        <span class="chat-block-tap-indicator">▶</span>
+                    </Show>
+                </div>
+            </Show>
         </div>
     )
 }
