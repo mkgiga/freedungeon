@@ -203,6 +203,27 @@ button {
   background-color: color-mix(in oklch, var(--primary), transparent 75%);
 }
 
+/* Rows toggled off via the inline eye toggle (e.g. disabled chat notes). */
+.resource-table-row.is-disabled .resource-table-cell-content,
+.resource-table-row.is-disabled .resource-table-col-emoji {
+  opacity: 0.4;
+}
+
+.resource-table-row.is-disabled .resource-table-col-name .resource-table-cell-content {
+  text-decoration: line-through;
+}
+
+.resource-table-row.is-disabled .note-toggle {
+  opacity: 0.4;
+}
+
+/* .dropdown-trigger forces svg to 32px; keep the eye toggle smaller.
+   Doubled selector to out-rank it — that rule appears later in this file. */
+.dropdown-trigger.note-toggle svg {
+  width: 24px;
+  height: 24px;
+}
+
 .resource-table-row td {
   padding: 0;
 }
@@ -1082,7 +1103,8 @@ button {
   padding-bottom: 12px;
   padding-right: 16px;
   padding-left: 0px;
-  border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
+  /* Universal separator for all messages. Disabled for now. */
+  /* border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%); */
   /* Skip paint + layout for messages scrolled off-screen. Browser measures on
      first reveal and remembers; the 100px is a one-time fallback for
      messages that haven't been rendered yet. */
@@ -1532,16 +1554,12 @@ button {
   background: var(--bg);
 }
 
-/* Turn-action controls below the inline textarea. The hotbar grows to fill,
+/* Turn-action controls below the inline textarea. A spacer grows to fill,
    pushing the action buttons to the right. */
 .chat-input-actions {
   display: flex;
   align-items: center;
   border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
-}
-
-.chat-input-actions .chat-hotbar {
-  flex: 1;
 }
 
 .chat-input-spacer {
@@ -2271,50 +2289,6 @@ menu#main-nav {
   height: calc(100% - 8px);
   aspect-ratio: 1 / 1;
   align-self: center;
-}
-
-/* ── Chat Hotbar (lives inside the chat-input toolbar — quick note toggles) ── */
-
-.chat-hotbar {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.chat-hotbar::-webkit-scrollbar {
-  display: none;
-}
-
-.chat-hotbar-item {
-  flex-shrink: 0;
-  width: 64px;
-  height: 64px;
-  aspect-ratio: 1 / 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-xl);
-  line-height: 1;
-  background: transparent;
-  opacity: 0.4;
-  transition: background 120ms, opacity 120ms;
-  cursor: pointer;
-}
-
-.chat-hotbar-item:hover {
-  background: var(--bg-2);
-}
-
-.chat-hotbar-item.is-enabled {
-  background: color-mix(in oklch, var(--primary), transparent 75%);
-  opacity: 1;
-}
-
-.chat-hotbar-item.is-enabled:hover {
-  background: color-mix(in oklch, var(--primary), transparent 65%);
 }
 
 /* ── GameStateActorStatus — HP bars ── */

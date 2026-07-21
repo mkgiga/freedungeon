@@ -48,9 +48,8 @@ export class CurrentChat {
             title,
             assets: {
                 actors: [],
-                notes: [],
+                notes: {},
             },
-            hotbarNotes: {},
             messages: {},
             gameState: createInitialContext(),
             agentRehydration: null,
@@ -382,14 +381,14 @@ export class CurrentChat {
             title: `${state.currentChat.title} -> ${newTitle}`,
             assets: {
                 actors: [...state.currentChat.assets.actors],
-                notes: [...state.currentChat.assets.notes],
+                // Clone note refs (with enabled flags) so the branched chat has
+                // its own entries. saveChat writes fresh nanoid() junction rows
+                // scoped to newChat.id, so there's no cross-referencing with the
+                // source chat's rows.
+                notes: Object.fromEntries(
+                    Object.entries(state.currentChat.assets.notes).map(([id, v]) => [id, { ...v }])
+                ),
             },
-            // Clone hotbarNotes so the branched chat has its own entries.
-            // saveChat writes fresh nanoid() junction rows scoped to newChat.id,
-            // so there's no cross-referencing with the source chat's rows.
-            hotbarNotes: Object.fromEntries(
-                Object.entries(state.currentChat.hotbarNotes).map(([id, v]) => [id, { ...v }])
-            ),
             // Branching a template produces a regular chat — you shouldn't need to
             // clear the flag manually when you start a new chat from a template.
             isTemplate: false,
@@ -440,8 +439,8 @@ export class CurrentChat {
     }
 
     /**
-     * Duplicates an entire chat (metadata + asset refs + hotbar slots + all messages)
-     * with fresh ids. Used by "Save as Template" and "Use Template" flows.
+     * Duplicates an entire chat (metadata + asset refs with enabled flags + all
+     * messages) with fresh ids. Used by "Save as Template" and "Use Template" flows.
      *
      * Does NOT load the new chat into currentChat — the caller decides whether to.
      * Source can be any chat (not just the currently-loaded one); messages are
@@ -460,11 +459,10 @@ export class CurrentChat {
             title: newTitle,
             assets: {
                 actors: [...sourceMeta.assets.actors],
-                notes: [...sourceMeta.assets.notes],
+                notes: Object.fromEntries(
+                    Object.entries(sourceMeta.assets.notes).map(([id, v]) => [id, { ...v }])
+                ),
             },
-            hotbarNotes: Object.fromEntries(
-                Object.entries(sourceMeta.hotbarNotes).map(([id, v]) => [id, { ...v }])
-            ),
             isTemplate: asTemplate,
             createdAt: now,
             updatedAt: now,

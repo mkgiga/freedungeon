@@ -61,7 +61,7 @@ function ChatDetailRoute() {
         bannerUrl: serverChat()?.bannerUrl ?? '',
         description: serverChat()?.description ?? '',
         actors: new Set(serverChat()?.assets.actors ?? []),
-        notes: new Set(serverChat()?.assets.notes ?? []),
+        notes: new Set(Object.keys(serverChat()?.assets.notes ?? {})),
         isTemplate: serverChat()?.isTemplate ?? search().isTemplate,
     })
 
@@ -77,7 +77,7 @@ function ChatDetailRoute() {
             bannerUrl: c.bannerUrl ?? '',
             description: c.description ?? '',
             actors: new Set(c.assets.actors),
-            notes: new Set(c.assets.notes),
+            notes: new Set(Object.keys(c.assets.notes)),
             isTemplate: c.isTemplate,
         })
     })

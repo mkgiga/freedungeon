@@ -14,7 +14,6 @@ import {
     MdFillEdit_note,
 } from 'solid-icons/md'
 import { Em } from '../typography/Em'
-import { ChatHotbar } from './ChatHotbar'
 import { DebugPromptButton } from './DebugPromptButton'
 import { usePlayback } from './playback'
 
@@ -261,7 +260,7 @@ export function ChatInput() {
 
             {/* Turn-action controls, kept below the textarea. */}
             <div class="chat-input-actions">
-                <ChatHotbar />
+                <div class="chat-input-spacer" />
                 <Show when={state.currentChat.agentRehydration}>
                     {(r) => (
                         <button

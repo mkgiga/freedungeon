@@ -36,8 +36,7 @@ export const chatRouter = router({
             const chat: Chat = {
                 id: newId,
                 title: input.title,
-                assets: { actors: [...input.actors], notes: [...input.notes] },
-                hotbarNotes: {},
+                assets: { actors: [...input.actors], notes: Object.fromEntries(input.notes.map(id => [id, { enabled: true }])) },
                 isTemplate: input.isTemplate,
                 avatarUrl: input.avatarUrl || undefined,
                 bannerUrl: input.bannerUrl || undefined,
@@ -55,8 +54,7 @@ export const chatRouter = router({
                 setState('currentChat', {
                     id: newId,
                     title: chat.title,
-                    assets: { actors: [...chat.assets.actors], notes: [...chat.assets.notes] },
-                    hotbarNotes: {},
+                    assets: { actors: [...chat.assets.actors], notes: { ...chat.assets.notes } },
                     messages: {},
                     gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
                     agentRehydration: null,
@@ -107,8 +105,23 @@ export const chatRouter = router({
                 if (isCurrent) setState('currentChat', 'assets', 'actors', actors)
             }
             if (notes !== undefined) {
-                setState('assets', 'chats', input.id, 'assets', 'notes', notes)
-                if (isCurrent) setState('currentChat', 'assets', 'notes', notes)
+                // Diff per-key: Solid stores merge object writes, so setting a
+                // whole Record would leave removed keys behind. New notes
+                // default to enabled; retained notes keep their flag.
+                const prev = chat.assets.notes
+                const keep = new Set(notes)
+                for (const id of Object.keys(prev)) {
+                    if (!keep.has(id)) {
+                        deleteState('assets', 'chats', input.id, 'assets', 'notes', id)
+                        if (isCurrent) deleteState('currentChat', 'assets', 'notes', id)
+                    }
+                }
+                for (const id of notes) {
+                    if (!prev[id]) {
+                        setState('assets', 'chats', input.id, 'assets', 'notes', id, { enabled: true })
+                        if (isCurrent) setState('currentChat', 'assets', 'notes', id, { enabled: true })
+                    }
+                }
             }
 
             setState('assets', 'chats', input.id, 'updatedAt', now)
@@ -175,13 +188,11 @@ export const chatRouter = router({
             if (!chatId) throw new Error('No chat loaded')
             if (!state.assets.notes[input.noteId]) throw new Error('Note not found')
 
-            const current = state.currentChat.assets.notes
-            if (current.includes(input.noteId)) return { success: true }
+            if (state.currentChat.assets.notes[input.noteId]) return { success: true }
 
-            const next = [...current, input.noteId]
             const now = Date.now()
-            setState('currentChat', 'assets', 'notes', next)
-            setState('assets', 'chats', chatId, 'assets', 'notes', next)
+            setState('currentChat', 'assets', 'notes', input.noteId, { enabled: true })
+            setState('assets', 'chats', chatId, 'assets', 'notes', input.noteId, { enabled: true })
             setState('currentChat', 'updatedAt', now)
             setState('assets', 'chats', chatId, 'updatedAt', now)
             return { success: true }
@@ -193,50 +204,23 @@ export const chatRouter = router({
             const chatId = state.currentChat.id
             if (!chatId) throw new Error('No chat loaded')
 
-            const next = state.currentChat.assets.notes.filter(id => id !== input.noteId)
             const now = Date.now()
-            setState('currentChat', 'assets', 'notes', next)
-            setState('assets', 'chats', chatId, 'assets', 'notes', next)
+            deleteState('currentChat', 'assets', 'notes', input.noteId)
+            deleteState('assets', 'chats', chatId, 'assets', 'notes', input.noteId)
             setState('currentChat', 'updatedAt', now)
             setState('assets', 'chats', chatId, 'updatedAt', now)
             return { success: true }
         }),
 
-    setHotbarNote: procedure
+    setNoteEnabled: procedure
         .input(z.object({ noteId: z.string(), enabled: z.boolean() }))
         .mutation(({ input }) => {
             const chatId = state.currentChat.id
             if (!chatId) throw new Error('No chat loaded')
-            if (!state.assets.notes[input.noteId]) throw new Error('Note not found')
+            if (!state.currentChat.assets.notes[input.noteId]) throw new Error('Note is not attached to this chat')
 
-            const entry = { enabled: input.enabled }
-            setState('currentChat', 'hotbarNotes', input.noteId, entry)
-            setState('assets', 'chats', chatId, 'hotbarNotes', input.noteId, entry)
-            return { success: true }
-        }),
-
-    toggleHotbarNote: procedure
-        .input(z.object({ noteId: z.string() }))
-        .mutation(({ input }) => {
-            const chatId = state.currentChat.id
-            if (!chatId) throw new Error('No chat loaded')
-            if (!state.assets.notes[input.noteId]) throw new Error('Note not found')
-
-            const existing = state.currentChat.hotbarNotes[input.noteId]
-            const entry = { enabled: existing ? !existing.enabled : true }
-            setState('currentChat', 'hotbarNotes', input.noteId, entry)
-            setState('assets', 'chats', chatId, 'hotbarNotes', input.noteId, entry)
-            return { success: true }
-        }),
-
-    removeHotbarNote: procedure
-        .input(z.object({ noteId: z.string() }))
-        .mutation(({ input }) => {
-            const chatId = state.currentChat.id
-            if (!chatId) throw new Error('No chat loaded')
-
-            deleteState('currentChat', 'hotbarNotes', input.noteId)
-            deleteState('assets', 'chats', chatId, 'hotbarNotes', input.noteId)
+            setState('currentChat', 'assets', 'notes', input.noteId, 'enabled', input.enabled)
+            setState('assets', 'chats', chatId, 'assets', 'notes', input.noteId, 'enabled', input.enabled)
             return { success: true }
         }),
 
@@ -282,8 +266,7 @@ export const chatRouter = router({
                 setState('currentChat', {
                     id: null,
                     title: '',
-                    assets: { actors: [], notes: [] },
-                    hotbarNotes: {},
+                    assets: { actors: [], notes: {} },
                     messages: {},
                     gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
                     agentRehydration: null,

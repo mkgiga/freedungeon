@@ -2,9 +2,9 @@
 
 Notes are text instructions for the AI that customize its behavior. Each [chat](chats.md) has its own list of notes that steer the AI's output. You can use notes to give the AI information about the world, character interaction quirks, or even custom output formatting instructions - the only limit is your imagination.
 
-## Quick Notes
+## Enabling and disabling notes
 
-Notes may be added to an easily accessible hotbar where their presence can be toggled on or off. To add a note to Quick Notes, go to the chat sidebar, click a note, then "Add to Quick Notes".  
+Every note attached to a chat has an on/off checkbox in the chat's side drawer (open it from the conversation view). Disabled notes stay attached to the chat but are excluded from the AI's prompt until re-enabled.
 
 ## Example Notes
 

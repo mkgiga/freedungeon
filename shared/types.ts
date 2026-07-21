@@ -112,9 +112,12 @@ export type Chat = {
     title: string;
     assets: {
         actors: string[];
-        notes: string[];
+        /**
+         * Attached notes keyed by note id. `enabled: false` suppresses the
+         * note from prompts without detaching it from the chat.
+         */
+        notes: Record<string, { enabled: boolean }>;
     };
-    hotbarNotes: Record<string, { enabled: boolean }>;
     /** When true, this chat is a reusable template. Templates are filtered out
      *  of the regular chat list and shown in a separate "Templates" tab. */
     isTemplate: boolean;
@@ -135,13 +138,12 @@ export type CurrentChatState = {
     title: string;
     assets: {
         actors: string[];
-        notes: string[];
+        /**
+         * Attached notes keyed by note id. `enabled: false` suppresses the
+         * note from `{{ NOTES() }}` macro output without detaching it.
+         */
+        notes: Record<string, { enabled: boolean }>;
     };
-    /**
-     * Per-note quick-control map. Mirrors `Chat.hotbarNotes` for the loaded chat.
-     * `enabled: false` suppresses the note from `{{ NOTES() }}` macro output.
-     */
-    hotbarNotes: Record<string, { enabled: boolean }>;
     /** Keyed by message id. Render order is determined by `createdAt`. */
     messages: Record<string, ChatMessage>;
     /**

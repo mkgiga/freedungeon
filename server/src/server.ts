@@ -45,9 +45,8 @@ export const [state, _setState] = createStore({
         title: "",
         assets: {
             actors: [],
-            notes: [],
+            notes: {},
         },
-        hotbarNotes: {},
         messages: {},
         gameState: createInitialContext(),
         agentRehydration: null,

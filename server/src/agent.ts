@@ -264,10 +264,10 @@ export function runQuery(chatId: string, query: QueryName, args: Record<string, 
             group: a.group,
         }));
 
-    const notes = state.currentChat.assets.notes
-        .map((id) => state.assets.notes[id])
+    const notes = Object.entries(state.currentChat.assets.notes)
+        .filter(([, ref]) => ref.enabled)
+        .map(([id]) => state.assets.notes[id])
         .filter((n): n is NonNullable<typeof n> => Boolean(n))
-        .filter((n) => state.currentChat.hotbarNotes[n.id]?.enabled !== false)
         .map((n) => ({ title: n.title, type: n.type, content: n.content }));
 
     const deps = {

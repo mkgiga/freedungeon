@@ -116,14 +116,13 @@ registry.set('NOTES', { kind: 'fn', fn: () => {
     const currentChat = state.currentChat
     if (!currentChat) return 'No current chat'
 
-    const result: Array<{ title: string; type: string; content: string }> = []
-    for (const id of currentChat.assets.notes) {
+    const result: Array<{ type: string; content: string }> = []
+    for (const [id, ref] of Object.entries(currentChat.assets.notes)) {
+        // Disabled notes are suppressed from the LLM prompt.
+        if (!ref.enabled) continue
         const note = state.assets.notes[id]
         if (!note) continue
-        // Hotbar-disabled notes are suppressed from the LLM prompt.
-        const hot = currentChat.hotbarNotes[id]
-        if (hot && hot.enabled === false) continue
-        result.push({ title: note.title, type: note.type, content: note.content })
+        result.push({ type: note.type, content: note.content })
     }
     return JSON.stringify(result, null, 2)
 } })

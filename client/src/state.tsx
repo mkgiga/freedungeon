@@ -19,9 +19,8 @@ const [state, _setState] = createStore<AppState>({
     title: '',
     assets: {
       actors: [],
-      notes: [],
+      notes: {},
     },
-    hotbarNotes: {},
     messages: {},
     gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
     agentRehydration: null,

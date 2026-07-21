@@ -20,7 +20,7 @@ export function ChatSidebar() {
     })
 
     const chatNotes = createMemo<Note[]>(() => {
-        const noteIds = state.currentChat?.assets?.notes ?? []
+        const noteIds = Object.keys(state.currentChat?.assets?.notes ?? {})
         return noteIds
             .map((id) => state.assets.notes?.[id])
             .filter((n): n is Note => Boolean(n))
@@ -76,17 +76,12 @@ export function ChatSidebar() {
                         notes={chatNotes()}
                         showType={false}
                         hideHeader
+                        toggle={{
+                            checked: (note) => state.currentChat.assets.notes[note.id]?.enabled ?? true,
+                            onToggle: (note, next) => trpc.chat.setNoteEnabled.mutate({ noteId: note.id, enabled: next }),
+                            title: 'Include in prompts',
+                        }}
                         actions={[
-                            {
-                                label: 'Add to Hotbar',
-                                show: (note) => !state.currentChat.hotbarNotes[note.id],
-                                callback: (note) => trpc.chat.setHotbarNote.mutate({ noteId: note.id, enabled: true }),
-                            },
-                            {
-                                label: 'Remove from Hotbar',
-                                show: (note) => Boolean(state.currentChat.hotbarNotes[note.id]),
-                                callback: (note) => trpc.chat.removeHotbarNote.mutate({ noteId: note.id }),
-                            },
                             {
                                 label: 'Remove',
                                 danger: true,

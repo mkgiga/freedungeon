@@ -112,13 +112,13 @@ export function PlayerCharacterPicker(props: { onPick?: () => void }) {
 }
 
 export function NotePicker(props: {
-    /** Override the "already added" set. Defaults to state.currentChat.assets.notes. */
+    /** Override the "already added" set. Defaults to the current chat's attached note ids. */
     selected?: () => Set<string>
     /** Override the toggle side-effect. If supplied, the picker skips the tRPC call. */
     onToggle?: (note: Note) => void
 } = {}) {
     const [query, setQuery] = createSignal('')
-    const added = () => props.selected?.() ?? new Set(state.currentChat?.assets?.notes ?? [])
+    const added = () => props.selected?.() ?? new Set(Object.keys(state.currentChat?.assets?.notes ?? {}))
 
     const items = createMemo<Note[]>(() => {
         const q = query().toLowerCase().trim()

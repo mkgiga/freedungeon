@@ -43,11 +43,6 @@ export interface DB {
         id: string;
         chat_id: string;
         note_id: string;
-    };
-    chat_hotbar_notes: {
-        id: string;
-        chat_id: string;
-        note_id: string;
         enabled: Generated<number>;
     };
     chats: {
@@ -236,16 +231,32 @@ export async function initDb() {
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('chat_id', 'text', (col) => col.notNull().references('chats.id').onDelete('cascade'))
         .addColumn('note_id', 'text', (col) => col.notNull().references('notes.id').onDelete('cascade'))
-        .execute();
-
-    await db.schema
-        .createTable('chat_hotbar_notes')
-        .ifNotExists()
-        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
-        .addColumn('chat_id', 'text', (col) => col.notNull().references('chats.id').onDelete('cascade'))
-        .addColumn('note_id', 'text', (col) => col.notNull().references('notes.id').onDelete('cascade'))
         .addColumn('enabled', 'integer', (col) => col.notNull().defaultTo(1))
         .execute();
+
+    // Self-healing migration: per-ref `enabled` flag (replaces the hotbar-notes feature).
+    const noteRefCols = await sql<{ name: string }>`PRAGMA table_info(chat_note_refs)`.execute(db);
+    if (!noteRefCols.rows.some(r => r.name === 'enabled')) {
+        await db.schema.alterTable('chat_note_refs').addColumn('enabled', 'integer', (col) => col.notNull().defaultTo(1)).execute();
+    }
+
+    // ── One-time hotbar-notes teardown ──
+    // Carry disabled flags into chat_note_refs, then drop the table. Guarded on
+    // table existence so it's idempotent — a no-op on fresh DBs and on re-run.
+    // Hotbar rows for notes not attached to the chat had no prompt effect and
+    // are intentionally dropped.
+    const hotbarTable = await sql<{ name: string }>`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'chat_hotbar_notes'`.execute(db);
+    if (hotbarTable.rows.length > 0) {
+        await sql`
+            UPDATE chat_note_refs SET enabled = 0
+            WHERE EXISTS (
+                SELECT 1 FROM chat_hotbar_notes h
+                WHERE h.chat_id = chat_note_refs.chat_id
+                  AND h.note_id = chat_note_refs.note_id
+                  AND h.enabled = 0
+            )`.execute(db);
+        await db.schema.dropTable('chat_hotbar_notes').execute();
+    }
 
     await db.schema
         .createTable('chat_messages')
@@ -474,7 +485,7 @@ export function dehydrateCurrentChat(chat: CurrentChatState) {
             updated_at: chat.updatedAt ?? now,
         },
         actorRefs: chat.assets.actors.map(actor_id => ({ actor_id })),
-        noteRefs: chat.assets.notes.map(note_id => ({ note_id })),
+        noteRefs: Object.entries(chat.assets.notes).map(([note_id, ref]) => ({ note_id, enabled: ref.enabled ? 1 : 0 })),
     };
 }
 
@@ -519,18 +530,9 @@ export async function loadChatById(chatId: string) {
         .execute();
 
     const noteRefs = await db.selectFrom('chat_note_refs')
-        .select('note_id')
-        .where('chat_id', '=', chatId)
-        .execute();
-
-    const hotbarRows = await db.selectFrom('chat_hotbar_notes')
         .select(['note_id', 'enabled'])
         .where('chat_id', '=', chatId)
         .execute();
-    const hotbarNotes: Record<string, { enabled: boolean }> = {};
-    for (const row of hotbarRows) {
-        hotbarNotes[row.note_id] = { enabled: row.enabled !== 0 };
-    }
 
     const hydratedChat = hydrateChat(loadedChat);
     const messagesRecord: Record<string, ChatMessage> = {};
@@ -565,9 +567,8 @@ export async function loadChatById(chatId: string) {
         title: hydratedChat.title,
         assets: {
             actors: actorRefs.map(r => r.actor_id),
-            notes: noteRefs.map(r => r.note_id),
+            notes: Object.fromEntries(noteRefs.map(r => [r.note_id, { enabled: r.enabled !== 0 }])),
         },
-        hotbarNotes,
         messages: messagesRecord,
         // Placeholder — CurrentChat.loadChat recomputes this from messages via
         // runTurn immediately after setState('currentChat', loadedChat).
@@ -607,22 +608,16 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
     const chatRows = await db.selectFrom('chats').selectAll().execute();
     const actorRefs = await db.selectFrom('chat_actor_refs').selectAll().execute();
     const noteRefs = await db.selectFrom('chat_note_refs').selectAll().execute();
-    const hotbarRows = await db.selectFrom('chat_hotbar_notes').selectAll().execute();
 
     const result: Record<string, Chat> = {};
     for (const row of chatRows) {
-        const hotbarNotes: Record<string, { enabled: boolean }> = {};
-        for (const hr of hotbarRows) {
-            if (hr.chat_id === row.id) hotbarNotes[hr.note_id] = { enabled: hr.enabled !== 0 };
-        }
         result[row.id] = {
             id: row.id,
             title: row.title,
             assets: {
                 actors: actorRefs.filter(r => r.chat_id === row.id).map(r => r.actor_id),
-                notes: noteRefs.filter(r => r.chat_id === row.id).map(r => r.note_id),
+                notes: Object.fromEntries(noteRefs.filter(r => r.chat_id === row.id).map(r => [r.note_id, { enabled: r.enabled !== 0 }])),
             },
-            hotbarNotes,
             isTemplate: row.is_template !== 0,
             avatarUrl: row.avatar_url ?? undefined,
             bannerUrl: row.banner_url ?? undefined,
@@ -654,8 +649,7 @@ export async function loadStateFromDb(): Promise<AppState> {
         currentChat: {
             id: null,
             title: '',
-            assets: { actors: [], notes: [] },
-            hotbarNotes: {},
+            assets: { actors: [], notes: {} },
             messages: {},
             gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
             agentRehydration: null,
@@ -726,18 +720,8 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
         db.insertInto('chat_actor_refs').values({ id: nanoid(), chat_id: chat.id, actor_id: actorId }).execute()
     }
     db.deleteFrom('chat_note_refs').where('chat_id', '=', chat.id).execute()
-    for (const noteId of chat.assets.notes) {
-        db.insertInto('chat_note_refs').values({ id: nanoid(), chat_id: chat.id, note_id: noteId }).execute()
-    }
-
-    db.deleteFrom('chat_hotbar_notes').where('chat_id', '=', chat.id).execute()
-    for (const [noteId, entry] of Object.entries(chat.hotbarNotes ?? {})) {
-        db.insertInto('chat_hotbar_notes').values({
-            id: nanoid(),
-            chat_id: chat.id,
-            note_id: noteId,
-            enabled: entry.enabled ? 1 : 0,
-        }).execute()
+    for (const [noteId, ref] of Object.entries(chat.assets.notes)) {
+        db.insertInto('chat_note_refs').values({ id: nanoid(), chat_id: chat.id, note_id: noteId, enabled: ref.enabled ? 1 : 0 }).execute()
     }
 
     if (messages) {

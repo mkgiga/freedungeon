@@ -28,7 +28,7 @@ export type QueryDeps = {
         expressions: string[];
         group?: string;
     }>;
-    /** Notes attached to this chat (enabled ones only — hotbar-disabled excluded). */
+    /** Notes attached to this chat (enabled ones only — disabled notes excluded). */
     notes: Array<{
         title: string;
         type: string;
