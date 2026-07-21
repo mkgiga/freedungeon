@@ -139,7 +139,7 @@ export function ChatMessage(props: { message: ChatMessageType }) {
             </div>
             <For each={blocks()}>
                 {(block, i) => (
-                    <div classList={{ 'chat-block-future': isFutureBlock(i()) }}>
+                    <div classList={{ 'chat-block-future': isFutureBlock(i()), 'block-container': true }}>
                         <Switch>
                             <Match when={block.type === 'speech'}>
                                 <SpeechBlock

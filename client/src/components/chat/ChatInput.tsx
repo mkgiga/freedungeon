@@ -244,18 +244,6 @@ export function ChatInput() {
                         }
                     }}
                 />
-                <Show
-                    when={state.isGenerating}
-                    fallback={
-                        <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} title="Send">
-                            <MdFillSend size={20} />
-                        </button>
-                    }
-                >
-                    <button class="chat-input-btn chat-input-btn-send" onClick={handleStop} title="Stop">
-                        <MdFillStop size={20} />
-                    </button>
-                </Show>
             </div>
 
             {/* Turn-action controls, kept below the textarea. */}
@@ -290,6 +278,18 @@ export function ChatInput() {
                 </button>
                 <Show when={state.userPreferences.debug}>
                     <DebugPromptButton />
+                </Show>
+                <Show
+                    when={state.isGenerating}
+                    fallback={
+                        <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} title="Send">
+                            <MdFillSend size={20} />
+                        </button>
+                    }
+                >
+                    <button class="chat-input-btn chat-input-btn-send" onClick={handleStop} title="Stop">
+                        <MdFillStop size={20} />
+                    </button>
                 </Show>
             </div>
         </div>

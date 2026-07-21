@@ -1103,8 +1103,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: 12px;
-  padding-bottom: 12px;
   padding-right: 8px;
   padding-left: 8px;
   /* Universal separator for all messages. Disabled for now. */
@@ -1115,8 +1113,19 @@ button {
   content-visibility: auto;
   contain-intrinsic-size: auto 100px;
 
-  :has(.chat-block-unformatted) {
+  .block-container > [class*="chat-block-"] {
+    margin-top: 16px;
+  }
+
+  .chat-block-unformatted {
+    background-color: color-mix(in oklch, var(--primary), transparent 88%);
+    margin-left: -8px;
+    margin-right: -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+
     .editable-text {
+      justify-content: end;
       color: var(--primary);
       opacity: 1;
     }
@@ -1125,22 +1134,12 @@ button {
   :has(.chat-block-continue) + & {
     border-top: none;
   }
-
-  &:first-child {
-    padding-top: 0;
-    border-top: none;
-  }
-
-  &:last-child {
-    padding-bottom: 12px;
-    border-bottom: none;
-    background: red;
-  }
 }
 
 .chat-messages-sentinel {
   height: 1px;
   width: 100%;
+  margin-top: 12px;
 }
 
 .chat-message-actions {
@@ -1540,9 +1539,10 @@ button {
 .chat-input-container {
   display: flex;
   flex-direction: column;
-  padding: 0;
-  margin-top: 8px;
-  border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
+  margin-left: 8px;
+  margin-right: 8px;
+  outline: 1px dashed color-mix(in oklch, var(--text), transparent 66.25%);
+  border-radius: 8px;
   background: var(--bg);
 }
 
@@ -1551,7 +1551,6 @@ button {
 .chat-input-actions {
   display: flex;
   align-items: center;
-  border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
 }
 
 .chat-input-spacer {
@@ -1562,18 +1561,18 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   aspect-ratio: 1 / 1;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 0;
   opacity: 0.65;
   flex-shrink: 0;
   transition: opacity 120ms, background-color 120ms;
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
   }
 
   &:hover {
@@ -1589,12 +1588,10 @@ button {
 }
 
 .chat-input-btn-send {
-  background-color: var(--primary);
-  color: var(--bg);
+  color: var(--primary);
   opacity: 1;
 
   &:hover {
-    background-color: var(--primary);
     filter: brightness(1.1);
   }
 }
@@ -1610,7 +1607,6 @@ button {
   width: auto;
   height: auto;
   aspect-ratio: auto;
-  padding: 0 20px;
   border-radius: 0;
 }
 
@@ -1625,7 +1621,7 @@ button {
   font-family: var(--font-sans);
   font-size: var(--text-md);
   line-height: 1.5;
-  resize: vertical;
+  resize: none;
   outline: none;
   flex: 1;
   min-width: 0;
@@ -2088,7 +2084,7 @@ button {
   color: var(--text);
   font-family: var(--font-sans);
   font-size: var(--text-md);
-  line-height: 1.6;
+  line-height: 1.5;
   resize: vertical;
 }
 
