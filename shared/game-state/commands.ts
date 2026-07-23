@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Block } from '../blocks';
+import type { GameStateContext } from '../types';
 
 /**
  * A command spec defines an MCP tool that, when invoked by the agent, produces
@@ -22,6 +23,14 @@ export type CommandSpec<S extends z.ZodTypeAny = z.ZodTypeAny> = {
      * change. Authors must not access external state here.
      */
     toBlock: (args: z.infer<S>) => Block;
+    /**
+     * Optional semantic validation against the current game state, run by
+     * execCommand after schema parsing and before the Block is built. Return
+     * an error string to reject the call — nothing is persisted and the agent
+     * receives the string as tool-error feedback. Return null to accept.
+     * Pure — read ctx, never mutate it.
+     */
+    validate?: (args: z.infer<S>, ctx: GameStateContext) => string | null;
     /**
      * MCP tool annotations forwarded to the model. `readOnlyHint: false` is
      * implicit (commands mutate); we explicitly mark `destructiveHint` for
@@ -186,6 +195,33 @@ export const COMMANDS = {
             qty: z.number().int().positive().default(1),
         }),
         toBlock: (args) => ({ type: 'takeItem', name: args.name, qty: args.qty }),
+    }),
+
+    use_item: defineCommand({
+        name: 'use_item',
+        description: 'Consume item(s) from the party inventory, used on a target actor. Call this to resolve a tryUse(...) attempt from the user. Errors without side effects if the item is missing, the quantity falls short, or the target is not in the active scene — on error, narrate the failure instead. On success only the consumption is recorded; apply what the item actually does via follow-up tools (heal, damage, set_flag, ...) and narrate the outcome.',
+        schema: z.object({
+            item: z.string().describe('Inventory item name, exactly as listed in the inventory.'),
+            target: z.string().describe('Id of the actor the item is used on.'),
+            qty: z.number().int().positive().default(1).describe('How many to consume. Defaults to 1.'),
+        }),
+        toBlock: (args) => ({ type: 'useItem', item: args.item, target: args.target, qty: args.qty }),
+        validate: (args, ctx) => {
+            const have = ctx.inventory[args.item] ?? 0;
+            if (have <= 0) {
+                const names = Object.entries(ctx.inventory)
+                    .filter(([, qty]) => qty > 0)
+                    .map(([name]) => name);
+                return `no "${args.item}" in inventory. Current inventory: ${names.length ? names.join(', ') : '(empty)'}`;
+            }
+            if (have < args.qty) {
+                return `not enough "${args.item}": have ${have}, tried to use ${args.qty}`;
+            }
+            if (!ctx.scene.actors.active[args.target]) {
+                return `target actor "${args.target}" is not in the active scene`;
+            }
+            return null;
+        },
     }),
 
     set_flag: defineCommand({

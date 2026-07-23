@@ -1272,6 +1272,10 @@ button {
   font-size: 17px;
   line-height: 1.68;
   opacity: 0.92;
+  /* Book-style justification. Auto hyphenation is load-bearing here: without
+   * it, justify stretches word gaps into rivers on narrow columns. */
+  text-align: justify;
+  hyphens: auto;
 }
 
 /* ── Image Block ── */
@@ -1532,24 +1536,20 @@ button {
 .block-container > .chat-block-unformatted {
   text-align: left;
 }
-/* Player's typed action — a primary-tinted bar bleeding across the message
- * column's 8px side padding (hence the negative inline margins + widened
- * width: a sized flex child is placed by margin-left, so a negative
- * margin-right alone can't reach the right edge). */
+/* Player's typed action — the same reading voice as narration (serif, same
+ * size/leading) with only the primary color as the tell. Shrink-wrapped,
+ * right-aligned, and capped to a fraction of the column so the player's
+ * beats sit apart from the left-flowing story. */
+.chat-block-unformatted {
+  justify-content: flex-end;
+}
+
 .chat-block-unformatted-content {
-  font-size: var(--text-md);
-  line-height: 1.5;
+  max-width: 70%;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.68;
   color: var(--primary);
-  background: color-mix(in oklch, var(--primary), transparent 88%);
-  border-top: 1px solid color-mix(in oklch, var(--primary), transparent 78%);
-  border-bottom: 1px solid color-mix(in oklch, var(--primary), transparent 78%);
-  border-radius: 0;
-  padding-top: 6px;
-  padding-bottom: 6px;
-  padding-left: 8px;
-  padding-right: 8px;
-  margin-inline: -8px;
-  width: calc(100% + 16px);
   white-space: pre-wrap;
 }
 
@@ -1562,7 +1562,7 @@ button {
   max-width: calc(44rem - 16px);
   width: calc(100% - 16px);
   margin-inline: auto;
-  outline: 1px dashed color-mix(in oklch, var(--text), transparent 66.25%);
+  outline: 1px none color-mix(in oklch, var(--text), transparent 66.25%);
   border-radius: 8px;
   background: var(--bg);
 }
@@ -2546,6 +2546,47 @@ menu#main-nav {
   line-height: 1;
   border-radius: 6px;
   background: color-mix(in oklch, var(--text), transparent 92%);
+  /* Drag source (itemDrag.ts): grabbable, and pointer-based dragging needs
+   * the browser to not claim the gesture for scrolling/text selection. */
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+/* ── Item drag-and-drop (itemDrag.ts) ── */
+
+/* The stay-behind original while its clone is being dragged. */
+.chat-inventory-slot.drag-source-ghost {
+  opacity: 0.35;
+}
+
+/* Fixed-size container at the source's original bounds, holding the clone;
+ * moved via inline transform. pointer-events: none keeps it invisible to
+ * elementFromPoint hit-testing. */
+.item-drag-overlay {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 10px rgb(0 0 0 / 0.35));
+}
+
+body.item-dragging,
+body.item-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+/* Surface every valid target while a drag is live... */
+body.item-dragging [data-drop-actor] {
+  outline: 2px dashed color-mix(in oklch, var(--primary), transparent 40%);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ...and light up the one under the pointer. */
+body.item-dragging [data-drop-actor].drop-target-hover {
+  outline-style: solid;
+  background: color-mix(in oklch, var(--primary), transparent 85%);
 }
 
 .chat-inventory-slot-qty {

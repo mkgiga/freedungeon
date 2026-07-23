@@ -60,6 +60,9 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         noOpContinue: () => {},
         choicePrompt: (_options: string[]) => {},
         choice: (_text: string) => {},
+        // A use *attempt* (drag-and-drop user event) — no state change; the
+        // agent's answering useItem block carries the actual consumption.
+        tryUse: (_opts: { what: string; on: string }) => {},
 
         // ── Inventory (party-wide) ────────────────────────────────────────
         giveItem: (name: string, qty: number = 1) => {
@@ -71,6 +74,16 @@ export function createScope({ ctx, arr }: ScopeBinding) {
             const taken = Math.min(current, qty);
             ctx.inventory[name] = current - taken;
             if (taken > 0) arr.push(`Lost ${taken}x ${name}`);
+        },
+        // Replay must be total, so like takeItem this silently caps at the
+        // available quantity — the hard validation (missing item, short qty,
+        // absent target) lives in the use_item command's `validate`, which
+        // rejects at exec time before a block ever persists.
+        useItem: (item: string, target: string, qty: number = 1) => {
+            const current = ctx.inventory[item] ?? 0;
+            const used = Math.min(current, qty);
+            ctx.inventory[item] = current - used;
+            if (used > 0) arr.push(`Used ${used}x ${item} on ${target}`);
         },
 
         // ── Scene management ──────────────────────────────────────────────
@@ -170,6 +183,9 @@ export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string
         case 'takeItem':
             scope.takeItem(block.name, block.qty);
             return;
+        case 'useItem':
+            scope.useItem(block.item, block.target, block.qty);
+            return;
         case 'setFlag':
             scope.setFlag(block.key, block.value);
             return;
@@ -179,6 +195,6 @@ export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string
         case 'setLocation':
             scope.setLocation(block.description);
             return;
-        // text / pause / image / webview / unformatted / noOpContinue: display-only.
+        // text / pause / image / webview / unformatted / noOpContinue / tryUse: display-only.
     }
 }

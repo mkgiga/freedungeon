@@ -18,6 +18,8 @@ import { DamageBlock } from './blocks/DamageBlock'
 import { HealBlock } from './blocks/HealBlock'
 import { GiveItemBlock } from './blocks/GiveItemBlock'
 import { TakeItemBlock } from './blocks/TakeItemBlock'
+import { UseItemBlock } from './blocks/UseItemBlock'
+import { TryUseBlock } from './blocks/TryUseBlock'
 import { SetLocationBlock } from './blocks/SetLocationBlock'
 import { ChoicePromptBlock } from './blocks/ChoicePromptBlock'
 import { ChoiceBlock } from './blocks/ChoiceBlock'
@@ -209,6 +211,18 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                             <Match when={block.type === 'takeItem'}>
                                 <TakeItemBlock
                                     block={block as Extract<Block, { type: 'takeItem' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'useItem'}>
+                                <UseItemBlock
+                                    block={block as Extract<Block, { type: 'useItem' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'tryUse'}>
+                                <TryUseBlock
+                                    block={block as Extract<Block, { type: 'tryUse' }>}
                                     onUpdate={(b) => updateBlock(i(), b)}
                                 />
                             </Match>

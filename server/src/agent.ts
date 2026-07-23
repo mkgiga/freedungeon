@@ -14,7 +14,7 @@ import { runTurn, setCurrentTurnResult } from './game-state';
 import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
 import type { ModelMessage } from 'ai';
-import type { LLMConfig } from '@shared/types';
+import type { GameStateContext, LLMConfig } from '@shared/types';
 // In-process OpenAI-v1 loop. Note: ai-agent.ts imports execCommand/runQuery from
 // here, forming a cycle — benign because both sides only call across it inside
 // function bodies (hoisted `export function` bindings resolve via ESM live
@@ -183,6 +183,17 @@ export function execCommand(
 
     if (state.currentChat.id !== chatId) {
         return { error: `chat_mismatch: agent is acting on ${chatId} but server's current chat is ${state.currentChat.id}` };
+    }
+
+    // Semantic validation against the live game state (e.g. use_item checking
+    // inventory). Rejects before any Block is built or persisted. Same
+    // any-cast rationale as toBlock below.
+    if (spec.validate) {
+        const invalid = (spec.validate as (a: unknown, c: GameStateContext) => string | null)(
+            parsed.data,
+            state.currentChat.gameState,
+        );
+        if (invalid) return { error: `invalid_action: ${invalid}` };
     }
 
     // Zod has already validated the args against this spec's schema; the

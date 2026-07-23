@@ -55,10 +55,19 @@ export function SpeechBlock(props: {
     const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : props.block.dialogue.length)
     const isScrolling = () => props.isActive && playback.isActiveScrolling()
 
+    // Item drag-and-drop target: the portrait accepts drops only while its
+    // actor is actually in the active scene (use_item rejects absent targets).
+    const dropActorId = createMemo(() => {
+        const id = props.block.actorId
+        if (!id) return undefined
+        return playback.effectiveGameState().scene.actors.active[id] ? id : undefined
+    })
+
     return (
         <div class="chat-block chat-block-speech" classList={{ 'chat-block-active': props.isActive }}>
             <button
                 class="chat-block-avatar"
+                data-drop-actor={dropActorId()}
                 onClick={openPicker}
                 disabled={!actor() || props.isActive}
                 title={actor() && !props.isActive ? 'Change expression' : undefined}

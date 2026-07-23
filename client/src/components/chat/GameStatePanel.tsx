@@ -1,11 +1,14 @@
 import { createEffect, createMemo, createSignal, For, onMount, Show, untrack } from 'solid-js'
 import autoAnimate from '@formkit/auto-animate'
 import { state } from '../../state'
+import { trpc } from '../../trpc'
 import { useModal } from '../Modal'
 import { GameStateActorStatus } from '../GameStateActorStatus'
 import { PlayerCharacterPicker } from './AssetPicker'
 import { pickEmojiForItem } from './inventory/itemEmoji'
 import { usePlayback } from './playback'
+import { serializeBlocks } from './blocks'
+import { startItemDrag } from './itemDrag'
 import { MdFillPerson } from 'solid-icons/md'
 
 /**
@@ -123,6 +126,16 @@ export function GameStatePanel() {
         if (actorsRef) autoAnimate(actorsRef)
     })
 
+    // Dropping an item on an actor submits a mechanical use *attempt* as a
+    // user turn; the agent adjudicates it via the use_item tool.
+    const sendTryUse = (item: string, actorId: string) => {
+        if (state.isGenerating) return
+        playback.skipAll()
+        trpc.chat.prompt.mutate({
+            message: serializeBlocks([{ type: 'tryUse', what: `item:${item}`, on: `actor:${actorId}` }]),
+        })
+    }
+
     return (
         <div class="chat-status-panel">
             <div class="chat-status-actors" ref={actorsRef}>
@@ -135,7 +148,7 @@ export function GameStatePanel() {
                     }
                 >
                     {(p) => (
-                        <div class="chat-status-card is-player">
+                        <div class="chat-status-card is-player" data-drop-actor={p().customId}>
                             <GameStateActorStatus
                                 customId={p().customId}
                                 hp={hpOf(p().customId) ?? 100}
@@ -148,7 +161,7 @@ export function GameStatePanel() {
 
                 <For each={npcIds()}>
                     {(customId) => (
-                        <div class="chat-status-card">
+                        <div class="chat-status-card" data-drop-actor={customId}>
                             <GameStateActorStatus
                                 customId={customId}
                                 hp={hpOf(customId) ?? 0}
@@ -163,7 +176,14 @@ export function GameStatePanel() {
             <div class="chat-status-inventory">
                 <For each={items()} fallback={<span class="chat-status-inventory-empty">Inventory empty</span>}>
                     {([name, qty]) => (
-                        <div class="chat-inventory-slot" title={`${name}${qty > 1 ? ` ×${qty}` : ''}`}>
+                        <div
+                            class="chat-inventory-slot"
+                            title={`${name}${qty > 1 ? ` ×${qty}` : ''}`}
+                            onPointerDown={(e) => {
+                                if (state.isGenerating) return
+                                startItemDrag(e, e.currentTarget, (actorId) => sendTryUse(name, actorId))
+                            }}
+                        >
                             <span class="chat-inventory-slot-emoji">{pickEmojiForItem(name)}</span>
                             <Show when={qty > 1}>
                                 <span class="chat-inventory-slot-qty">{qty}</span>

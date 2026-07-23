@@ -28,6 +28,15 @@ export type ChoicePromptBlock = { type: 'choicePrompt'; options: string[] }
 // A user's pick from a ChoicePromptBlock — distinct from a free-typed
 // `unformatted` action so renderer and agent can tell a menu pick apart.
 export type ChoiceBlock = { type: 'choice'; text: string }
+// A user's mechanical attempt to use something on something, produced by
+// drag-and-drop in the HUD (not typed text). `what`/`on` are prefixed refs
+// ("item:Potion", "actor:vega") so the format can later cover other source
+// and target kinds. An attempt, not an outcome — the agent adjudicates it
+// via the `use_item` tool.
+export type TryUseBlock = { type: 'tryUse'; what: string; on: string }
+// The agent's adjudicated outcome of a use attempt: consumes qty of the item
+// from the party inventory. Item effects are separate follow-up blocks.
+export type UseItemBlock = { type: 'useItem'; item: string; target: string; qty: number }
 
 export type Block =
     // Rendering commands
@@ -46,12 +55,15 @@ export type Block =
     | HealBlock
     | GiveItemBlock
     | TakeItemBlock
+    | UseItemBlock
     | SetFlagBlock
     | ClearFlagBlock
     | SetLocationBlock
     // Choice flow
     | ChoicePromptBlock
     | ChoiceBlock
+    // Drag-and-drop use attempt
+    | TryUseBlock
 
 // ── Blocking semantics (visual-novel-style playback) ──
 
@@ -152,6 +164,9 @@ export function parseBlocks(content: string): Block[] {
         takeItem: (name: string, qty: number) => {
             blocks.push({ type: 'takeItem', name, qty })
         },
+        useItem: (item: string, target: string, qty: number = 1) => {
+            blocks.push({ type: 'useItem', item, target, qty })
+        },
         setFlag: (key: string, value: string | number | boolean) => {
             blocks.push({ type: 'setFlag', key, value })
         },
@@ -166,6 +181,9 @@ export function parseBlocks(content: string): Block[] {
         },
         choice: (text: string) => {
             blocks.push({ type: 'choice', text })
+        },
+        tryUse: (opts: { what: string; on: string }) => {
+            blocks.push({ type: 'tryUse', what: opts.what, on: opts.on })
         },
         // No-op parity with createScope (shared/game-state/scope.ts) so legacy
         // content calling attack() doesn't abort the parse mid-message.
@@ -266,6 +284,8 @@ export function serializeBlocks(blocks: Block[]): string {
                     return `giveItem(${str(b.name)}, ${b.qty});`
                 case 'takeItem':
                     return `takeItem(${str(b.name)}, ${b.qty});`
+                case 'useItem':
+                    return `useItem(${str(b.item)}, ${str(b.target)}, ${b.qty});`
                 case 'setFlag': {
                     const v = typeof b.value === 'string' ? str(b.value) : String(b.value)
                     return `setFlag(${str(b.key)}, ${v});`
@@ -278,6 +298,8 @@ export function serializeBlocks(blocks: Block[]): string {
                     return `choicePrompt([${b.options.map(str).join(', ')}]);`
                 case 'choice':
                     return `choice(${tpl(b.text)});`
+                case 'tryUse':
+                    return `tryUse({ what: ${str(b.what)}, on: ${str(b.on)} });`
             }
         })
         .filter(Boolean)
