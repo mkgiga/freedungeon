@@ -88,15 +88,15 @@ The backend uses Bun and exposes a tRPC API.
 
 ### State Management
 
-The backend leverages solidjs' reactivity library to manage a single global state object using createStore, and emits updates to the frontend via socket.io events. The client contains a 100% identical copy of the global state object which is used to render the UI. The client never modifies its state directly, but instead emits tRPC calls to the backend, which then updates the global state and emits changes back to the frontend. This architecture allows for a very simple mental model of state management, and ensures that the frontend is always in sync with the backend.
+The backend leverages solid-js' reactivity library to manage a single global server-side state object using createStore, and emits updates to the frontend via socket.io events. The client contains a 100% identical copy of the global state object which is used to render the UI. The client never modifies state directly, but instead emits tRPC requests to the backend, which then updates the global state; the `setState`/`deleteState` wrappers emit the corresponding socket patch as part of the same call. This architecture allows for a very simple mental model of state management that only syncs one-way (server to client, never the opposite), and ensures that the frontend is always in sync with the backend.
 
-All modifications to application state in the backend must be done via the `setState` or `deleteState` functions imported from `server.ts`, which ensure that the change is emitted to the frontend.
+All modifications to application state in the backend must be done via the `setState` or `deleteState` functions exported by `server.ts` - they ensure that mutations to state are caught and emitted.
 
 For application state types, see `shared/types.ts`.
 
 ### Data persistence
 
-Data persistence is handled using sqlite with kysely as a query builder with a Bun adapter.
+Data persistence is handled using sqlite with kysely as a query builder with a Bun adapter. The very same `setState`/`deleteState` interception point described in [State Management](#state-management) that emits socket patches to the client also calls `persistPath`, which dehydrates the mutated entity to an SQL upsert (entity present in state) or delete (entity absent). Both the frontend and the database are updated through this single choke point so that we don't have to concern ourselves with updating the db inside individual endpoints' logic, and whenever we add a new row/table to the database - we update/add handlers as necessary. Non-persistable roots (`currentChat.gameState`, `isGenerating`, `notifications`, ...) simply fall through.
 
 For data models/types, see `server/src/db.ts`.
 
@@ -106,8 +106,8 @@ For data models/types, see `server/src/db.ts`.
 
 ### Frontend Styling
 
-The frontend uses Tailwind CSS for styling.
-
-Text is rendered using dedicated Typography components inside `client\src\components\typography`.
+- The frontend uses Tailwind CSS for styling.
+- **Important**: Outer Flex menus/Flow containers/Item lists should never, ever provide spacing between its edge and its direct children. This is so that buttons can take up the full height and sit flush against the container's edges. No spacing should exist between buttons inside the flow containers - In contexts where square buttons exist mixed with other content (such as labels) where spacing is desirable between the labels and the buttons - you can group the buttons into a sub-container so that they don't get affected by any `gap` rule.
+- Text is generally rendered using the dedicated Typography components within `client/src/components/typography/*`.
 
 (todo more documentation)
