@@ -4,7 +4,7 @@ import { Text } from '../../typography/Text'
 import { Em } from '../../typography/Em'
 import { pickEmojiForItem } from './itemEmoji'
 
-const CARD_WIDTH = 240
+const CARD_WIDTH = 320
 const GAP = 8
 
 /**
@@ -51,9 +51,11 @@ export function ItemCard(props: {
                     </Show>
                 </div>
             </div>
-            <Show when={props.item.description}>
-                {(description) => (
-                    <Text size="sm" class="item-card-description">{description()}</Text>
+            {/* The visual description is the fuller read; `description` stands in
+              * for items defined before that field existed. */}
+            <Show when={props.item.visualDescription ?? props.item.description}>
+                {(body) => (
+                    <Text size="sm" class="item-card-description whitespace-pre-wrap">{body()}</Text>
                 )}
             </Show>
         </div>

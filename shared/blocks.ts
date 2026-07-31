@@ -32,6 +32,8 @@ export type DefineItemBlock = {
     key: string
     label: string
     description?: string
+    /** Long-form appearance used as the icon prompt; never rendered. */
+    visualDescription?: string
     icon?: string
 }
 export type SetFlagBlock = { type: 'setFlag'; key: string; value: import('./types').FlagValue }
@@ -173,12 +175,13 @@ export function parseBlocks(content: string): Block[] {
         heal: (actorId: string, amount: number) => {
             blocks.push({ type: 'heal', actorId, amount })
         },
-        defineItem: (opts: { key: string; label: string; description?: string; icon?: string }) => {
+        defineItem: (opts: { key: string; label: string; description?: string; visualDescription?: string; icon?: string }) => {
             blocks.push({
                 type: 'defineItem',
                 key: opts.key,
                 label: opts.label,
                 ...(opts.description ? { description: opts.description } : {}),
+                ...(opts.visualDescription ? { visualDescription: opts.visualDescription } : {}),
                 ...(opts.icon ? { icon: opts.icon } : {}),
             })
         },
@@ -307,6 +310,11 @@ export function serializeBlocks(blocks: Block[]): string {
                 case 'defineItem': {
                     const parts = [`key: ${str(b.key)}`, `label: ${str(b.label)}`]
                     if (b.description) parts.push(`description: ${str(b.description)}`)
+                    // Template literal, not a quoted string: a paragraph of
+                    // appearance notes routinely contains newlines, which a
+                    // double-quoted JS string can't hold — the block would fail
+                    // to re-parse on replay.
+                    if (b.visualDescription) parts.push(`visualDescription: ${tpl(b.visualDescription)}`)
                     if (b.icon) parts.push(`icon: ${str(b.icon)}`)
                     return `defineItem({ ${parts.join(', ')} });`
                 }

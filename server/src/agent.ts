@@ -213,7 +213,11 @@ export async function execCommand(
         if (existing) {
             block.icon = existing;
         } else if (itemIconsEnabled()) {
-            block.icon = await generateItemIcon(block.label, block.description ?? block.label);
+            // The visual description is written for the image model; `description`
+            // is the player-facing blurb and only stands in for items defined
+            // before the field existed.
+            const prompt = block.visualDescription ?? block.description ?? block.label;
+            block.icon = await generateItemIcon(block.label, prompt);
         }
     }
 

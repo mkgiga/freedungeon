@@ -48,6 +48,13 @@ export type ItemDefinition = {
     key: string;
     label: string;
     description?: string;
+    /**
+     * Long-form appearance, written for the image model rather than the player:
+     * it is the icon prompt, and nothing renders it. Optional because chats
+     * predating the field replay without one — icon generation falls back to
+     * `description` then.
+     */
+    visualDescription?: string;
     /** Generated icon URL under /uploads. Absent when image gen is off or failed. */
     icon?: string;
 }

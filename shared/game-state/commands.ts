@@ -186,13 +186,15 @@ export const COMMANDS = {
         schema: z.object({
             key: z.string().regex(/^[a-z][a-z0-9_]*$/, 'Use snake_case (lowercase + underscores).').describe('Stable identifier, e.g. "rusted_key". Referenced by give_item.'),
             label: z.string().describe('Player-facing display name, e.g. "Rusted Key".'),
-            description: z.string().describe('What the item is and looks like. Shown to the player, and used as the image prompt when icon generation is on.'),
+            description: z.string().describe('Short blurb shown to the player on the item card — a sentence or two, in the voice of the story.'),
+            visualDescription: z.string().describe('In-depth description of how the item looks, written for an image model and never shown to the player. Be exhaustive and concrete in plain prose: form and proportions, material and finish, colour, wear and damage, ornament and markings, and anything held, attached or leaking. Describe only the object itself against no background, and do not mention the story, its owner, or how it is used.'),
         }),
         toBlock: (args) => ({
             type: 'defineItem',
             key: args.key,
             label: args.label,
             description: args.description,
+            visualDescription: args.visualDescription,
         }),
     }),
 

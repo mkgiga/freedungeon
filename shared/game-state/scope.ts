@@ -68,13 +68,14 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         // ── Item definitions ──────────────────────────────────────────────
         // Redefining a key overwrites, so an agent can revise a description or
         // attach an icon to an item it defined earlier in the chat.
-        defineItem: (opts: { key: string; label: string; description?: string; icon?: string }) => {
+        defineItem: (opts: { key: string; label: string; description?: string; visualDescription?: string; icon?: string }) => {
             ctx.itemDefs ??= {};
             const existed = ctx.itemDefs[opts.key] !== undefined;
             ctx.itemDefs[opts.key] = {
                 key: opts.key,
                 label: opts.label,
                 ...(opts.description ? { description: opts.description } : {}),
+                ...(opts.visualDescription ? { visualDescription: opts.visualDescription } : {}),
                 ...(opts.icon ? { icon: opts.icon } : {}),
             };
             arr.push(`${existed ? 'Redefined' : 'Defined'} item ${opts.key} (${opts.label})`);

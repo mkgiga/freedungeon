@@ -2772,23 +2772,26 @@ menu#main-nav {
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.3);
 }
 
+/* Header mirrors the actor presentation dialog: a large icon with the label
+   beside it, top-aligned so a label that wraps to several lines still starts
+   level with the icon's top edge. */
 .item-card-head {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .item-card-icon {
-  width: 44px;
-  height: 44px;
+  width: 72px;
+  height: 72px;
   flex: none;
   object-fit: cover;
   border-radius: 6px;
 }
 
 .item-card-emoji {
-  width: 44px;
-  height: 44px;
+  width: 72px;
+  height: 72px;
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -2808,6 +2811,13 @@ menu#main-nav {
 .item-card-description {
   opacity: 0.75;
   word-break: break-word;
+  /* Visual descriptions are written to be exhaustive, so bound the card rather
+     than let it run off the top of the screen — it can't scroll (the card is
+     pointer-events: none by design). */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 14;
+  overflow: hidden;
 }
 
 /* ── Activity overlay (state.activities) ── */
