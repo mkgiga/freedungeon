@@ -15,12 +15,57 @@ export type AppState = {
     currentChat: CurrentChatState;
     /** Whether the server is currently generating an LLM response. */
     isGenerating: boolean;
+    /**
+     * In-flight server work the UI can render context-specific affordances for.
+     * Purely transient: never persisted (`persistPath` ignores this root), and
+     * rebuilt from nothing on restart — a server crash mid-activity leaves no
+     * residue because the map starts empty.
+     *
+     * Keyed by a generated id rather than by `kind` so two activities of the
+     * same kind can run concurrently (parallel tool calls, sub-agent
+     * workflows) without clobbering each other. Consumers filter by `kind`.
+     */
+    activities: Record<string, Activity>;
     notifications: AppNotification[];
     userPreferences: UserPreferences;
 }
 
+/**
+ * One unit of in-flight server work. `kind` selects which UI renders it;
+ * `data` carries whatever that renderer needs (progress counters, a preview
+ * image, a label). Deliberately loose — an activity's shape is a contract
+ * between the server code that emits it and the component that draws it.
+ */
+export type Activity = {
+    id: string;
+    kind: string;
+    /** ms epoch, so the UI can show elapsed time or delay a spinner. */
+    startedAt: number;
+    data: Record<string, unknown>;
+}
+
+export type ItemDefinition = {
+    key: string;
+    label: string;
+    description?: string;
+    /** Generated icon URL under /uploads. Absent when image gen is off or failed. */
+    icon?: string;
+}
+
 export type GameStateContext = {
+    /**
+     * Quantities keyed by item definition `key`. Chats written before item
+     * definitions existed are keyed by free-text display name instead; both
+     * resolve through the same lookup, and an entry with no matching
+     * definition falls back to rendering its key as the label.
+     */
     inventory: Record<string, number>;
+    /**
+     * Item definitions keyed by `key`, built by replaying defineItem blocks.
+     * Like the rest of ctx this is never persisted directly — it is
+     * reconstructed from message history.
+     */
+    itemDefs: Record<string, ItemDefinition>;
     scene: {
         actors: {
             /** Actors present in the current scene — rendered in the prompt string. */

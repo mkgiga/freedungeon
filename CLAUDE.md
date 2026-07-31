@@ -60,6 +60,10 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Code as the source of truth
+
+Do not rely on Explore Agents to find and summarize parts of the code. Explore Agents tend to drop important context during the summarization process. Instead, prefer exploring repositories on your own; The cost of an inaccurate architectural assumption outweighs any tokens that (would have) been saved from use of agentic exploration tools.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

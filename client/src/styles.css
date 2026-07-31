@@ -1520,6 +1520,15 @@ button {
   padding: 10px 0;
 }
 
+.inventory-icon-img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
 .inventory-col-name {
   padding: 10px 12px;
   word-break: break-word;
@@ -2551,6 +2560,144 @@ menu#main-nav {
   cursor: grab;
   user-select: none;
   touch-action: none;
+}
+
+/* ── Inventory item detail card ── */
+
+/* Fixed against the slot's viewport rect (positioned inline by ItemCard) so the
+ * HUD's overflow can't clip it. Inert to pointers: it must not intercept the
+ * drag gesture, nor swallow the outside-press that dismisses it. */
+.item-card {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--bg), transparent 4%);
+  border: 1px solid color-mix(in oklch, var(--text), transparent 82%);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.3);
+}
+
+.item-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-card-icon {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.item-card-emoji {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xl);
+  line-height: 1;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--text), transparent 92%);
+}
+
+.item-card-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.item-card-description {
+  opacity: 0.75;
+  word-break: break-word;
+}
+
+/* ── Activity overlay (state.activities) ── */
+
+.activity-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(320px, calc(100% - 16px));
+  pointer-events: none;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--bg), transparent 8%);
+  border: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+}
+
+.activity-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.activity-spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklch, var(--text), transparent 75%);
+  border-top-color: var(--primary);
+  animation: activity-spin 0.7s linear infinite;
+}
+
+@keyframes activity-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-spinner { animation-duration: 2.4s; }
+}
+
+.activity-progress {
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in oklch, var(--text), transparent 88%);
+  overflow: hidden;
+}
+
+.activity-progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 120ms linear;
+}
+
+.activity-preview {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+/* Generated item icon, filling the slot in place of the emoji fallback. */
+.chat-inventory-slot-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+  pointer-events: none;
 }
 
 /* ── Item drag-and-drop (itemDrag.ts) ── */

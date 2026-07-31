@@ -175,6 +175,28 @@ scopeBuilders.set('Player', () => {
     }
 })
 
+/**
+ * The item description an icon is being generated for. Set immediately before
+ * expanding GENERATE_ITEM_ICON_PROMPT and cleared after. A module-level value
+ * is safe because macro expansion is fully synchronous — no other expansion can
+ * interleave between the set and the read.
+ */
+let currentItemDescription = ''
+
+export function withItemDescription<T>(description: string, fn: () => T): T {
+    const prev = currentItemDescription
+    currentItemDescription = description
+    try {
+        return fn()
+    } finally {
+        currentItemDescription = prev
+    }
+}
+
+// Referenced without parens by GENERATE_ITEM_ICON_PROMPT.macro, so it must be
+// a scope rather than a registry fn.
+scopeBuilders.set('mcp_item_description', () => currentItemDescription)
+
 // ── File-based macros ────────────────────────────────────────────────────────
 
 /** Loads .macro files from the prompts dir into the registry as template entries. */

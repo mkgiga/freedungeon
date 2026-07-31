@@ -572,7 +572,7 @@ export async function loadChatById(chatId: string) {
         messages: messagesRecord,
         // Placeholder — CurrentChat.loadChat recomputes this from messages via
         // runTurn immediately after setState('currentChat', loadedChat).
-        gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+        gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
         agentRehydration,
         pendingSystemNotice: '',
         createdAt: hydratedChat.createdAt,
@@ -646,12 +646,14 @@ export async function loadStateFromDb(): Promise<AppState> {
 
     return {
         assets: { actors, notes, llmConfigs, chats },
+        // Always empty on boot: activities are runtime-only and never persisted.
+        activities: {},
         currentChat: {
             id: null,
             title: '',
             assets: { actors: [], notes: {} },
             messages: {},
-            gameState: { inventory: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+            gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
             agentRehydration: null,
             pendingSystemNotice: '',
             createdAt: null,

@@ -20,6 +20,10 @@ export function startItemDrag(
     down: PointerEvent,
     sourceEl: HTMLElement,
     onDrop: (actorId: string) => void,
+    /** Fired once the pointer passes THRESHOLD and a drag genuinely begins —
+     *  not on every pointerdown. Lets callers distinguish a tap from a drag
+     *  (e.g. to dismiss a tapped-open item card). */
+    onDragStart?: () => void,
 ) {
     if (!down.isPrimary || down.button !== 0) return
 
@@ -75,6 +79,7 @@ export function startItemDrag(
         if (!overlay) {
             if (Math.hypot(e.clientX - startX, e.clientY - startY) < THRESHOLD) return
             beginDrag()
+            onDragStart?.()
         }
         moveOverlay(e)
         updateHover(e)

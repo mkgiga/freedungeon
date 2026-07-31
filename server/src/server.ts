@@ -11,7 +11,6 @@ import './macro.ts';
 import { loadPreferences } from './preferences';
 import { Server, Socket } from "socket.io";
 import { createServer } from 'node:http';
-import { createEffect } from 'solid-js';
 import { trpcServer } from '@hono/trpc-server';
 import { appRouter } from './v2/router';
 import { uploadsRouter } from './v2/uploads';
@@ -55,6 +54,7 @@ export const [state, _setState] = createStore({
         updatedAt: null,
     } as CurrentChatState,
     isGenerating: false,
+    activities: {},
     notifications: [],
     userPreferences: {
         theme: "system",

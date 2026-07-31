@@ -10,6 +10,7 @@ import { state, setState } from './server';
 import { db } from './db';
 import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { featureEnabled } from '@shared/features';
+import { generateItemIcon, itemIconsEnabled } from './item-icons';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
@@ -114,7 +115,7 @@ agentRpcRouter.post('/', async (c) => {
         return c.json({ error: 'invalid_json' }, 400);
     }
 
-    if (body.kind === 'exec') return c.json(handleExec(body));
+    if (body.kind === 'exec') return c.json(await handleExec(body));
     if (body.kind === 'query') return c.json(handleQuery(body));
     if (body.kind === 'announce') return c.json(handleAnnounce(body));
     if (body.kind === 'sdk_uuid') return c.json(handleSdkUuid(body));
@@ -167,7 +168,7 @@ function handleSdkUuid(req: SdkUuidRequest) {
  * RPC handler (Claude subprocess) and the in-process AI SDK loop — both routes
  * call this so they cannot diverge on validation, state mutation, or persistence.
  */
-export function execCommand(
+export async function execCommand(
     chatId: string,
     command: CommandName,
     args: Record<string, unknown>,
@@ -200,6 +201,22 @@ export function execCommand(
     // any-cast is needed because TS can't narrow toBlock's union signature
     // back to its origin spec when COMMANDS is iterated as a union map.
     const block = (spec.toBlock as (a: unknown) => ReturnType<typeof spec.toBlock>)(parsed.data);
+
+    // Item icons are generated here rather than in toBlock (which must stay
+    // pure and synchronous) — the resulting URL is baked into the block before
+    // it is applied and persisted, so replay never re-generates. The turn
+    // deliberately blocks on the job so the agent's next step sees a finished
+    // item. The per-chat cache is the game state itself: a key that already
+    // carries an icon reuses it instead of paying for another generation.
+    if (block.type === 'defineItem') {
+        const existing = state.currentChat.gameState.itemDefs?.[block.key]?.icon;
+        if (existing) {
+            block.icon = existing;
+        } else if (itemIconsEnabled()) {
+            block.icon = await generateItemIcon(block.label, block.description ?? block.label);
+        }
+    }
+
     const effects: string[] = [];
     const ctxBefore = JSON.parse(JSON.stringify(state.currentChat.gameState));
     applyBlockToCtx(state.currentChat.gameState, block, effects);

@@ -6,6 +6,7 @@ const DEFAULT_ACTOR_HP = 100;
 export function createInitialContext(): GameStateContext {
     return {
         inventory: {},
+        itemDefs: {},
         scene: {
             actors: {
                 active: {},
@@ -64,16 +65,35 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         // agent's answering useItem block carries the actual consumption.
         tryUse: (_opts: { what: string; on: string }) => {},
 
+        // ── Item definitions ──────────────────────────────────────────────
+        // Redefining a key overwrites, so an agent can revise a description or
+        // attach an icon to an item it defined earlier in the chat.
+        defineItem: (opts: { key: string; label: string; description?: string; icon?: string }) => {
+            ctx.itemDefs ??= {};
+            const existed = ctx.itemDefs[opts.key] !== undefined;
+            ctx.itemDefs[opts.key] = {
+                key: opts.key,
+                label: opts.label,
+                ...(opts.description ? { description: opts.description } : {}),
+                ...(opts.icon ? { icon: opts.icon } : {}),
+            };
+            arr.push(`${existed ? 'Redefined' : 'Defined'} item ${opts.key} (${opts.label})`);
+        },
+
         // ── Inventory (party-wide) ────────────────────────────────────────
+        // `name` is the definition key for content written since define_item
+        // existed; older chats pass a free-text display name. Effect text uses
+        // the definition's label when one is known so the agent reads prose,
+        // not identifiers.
         giveItem: (name: string, qty: number = 1) => {
             ctx.inventory[name] = (ctx.inventory[name] ?? 0) + qty;
-            arr.push(`Received ${qty}x ${name}`);
+            arr.push(`Received ${qty}x ${ctx.itemDefs?.[name]?.label ?? name}`);
         },
         takeItem: (name: string, qty: number = 1) => {
             const current = ctx.inventory[name] ?? 0;
             const taken = Math.min(current, qty);
             ctx.inventory[name] = current - taken;
-            if (taken > 0) arr.push(`Lost ${taken}x ${name}`);
+            if (taken > 0) arr.push(`Lost ${taken}x ${ctx.itemDefs?.[name]?.label ?? name}`);
         },
         // Replay must be total, so like takeItem this silently caps at the
         // available quantity — the hard validation (missing item, short qty,
@@ -83,7 +103,7 @@ export function createScope({ ctx, arr }: ScopeBinding) {
             const current = ctx.inventory[item] ?? 0;
             const used = Math.min(current, qty);
             ctx.inventory[item] = current - used;
-            if (used > 0) arr.push(`Used ${used}x ${item} on ${target}`);
+            if (used > 0) arr.push(`Used ${used}x ${ctx.itemDefs?.[item]?.label ?? item} on ${target}`);
         },
 
         // ── Scene management ──────────────────────────────────────────────
@@ -176,6 +196,9 @@ export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string
             return;
         case 'heal':
             scope.heal(block.actorId, block.amount);
+            return;
+        case 'defineItem':
+            scope.defineItem(block);
             return;
         case 'giveItem':
             scope.giveItem(block.name, block.qty);

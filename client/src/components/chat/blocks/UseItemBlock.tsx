@@ -1,6 +1,7 @@
 import { Text } from '../../typography/Text'
 import type { UseItemBlock as UseItemBlockType } from '../blocks'
 import { state } from '../../../state'
+import { resolveItem } from '../inventory/resolveItem'
 import { aOrAn, pluralizeItem } from './itemText'
 
 export function UseItemBlock(props: {
@@ -9,8 +10,9 @@ export function UseItemBlock(props: {
 }) {
     if (props.block.qty === 0) return null
 
+    const label = () => resolveItem(state.currentChat.gameState, props.block.item).label
     const isOne = () => props.block.qty === 1
-    const word = () => isOne() ? props.block.item : pluralizeItem(props.block.item, props.block.qty)
+    const word = () => isOne() ? label() : pluralizeItem(label(), props.block.qty)
     const targetName = () => {
         for (const a of Object.values(state.assets.actors ?? {})) {
             if (a.customId === props.block.target) return a.name
@@ -23,7 +25,7 @@ export function UseItemBlock(props: {
             {'You use '}
             {isOne() ? (
                 <>
-                    {aOrAn(props.block.item) + ' '}
+                    {aOrAn(label()) + ' '}
                     <span class="chat-block-event-item">{word()}</span>
                 </>
             ) : (

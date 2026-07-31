@@ -18,8 +18,22 @@ export type LeaveActorsBlock = { type: 'leaveActors'; actors: string[] }
 export type SetHpBlock = { type: 'setHp'; actorId: string; value: number }
 export type DamageBlock = { type: 'damage'; actorId: string; amount: number }
 export type HealBlock = { type: 'heal'; actorId: string; amount: number }
+// `name` is the item's inventory key: a defineItem `key` for content written
+// since item definitions existed, or free-text display name in older chats.
+// Both resolve through the same lookup, so legacy content replays unchanged.
 export type GiveItemBlock = { type: 'giveItem'; name: string; qty: number }
 export type TakeItemBlock = { type: 'takeItem'; name: string; qty: number }
+// A persisting item definition. Like every other block this is replayed from
+// history rather than stored as a row — `icon` is a URL into /uploads, already
+// generated and written to disk by the time the block is serialized.
+// Redefining the same key overwrites (last write wins).
+export type DefineItemBlock = {
+    type: 'defineItem'
+    key: string
+    label: string
+    description?: string
+    icon?: string
+}
 export type SetFlagBlock = { type: 'setFlag'; key: string; value: import('./types').FlagValue }
 export type ClearFlagBlock = { type: 'clearFlag'; key: string }
 export type SetLocationBlock = { type: 'setLocation'; description: string }
@@ -53,6 +67,7 @@ export type Block =
     | SetHpBlock
     | DamageBlock
     | HealBlock
+    | DefineItemBlock
     | GiveItemBlock
     | TakeItemBlock
     | UseItemBlock
@@ -157,6 +172,15 @@ export function parseBlocks(content: string): Block[] {
         },
         heal: (actorId: string, amount: number) => {
             blocks.push({ type: 'heal', actorId, amount })
+        },
+        defineItem: (opts: { key: string; label: string; description?: string; icon?: string }) => {
+            blocks.push({
+                type: 'defineItem',
+                key: opts.key,
+                label: opts.label,
+                ...(opts.description ? { description: opts.description } : {}),
+                ...(opts.icon ? { icon: opts.icon } : {}),
+            })
         },
         giveItem: (name: string, qty: number) => {
             blocks.push({ type: 'giveItem', name, qty })
@@ -280,6 +304,12 @@ export function serializeBlocks(blocks: Block[]): string {
                     return `leaveActors([${b.actors.map(str).join(', ')}]);`
                 case 'setHp':
                     return `setHp(${str(b.actorId)}, ${b.value});`
+                case 'defineItem': {
+                    const parts = [`key: ${str(b.key)}`, `label: ${str(b.label)}`]
+                    if (b.description) parts.push(`description: ${str(b.description)}`)
+                    if (b.icon) parts.push(`icon: ${str(b.icon)}`)
+                    return `defineItem({ ${parts.join(', ')} });`
+                }
                 case 'giveItem':
                     return `giveItem(${str(b.name)}, ${b.qty});`
                 case 'takeItem':

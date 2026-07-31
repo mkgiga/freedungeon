@@ -1,0 +1,11 @@
+score_9, masterpiece, best quality, game cg, item icon, 1:1, from above, three quarter view, dutch angle,
+
+This is a high-quality RPG game icon:
+
+\\<description\>
+{{ @mcp_item_description }}
+\\</description\>
+
+\\<visual-style\>
+(chrome:1.3) aesthetic, shiny 3d object
+\\</visual-style\>

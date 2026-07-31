@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onMount, Show, untrack } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, untrack } from 'solid-js'
 import autoAnimate from '@formkit/auto-animate'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
@@ -6,6 +6,8 @@ import { useModal } from '../Modal'
 import { GameStateActorStatus } from '../GameStateActorStatus'
 import { PlayerCharacterPicker } from './AssetPicker'
 import { pickEmojiForItem } from './inventory/itemEmoji'
+import { resolveItem } from './inventory/resolveItem'
+import { ItemCard } from './inventory/ItemCard'
 import { usePlayback } from './playback'
 import { serializeBlocks } from './blocks'
 import { startItemDrag } from './itemDrag'
@@ -101,11 +103,13 @@ export function GameStatePanel() {
             })
     })
 
-    const items = createMemo(() =>
-        Object.entries(playback.effectiveGameState().inventory ?? {})
+    const items = createMemo(() => {
+        const ctx = playback.effectiveGameState()
+        return Object.entries(ctx.inventory ?? {})
             .filter(([, qty]) => qty > 0)
-            .sort(([a], [b]) => a.localeCompare(b))
-    )
+            .map(([key, qty]) => ({ ...resolveItem(ctx, key), qty }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+    })
 
     const openPlayerPicker = () => {
         modal.open({
@@ -124,6 +128,38 @@ export function GameStatePanel() {
     let actorsRef: HTMLDivElement | undefined
     onMount(() => {
         if (actorsRef) autoAnimate(actorsRef)
+    })
+
+    // ── Item detail card ──
+    // Desktop opens it on hover; touch has no hover, so a tap toggles it. A tap
+    // is "pointerup without the drag threshold having been crossed" — the drag
+    // itself reports via startItemDrag's onDragStart.
+    const [card, setCard] = createSignal<{ key: string; anchor: DOMRect } | null>(null)
+    const openCard = (key: string, el: HTMLElement) => setCard({ key, anchor: el.getBoundingClientRect() })
+    const closeCard = () => setCard(null)
+    const cardItem = createMemo(() => {
+        const open = card()
+        return open ? items().find((i) => i.key === open.key) : undefined
+    })
+
+    onMount(() => {
+        // Any press that isn't on a slot dismisses. Slots are excluded so
+        // tapping a different item switches the card rather than closing it —
+        // this runs on bubble, after the slot's own handler.
+        const onDocDown = (e: PointerEvent) => {
+            if (!(e.target as HTMLElement | null)?.closest('.chat-inventory-slot')) closeCard()
+        }
+        // The anchor rect is captured at open time, so it goes stale if the
+        // layout shifts underneath it.
+        const onLayoutChange = () => closeCard()
+        document.addEventListener('pointerdown', onDocDown)
+        window.addEventListener('resize', onLayoutChange)
+        window.addEventListener('scroll', onLayoutChange, true)
+        onCleanup(() => {
+            document.removeEventListener('pointerdown', onDocDown)
+            window.removeEventListener('resize', onLayoutChange)
+            window.removeEventListener('scroll', onLayoutChange, true)
+        })
     })
 
     // Dropping an item on an actor submits a mechanical use *attempt* as a
@@ -175,23 +211,53 @@ export function GameStatePanel() {
 
             <div class="chat-status-inventory">
                 <For each={items()} fallback={<span class="chat-status-inventory-empty">Inventory empty</span>}>
-                    {([name, qty]) => (
+                    {(item) => {
+                        // Set once a drag crosses the threshold, so the
+                        // following pointerup is understood as a drop, not a tap.
+                        let dragged = false
+                        return (
                         <div
                             class="chat-inventory-slot"
-                            title={`${name}${qty > 1 ? ` ×${qty}` : ''}`}
                             onPointerDown={(e) => {
+                                dragged = false
                                 if (state.isGenerating) return
-                                startItemDrag(e, e.currentTarget, (actorId) => sendTryUse(name, actorId))
+                                startItemDrag(
+                                    e,
+                                    e.currentTarget,
+                                    (actorId) => sendTryUse(item.key, actorId),
+                                    () => { dragged = true; closeCard() },
+                                )
+                            }}
+                            onPointerUp={(e) => {
+                                if (e.pointerType === 'mouse' || dragged) return
+                                if (card()?.key === item.key) closeCard()
+                                else openCard(item.key, e.currentTarget)
+                            }}
+                            onPointerEnter={(e) => {
+                                if (e.pointerType === 'mouse') openCard(item.key, e.currentTarget)
+                            }}
+                            onPointerLeave={(e) => {
+                                if (e.pointerType === 'mouse') closeCard()
                             }}
                         >
-                            <span class="chat-inventory-slot-emoji">{pickEmojiForItem(name)}</span>
-                            <Show when={qty > 1}>
-                                <span class="chat-inventory-slot-qty">{qty}</span>
+                            <Show
+                                when={item.icon}
+                                fallback={<span class="chat-inventory-slot-emoji">{pickEmojiForItem(item.label)}</span>}
+                            >
+                                {(icon) => <img class="chat-inventory-slot-icon" src={icon()} alt={item.label} />}
+                            </Show>
+                            <Show when={item.qty > 1}>
+                                <span class="chat-inventory-slot-qty">{item.qty}</span>
                             </Show>
                         </div>
-                    )}
+                        )
+                    }}
                 </For>
             </div>
+
+            <Show when={cardItem()}>
+                {(item) => <ItemCard item={item()} anchor={card()!.anchor} />}
+            </Show>
         </div>
     )
 }

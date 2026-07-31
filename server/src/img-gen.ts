@@ -3,7 +3,27 @@
 // Forge quirk: txt2img is a blocking call and the server runs one job at a
 // time with a single global /progress endpoint (no per-job ids).
 
-const FORGE_URL = (process.env.FORGE_URL || 'http://localhost:7860').replace(/\/+$/, '');
+// Runtime-configurable: the endpoint comes from the `imageGen` feature's
+// config (userPreferences), which the user can change without restarting. The
+// env var is only a boot default. Every caller goes through setForgeUrl first.
+let FORGE_URL = (process.env.FORGE_URL || 'http://localhost:7860').replace(/\/+$/, '');
+
+/**
+ * Point the module at a Forge server. Changing the URL invalidates the
+ * loaded-model tracking and the module/LoRA caches below — they describe one
+ * specific server's state and would be silently wrong against another.
+ */
+export function setForgeUrl(url: string): void {
+    const next = (url || '').trim().replace(/\/+$/, '');
+    if (!next || next === FORGE_URL) return;
+    FORGE_URL = next;
+    seeded = false;
+    appliedCheckpoint = undefined;
+    appliedPreset = undefined;
+    appliedModules = undefined;
+    moduleCache = null;
+    loraCache = null;
+}
 
 export interface GenerationOptions {
     prompt: string;
@@ -159,23 +179,34 @@ async function buildOverrideSettings(opts: GenerationOptions): Promise<Record<st
     return overrides;
 }
 
+/** Drop keys whose value is undefined, so they're absent from the JSON body. */
+function defined(fields: Record<string, unknown>): Record<string, unknown> {
+    return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
+}
+
 export async function generateImage(options: string | GenerationOptions): Promise<GenerationResult> {
     const opts = typeof options === 'string' ? { prompt: options } : options;
     const res = await forge<{ images?: string[]; info?: string }>('/sdapi/v1/txt2img', {
         method: 'POST',
         signal: opts.signal ?? null,
+        // Only fields the caller actually set are sent. Forge falls back to
+        // whatever is configured in its own UI for anything omitted, so
+        // substituting defaults here would silently override the user's
+        // settings — notably negative prompt, steps and CFG.
         body: JSON.stringify({
             prompt: opts.prompt,
-            negative_prompt: opts.negativePrompt ?? '',
-            width: opts.width ?? 512,
-            height: opts.height ?? 512,
-            steps: opts.steps ?? 28,
-            cfg_scale: opts.cfgScale ?? 7,
-            seed: opts.seed ?? -1,
-            sampler_name: opts.samplerName,
-            scheduler: opts.scheduler,
-            batch_size: opts.batchSize ?? 1,
-            n_iter: opts.batches ?? 1,
+            ...defined({
+                negative_prompt: opts.negativePrompt,
+                width: opts.width,
+                height: opts.height,
+                steps: opts.steps,
+                cfg_scale: opts.cfgScale,
+                seed: opts.seed,
+                sampler_name: opts.samplerName,
+                scheduler: opts.scheduler,
+                batch_size: opts.batchSize,
+                n_iter: opts.batches,
+            }),
             override_settings: await buildOverrideSettings(opts),
             // Keep the model resident between jobs (see loaded-model tracking).
             override_settings_restore_afterwards: false,

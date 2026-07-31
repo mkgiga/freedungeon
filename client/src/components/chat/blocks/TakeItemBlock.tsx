@@ -1,5 +1,7 @@
 import { Text } from '../../typography/Text'
 import type { TakeItemBlock as TakeItemBlockType } from '../blocks'
+import { state } from '../../../state'
+import { resolveItem } from '../inventory/resolveItem'
 import { aOrAn, pluralizeItem } from './itemText'
 
 export function TakeItemBlock(props: {
@@ -8,15 +10,16 @@ export function TakeItemBlock(props: {
 }) {
     if (props.block.qty === 0) return null
 
+    const label = () => resolveItem(state.currentChat.gameState, props.block.name).label
     const isOne = () => props.block.qty === 1
-    const word = () => isOne() ? props.block.name : pluralizeItem(props.block.name, props.block.qty)
+    const word = () => isOne() ? label() : pluralizeItem(label(), props.block.qty)
 
     return (
         <Text size="base" class="chat-block chat-block-event chat-block-takeItem">
             {'You lose '}
             {isOne() ? (
                 <>
-                    {aOrAn(props.block.name) + ' '}
+                    {aOrAn(label()) + ' '}
                     <span class="chat-block-event-item">{word()}</span>
                 </>
             ) : (

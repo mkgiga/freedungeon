@@ -17,9 +17,10 @@ import { ChatList } from '../../components/chats'
 import { Em } from '../../components/typography/Em'
 import type { Chat, ChatMessage as ChatMessageType } from '@shared/types'
 import { PlaybackProvider, usePlayback } from '../../components/chat/playback'
+import { ActivityOverlay } from '../../components/ActivityOverlay'
 
-const PAGE_SIZE = 30    // how many messages to load per sentinel-trigger
-const WINDOW_SIZE = 100 // max messages rendered to the DOM at once
+const PAGE_SIZE = 60    // how many messages to load per sentinel-trigger
+const WINDOW_SIZE = 200 // max messages rendered to the DOM at once
 
 type ChatView = 'list' | 'conversation'
 
@@ -412,6 +413,7 @@ function ConversationViewBody(props: { onBack: () => void }) {
         <Show when={state.isGenerating}>
           <div class="chat-generation-indicator" aria-hidden="true" />
         </Show>
+        <ActivityOverlay />
         <Show when={playback.effectiveGameState().scene.location}>
           {(loc) => (
             <div class="chat-location-overlay" aria-hidden="true">

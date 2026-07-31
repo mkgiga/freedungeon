@@ -70,6 +70,22 @@ function buildModel(cfg: LLMConfig) {
 }
 
 /**
+ * A tool call rejected by our own validation (bad args, failed `validate`,
+ * chat mismatch). Thrown rather than returned so the AI SDK records a
+ * `tool-error` part instead of a successful result — the loop is unaffected
+ * (the SDK catches executor throws and feeds the error back as the tool's
+ * output), and it mirrors the `isError: true` the Claude MCP path already
+ * sets in agent-claude/src/mcp.ts. The message carries execCommand's reason
+ * prefix (`invalid_action: ...`) so the model is told what to do next.
+ */
+class ToolFailure extends Error {
+    constructor(reason: string) {
+        super(reason)
+        this.name = 'ToolFailure'
+    }
+}
+
+/**
  * Build the AI SDK tool set from the shared registries. Every tool's `execute`
  * routes through `execCommand`/`runQuery` — the identical execution path the
  * Claude MCP server uses — so a tool call produces one Block + one ChatMessage
@@ -84,8 +100,9 @@ export function buildAiSdkTools(chatId: string, enableChoicePrompts: boolean): R
             description: spec.description,
             inputSchema: jsonSchema(z.toJSONSchema(spec.schema)),
             execute: async (args) => {
-                const r = execCommand(chatId, key as CommandName, args as Record<string, unknown>)
-                return 'error' in r ? `Error: ${r.error}` : r.effects
+                const r = await execCommand(chatId, key as CommandName, args as Record<string, unknown>)
+                if ('error' in r) throw new ToolFailure(r.error ?? 'unknown error')
+                return r.effects
             },
         })
     }
@@ -96,7 +113,8 @@ export function buildAiSdkTools(chatId: string, enableChoicePrompts: boolean): R
             inputSchema: jsonSchema(z.toJSONSchema(spec.schema)),
             execute: async (args) => {
                 const r = runQuery(chatId, key as QueryName, args as Record<string, unknown>)
-                return 'error' in r ? `Error: ${r.error}` : r.result
+                if ('error' in r) throw new ToolFailure(r.error ?? 'unknown error')
+                return r.result
             },
         })
     }
@@ -113,7 +131,7 @@ export function buildAiSdkTools(chatId: string, enableChoicePrompts: boolean): R
             : z.object({}))),
         execute: async (args) => {
             const choices = enableChoicePrompts ? (args as { choices?: string[] }).choices : undefined
-            if (choices && choices.length > 0) execCommand(chatId, 'choice_prompt' as CommandName, { options: choices })
+            if (choices && choices.length > 0) await execCommand(chatId, 'choice_prompt' as CommandName, { options: choices })
             return 'Turn ended.'
         },
     })

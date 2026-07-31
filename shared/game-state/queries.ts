@@ -115,22 +115,37 @@ export const QUERIES = {
 
     list_inventory: defineQuery({
         name: 'list_inventory',
-        description: 'List all party inventory items with their quantities.',
+        description: 'List all party inventory items with their quantities, as `key (Label)`. Pass the key to give_item/take_item/use_item.',
         schema: z.object({}),
         run: (_args, deps) => {
             const entries = Object.entries(deps.ctx.inventory).filter(([, qty]) => qty > 0);
             if (entries.length === 0) return '(inventory empty)';
-            return entries.map(([name, qty]) => `${qty}x ${name}`).join('\n');
+            return entries.map(([key, qty]) => {
+                const def = deps.ctx.itemDefs?.[key];
+                return def ? `${qty}x ${key} (${def.label})` : `${qty}x ${key}`;
+            }).join('\n');
+        },
+    }),
+
+    list_item_definitions: defineQuery({
+        name: 'list_item_definitions',
+        description: 'List every item type defined in this chat, whether or not the party currently holds any. Check here before calling define_item so an existing item is reused rather than redefined under a new key.',
+        schema: z.object({}),
+        run: (_args, deps) => {
+            const defs = Object.values(deps.ctx.itemDefs ?? {});
+            if (defs.length === 0) return '(no items defined)';
+            return defs.map(d => `${d.key} (${d.label})${d.description ? ` — ${d.description}` : ''}`).join('\n');
         },
     }),
 
     get_inventory_item: defineQuery({
         name: 'get_inventory_item',
-        description: 'Return current quantity of a single inventory item by exact name. Returns 0 if absent.',
-        schema: z.object({ name: z.string() }),
+        description: 'Return current quantity of a single inventory item by its exact definition key. Returns 0 if absent.',
+        schema: z.object({ name: z.string().describe('Item definition key.') }),
         run: (args, deps) => {
             const qty = deps.ctx.inventory[args.name] ?? 0;
-            return `${args.name}: ${qty}`;
+            const def = deps.ctx.itemDefs?.[args.name];
+            return `${args.name}${def ? ` (${def.label})` : ''}: ${qty}`;
         },
     }),
 

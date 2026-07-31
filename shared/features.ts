@@ -31,6 +31,65 @@ export const FEATURES: Record<string, FeatureSpec> = {
         schema: [],
         defaults: {},
     },
+
+    imageGen: {
+        key: 'imageGen',
+        name: 'Image generation',
+        description: 'Connect a Stable Diffusion WebUI Forge server so the agent can generate images. Requires Forge running with --api.',
+        schema: [
+            {
+                path: ['endpoint'],
+                label: 'Forge API endpoint',
+                description: 'Base URL of the SD WebUI Forge server, e.g. http://localhost:7860',
+                default: 'http://localhost:7860',
+                control: { type: 'text' },
+            },
+            {
+                path: ['generateItemIcons'],
+                label: 'Generate item icons',
+                description: 'Give the agent a define_item tool that generates an icon for each item it defines. Adds noticeable latency to those tool calls — the turn waits for the image.',
+                default: false,
+                control: { type: 'toggle' },
+            },
+            {
+                path: ['removeIconBackground'],
+                label: 'Remove item icon backgrounds',
+                description: 'Cut the background out of generated item icons with RMBG-1.4, run locally. Downloads ~88MB of model weights the first time.',
+                default: true,
+                control: { type: 'toggle' },
+            },
+            {
+                path: ['checkpoint'],
+                label: 'Checkpoint',
+                description: 'Model checkpoint name. Leave blank to use whatever Forge currently has loaded.',
+                default: '',
+                control: { type: 'text' },
+            },
+            {
+                path: ['iconSize'],
+                label: 'Icon size (px)',
+                description: 'Square dimensions for generated item icons.',
+                default: 512,
+                control: { type: 'slider', min: 128, max: 1024, step: 64 },
+            },
+        ],
+        defaults: {
+            endpoint: 'http://localhost:7860',
+            generateItemIcons: false,
+            removeIconBackground: true,
+            checkpoint: '',
+            iconSize: 512,
+        },
+    },
+}
+
+/** Typed view of the imageGen feature's resolved values. */
+export type ImageGenConfig = {
+    endpoint: string
+    generateItemIcons: boolean
+    removeIconBackground: boolean
+    checkpoint: string
+    iconSize: number
 }
 
 export type FeatureKey = keyof typeof FEATURES

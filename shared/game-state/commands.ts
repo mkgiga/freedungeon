@@ -177,21 +177,45 @@ export const COMMANDS = {
         toBlock: (args) => ({ type: 'heal', actorId: args.actorId, amount: args.amount }),
     }),
 
+    // Item definitions are persisted like every other command: as a replayed
+    // block, not a database row. `icon` is filled in by the server at exec time
+    // when the image-generation feature is on — the agent never supplies it.
+    define_item: defineCommand({
+        name: 'define_item',
+        description: 'Define an item type before it can be given to the party. `key` is a stable snake_case identifier used by give_item/take_item/use_item; `label` is what the player sees. Calling this again with the same key updates the definition. Define an item once, then reference it by key from then on.',
+        schema: z.object({
+            key: z.string().regex(/^[a-z][a-z0-9_]*$/, 'Use snake_case (lowercase + underscores).').describe('Stable identifier, e.g. "rusted_key". Referenced by give_item.'),
+            label: z.string().describe('Player-facing display name, e.g. "Rusted Key".'),
+            description: z.string().describe('What the item is and looks like. Shown to the player, and used as the image prompt when icon generation is on.'),
+        }),
+        toBlock: (args) => ({
+            type: 'defineItem',
+            key: args.key,
+            label: args.label,
+            description: args.description,
+        }),
+    }),
+
     give_item: defineCommand({
         name: 'give_item',
-        description: 'Add an item to the party inventory by name. Inventory is shared, not per-actor.',
+        description: 'Add a defined item to the party inventory. `key` must reference an item previously created with define_item. Inventory is shared, not per-actor.',
         schema: z.object({
-            name: z.string(),
+            key: z.string().describe('The item definition key, exactly as passed to define_item.'),
             qty: z.number().int().positive().default(1),
         }),
-        toBlock: (args) => ({ type: 'giveItem', name: args.name, qty: args.qty }),
+        toBlock: (args) => ({ type: 'giveItem', name: args.key, qty: args.qty }),
+        validate: (args, ctx) => {
+            if (ctx.itemDefs?.[args.key]) return null;
+            const known = Object.keys(ctx.itemDefs ?? {});
+            return `no item defined with key "${args.key}". Call define_item first. Defined keys: ${known.length ? known.join(', ') : '(none)'}`;
+        },
     }),
 
     take_item: defineCommand({
         name: 'take_item',
         description: 'Remove up to qty of an item from the party inventory. Silently caps at the current quantity.',
         schema: z.object({
-            name: z.string(),
+            name: z.string().describe('Item definition key, exactly as listed in the inventory.'),
             qty: z.number().int().positive().default(1),
         }),
         toBlock: (args) => ({ type: 'takeItem', name: args.name, qty: args.qty }),
@@ -201,7 +225,7 @@ export const COMMANDS = {
         name: 'use_item',
         description: 'Consume item(s) from the party inventory, used on a target actor. Call this to resolve a tryUse(...) attempt from the user. Errors without side effects if the item is missing, the quantity falls short, or the target is not in the active scene — on error, narrate the failure instead. On success only the consumption is recorded; apply what the item actually does via follow-up tools (heal, damage, set_flag, ...) and narrate the outcome.',
         schema: z.object({
-            item: z.string().describe('Inventory item name, exactly as listed in the inventory.'),
+            item: z.string().describe('Item definition key, exactly as listed in the inventory.'),
             target: z.string().describe('Id of the actor the item is used on.'),
             qty: z.number().int().positive().default(1).describe('How many to consume. Defaults to 1.'),
         }),
@@ -211,7 +235,7 @@ export const COMMANDS = {
             if (have <= 0) {
                 const names = Object.entries(ctx.inventory)
                     .filter(([, qty]) => qty > 0)
-                    .map(([name]) => name);
+                    .map(([key]) => ctx.itemDefs?.[key] ? `${key} (${ctx.itemDefs[key]!.label})` : key);
                 return `no "${args.item}" in inventory. Current inventory: ${names.length ? names.join(', ') : '(empty)'}`;
             }
             if (have < args.qty) {

@@ -82,9 +82,22 @@ uploadsRouter.post('/', async (c) => {
         return c.json({ error: 'No file provided' }, 400)
     }
 
-    const buffer = await file.arrayBuffer()
+    const { url, thumbnailUrl } = await storeUpload(await file.arrayBuffer(), file.name.split('.').pop() ?? 'png')
+    return c.json({ url, thumbnailUrl })
+})
+
+/**
+ * Write bytes into the uploads dir under their content hash and return the
+ * serving URL. Shared by the HTTP upload route and by server-side producers
+ * (image generation) so dedup + thumbnailing behave identically for both.
+ */
+export async function storeUpload(
+    buffer: ArrayBuffer,
+    ext = 'png',
+): Promise<{ url: string; thumbnailUrl?: string }> {
+    ensureDirs()
+
     const hash = new Bun.CryptoHasher('sha256').update(buffer).digest('hex')
-    const ext = file.name.split('.').pop() ?? 'png'
     const filename = `${hash}.${ext}`
     const filePath = path.join(UPLOADS_DIR, filename)
 
@@ -92,13 +105,11 @@ uploadsRouter.post('/', async (c) => {
         await Bun.write(filePath, buffer)
     }
 
-    // Generate thumbnail if it's an image
     let thumbnailUrl: string | undefined
     if (await isImage(buffer)) {
         await generateThumbnail(buffer, filename)
         thumbnailUrl = `/uploads/thumbs/${filename}`
     }
 
-    const url = `/uploads/${filename}`
-    return c.json({ url, thumbnailUrl })
-})
+    return { url: `/uploads/${filename}`, thumbnailUrl }
+}

@@ -2,6 +2,10 @@
   "name": "freedungeon",
   "version": "0.0.1",
   "private": true,
+  "//trustedDependencies": "onnxruntime-node's postinstall downloads its native binaries; bun blocks postinstalls by default, so without this a fresh install has no runtime and background removal fails at session creation.",
+  "trustedDependencies": [
+    "onnxruntime-node"
+  ],
   "devDependencies": {
     "@types/bun": "catalog:",
     "drizzle-kit": "^0.31.10"
@@ -30,6 +34,7 @@
     "kysely": "^0.28.15",
     "kysely-bun-sqlite": "^0.4.0",
     "nanoid": "catalog:",
+    "onnxruntime-node": "^1.27.0",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "solid-js": "catalog:",
