@@ -1,12 +1,18 @@
-import { MdFillChat, MdFillHouse, MdFillNote, MdFillPerson, MdFillSettings } from 'solid-icons/md'
+import { MdFillChat, MdFillMenu, MdFillNote, MdFillPerson, MdFillSettings } from 'solid-icons/md'
 import type { Tab } from '../tab-state'
+import { useDrawer } from './Drawer'
+import { NavDrawer } from './NavDrawer'
 
 export type { Tab }
 
 export function BottomNav(props: { activeTab: Tab; onChange: (t: Tab) => void }) {
+    const drawer = useDrawer()
+
+    const openMenu = () => drawer.open({ side: 'left', content: () => <NavDrawer /> })
+
     return (
         <menu id="main-nav">
-            <button type="button" onClick={() => props.onChange('home')}        classList={{ active: props.activeTab === 'home' }}>        <MdFillHouse size={32} /></button>
+            <button type="button" onClick={openMenu}>                                                                <MdFillMenu size={32} /></button>
             <button type="button" onClick={() => props.onChange('actors')}      classList={{ active: props.activeTab === 'actors' }}>      <MdFillPerson size={32} /></button>
             <button type="button" onClick={() => props.onChange('chat')}        classList={{ active: props.activeTab === 'chat' }}>        <MdFillChat size={32} /></button>
             <button type="button" onClick={() => props.onChange('notes')}       classList={{ active: props.activeTab === 'notes' }}>       <MdFillNote size={32} /></button>

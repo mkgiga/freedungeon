@@ -793,6 +793,17 @@ button {
   overflow: hidden;
 }
 
+.drawer-overlay.left {
+  justify-content: flex-start;
+}
+
+.drawer-container.left {
+  border-left: none;
+  border-right: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
+  box-shadow: 16px 0 48px rgba(0, 0, 0, 0.4);
+  animation-name: drawer-in-left;
+}
+
 @media (max-width: 640px) {
   .drawer-container {
     width: 80dvw !important;
@@ -808,6 +819,40 @@ button {
 @keyframes drawer-in {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
+}
+
+@keyframes drawer-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+/* ── Nav drawer (main navigation menu) ── */
+
+.nav-drawer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    text-align: left;
+
+    &:hover {
+      background-color: var(--bg-2);
+    }
+
+    &.active {
+      color: var(--primary);
+    }
+  }
 }
 
 /* ── BottomSheet ── */

@@ -10,6 +10,7 @@ type DrawerConfig = {
     closeOnOverlay?: boolean
     closeOnEscape?: boolean
     width?: string
+    side?: 'left' | 'right'
 }
 
 type DrawerAPI = {
@@ -42,6 +43,7 @@ export function DrawerProvider(props: { children: JSXElement }) {
         open: (config) => setCurrent({
             closeOnOverlay: true,
             closeOnEscape: true,
+            side: 'right',
             ...config,
         }),
         close,
@@ -62,6 +64,7 @@ export function DrawerProvider(props: { children: JSXElement }) {
                     <Portal>
                         <div
                             class="drawer-overlay"
+                            classList={{ left: drawer().side === 'left' }}
                             onMouseDown={(e) => {
                                 if (e.target === e.currentTarget) {
                                     (e.currentTarget as any).__clickedOverlay = true
@@ -76,6 +79,7 @@ export function DrawerProvider(props: { children: JSXElement }) {
                         >
                             <div
                                 class="drawer-container"
+                                classList={{ left: drawer().side === 'left' }}
                                 style={drawer().width ? { width: drawer().width } : undefined}
                             >
                                 {drawer().content()}
