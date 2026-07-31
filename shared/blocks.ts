@@ -9,7 +9,16 @@ export type SpeechBlock = {
     expression?: string
 }
 export type PauseBlock = { type: 'pause'; seconds: number }
-export type ImageBlock = { type: 'image'; src: string; from: string; caption?: string }
+// `aspect` is only set by generate_image, and only describes the shape the
+// image was rendered at — the feed lays the block out from it (and reserves the
+// box before the image loads). Gallery images have none and size to their file.
+export type ImageBlock = {
+    type: 'image'
+    src: string
+    from: string
+    caption?: string
+    aspect?: 'square' | 'landscape' | 'portrait'
+}
 export type WebviewBlock = { type: 'webview'; html: string; css?: string; script?: string }
 export type UnformattedBlock = { type: 'unformatted'; content: string }
 export type NoOpContinueBlock = { type: 'noOpContinue' }
@@ -143,8 +152,14 @@ export function parseBlocks(content: string): Block[] {
         pause: (seconds: number) => {
             blocks.push({ type: 'pause', seconds })
         },
-        image: (opts: { src: string; from: string; caption?: string }) => {
-            blocks.push({ type: 'image', src: opts.src, from: opts.from, ...(opts.caption ? { caption: opts.caption } : {}) })
+        image: (opts: { src: string; from: string; caption?: string; aspect?: ImageBlock['aspect'] }) => {
+            blocks.push({
+                type: 'image',
+                src: opts.src,
+                from: opts.from,
+                ...(opts.caption ? { caption: opts.caption } : {}),
+                ...(opts.aspect ? { aspect: opts.aspect } : {}),
+            })
         },
         webview: (html: string, opts?: { css?: string; script?: string }) => {
             blocks.push({
@@ -284,6 +299,7 @@ export function serializeBlocks(blocks: Block[]): string {
                 case 'image': {
                     const parts = [`src: ${str(b.src)}`, `from: ${str(b.from)}`]
                     if (b.caption) parts.push(`caption: ${str(b.caption)}`)
+                    if (b.aspect) parts.push(`aspect: ${str(b.aspect)}`)
                     return `image({ ${parts.join(', ')} });`
                 }
                 case 'webview': {

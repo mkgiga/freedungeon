@@ -57,6 +57,8 @@ function describe(activity: Activity): string {
             return data.phase === 'removingBackground'
                 ? `Removing background for ${data.label ?? 'item'}…`
                 : `Generating icon for ${data.label ?? 'item'}…`
+        case 'generatingImage':
+            return `Generating ${data.aspect ?? ''} image…`.replace('  ', ' ')
         default:
             return String(data.label ?? activity.kind)
     }

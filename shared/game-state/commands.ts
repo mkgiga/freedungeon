@@ -112,6 +112,27 @@ export const COMMANDS = {
         }),
     }),
 
+    // Only exposed when the imageGen feature's "Generate scene images" toggle is
+    // on (see buildGameStateMcpServer / buildAiSdkTools). `src` is left empty
+    // here and filled in by the server at exec time with the generated image's
+    // /uploads URL — toBlock must stay pure and synchronous.
+    generate_image: defineCommand({
+        name: 'generate_image',
+        description: 'Generate and display an image inline in the story. Use for brief visual exposition — establishing a location the party has just arrived at, revealing something whose look matters more than a description would carry. One image per beat at most; this blocks the turn while it renders, so reach for it when the visual does work that prose would not.',
+        schema: z.object({
+            description: z.string().describe('In-depth description of the image to generate, written for an image model: subject and action, setting, framing and camera angle, lighting, mood, colour. Concrete visual nouns, not story context — the model has no idea who these characters are.'),
+            aspect: z.enum(['square', 'landscape', 'portrait']).describe('Shape of the image. "landscape" for establishing shots and vistas, "portrait" for a figure or a tall space, "square" when neither dominates.'),
+            caption: z.string().optional().describe('Optional text shown under the image, for any purpose — a caption, a place name and date, a line of narration to read alongside it. Omit for a bare image.'),
+        }),
+        toBlock: (args) => ({
+            type: 'image',
+            src: '',
+            from: 'generated',
+            aspect: args.aspect,
+            ...(args.caption ? { caption: args.caption } : {}),
+        }),
+    }),
+
     webview: defineCommand({
         name: 'webview',
         description: 'Render a sandboxed HTML iframe inline. Use for diagrams, notes, mini-UIs.',

@@ -91,11 +91,12 @@ class ToolFailure extends Error {
  * Claude MCP server uses — so a tool call produces one Block + one ChatMessage
  * and returns the effect/result text the model sees next step.
  */
-export function buildAiSdkTools(chatId: string, enableChoicePrompts: boolean): Record<string, Tool> {
+export function buildAiSdkTools(chatId: string, enableChoicePrompts: boolean, enableSceneImages = false): Record<string, Tool> {
     const tools: Record<string, Tool> = {}
 
     for (const [key, spec] of Object.entries(COMMANDS)) {
         if (key === 'choice_prompt') continue // internal block-builder, invoked by end_turn
+        if (key === 'generate_image' && !enableSceneImages) continue // gated on the imageGen sub-toggle
         tools[spec.name] = tool({
             description: spec.description,
             inputSchema: jsonSchema(z.toJSONSchema(spec.schema)),
@@ -148,6 +149,7 @@ export type AiSdkTurnArgs = {
     /** Prior structured conversation (model memory). Empty for a fresh chat. */
     transcript: ModelMessage[]
     enableChoicePrompts: boolean
+    enableSceneImages: boolean
     signal: AbortSignal
 }
 
@@ -158,7 +160,7 @@ export type AiSdkTurnArgs = {
  * with full memory of its atomic tool calls + results.
  */
 export async function runAiSdkTurn(args: AiSdkTurnArgs): Promise<{ transcript: ModelMessage[] }> {
-    const tools = buildAiSdkTools(args.chatId, args.enableChoicePrompts)
+    const tools = buildAiSdkTools(args.chatId, args.enableChoicePrompts, args.enableSceneImages)
     const messages: ModelMessage[] = [...args.transcript, { role: 'user', content: args.userContent }]
 
     const result = await generateText({

@@ -7,5 +7,5 @@ This is a high-quality RPG game icon:
 \\</description\>
 
 \\<visual-style\>
-(chrome:1.3) aesthetic, shiny 3d object
+{{ @user_style_preference }}
 \\</visual-style\>

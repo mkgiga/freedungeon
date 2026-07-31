@@ -19,7 +19,10 @@ export function ImageBlock(props: {
     })
 
     return (
-        <div class="chat-block chat-block-image">
+        <div
+            class="chat-block chat-block-image"
+            classList={{ [`is-${props.block.aspect}`]: props.block.aspect !== undefined }}
+        >
             <img src={imageUrl()} alt={props.block.caption ?? props.block.src} />
             <Show when={props.block.caption !== undefined}>
                 <EditableText

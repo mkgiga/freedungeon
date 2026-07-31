@@ -1343,6 +1343,32 @@ button {
   object-fit: cover;
 }
 
+/* Generated images carry the shape they were rendered at, so the block can size
+   its box from the declared aspect rather than from the file — the slot is the
+   right size before the image loads, and the feed doesn't jump under a message
+   that's mid-playback. Gallery images have no aspect and keep the rules above. */
+.chat-block-image.is-landscape img,
+.chat-block-image.is-portrait img,
+.chat-block-image.is-square img {
+  max-height: none;
+  height: auto;
+}
+
+.chat-block-image.is-landscape img {
+  width: 100%;
+  aspect-ratio: 1280 / 832;
+}
+
+.chat-block-image.is-portrait img {
+  width: min(100%, 320px);
+  aspect-ratio: 832 / 1280;
+}
+
+.chat-block-image.is-square img {
+  width: min(100%, 420px);
+  aspect-ratio: 1 / 1;
+}
+
 .chat-block-image-caption {
   font-size: var(--text-sm);
   opacity: 0.6;

@@ -2,7 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { state } from "./server"
 import { getCurrentTurnResult } from "./game-state"
-import { featureEnabled } from "@shared/features"
+import { featureEnabled, resolveFeatureConfig, DEFAULT_STYLE_PREFERENCE } from "@shared/features"
 
 const promptsDir = path.join(import.meta.dirname, 'prompts')
 
@@ -196,6 +196,36 @@ export function withItemDescription<T>(description: string, fn: () => T): T {
 // Referenced without parens by GENERATE_ITEM_ICON_PROMPT.macro, so it must be
 // a scope rather than a registry fn.
 scopeBuilders.set('mcp_item_description', () => currentItemDescription)
+
+/**
+ * The agent's description of the image being generated. Same single-slot pattern
+ * as `currentItemDescription` above — safe because expansion is synchronous.
+ */
+let currentImagePrompt = ''
+
+export function withImagePrompt<T>(prompt: string, fn: () => T): T {
+    const prev = currentImagePrompt
+    currentImagePrompt = prompt
+    try {
+        return fn()
+    } finally {
+        currentImagePrompt = prev
+    }
+}
+
+// Read by GENERATE_IMAGE_VISUAL.macro.
+scopeBuilders.set('agent_image_prompt', () => currentImagePrompt)
+
+/**
+ * The user's configured style, shared by both image templates. Blank (or the
+ * feature being off) falls back to the default so a template never expands to
+ * an empty style block.
+ */
+scopeBuilders.set('user_style_preference', () => {
+    const cfg = resolveFeatureConfig('imageGen', state.userPreferences.features?.['imageGen'])
+    const style = String((cfg.values as { stylePreference?: unknown }).stylePreference ?? '').trim()
+    return style || DEFAULT_STYLE_PREFERENCE
+})
 
 // ── File-based macros ────────────────────────────────────────────────────────
 

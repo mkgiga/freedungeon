@@ -59,6 +59,20 @@ export const FEATURES: Record<string, FeatureSpec> = {
                 control: { type: 'toggle' },
             },
             {
+                path: ['generateImages'],
+                label: 'Generate scene images',
+                description: 'Give the agent a generate_image tool for visual exposition — establishing a new location, showing something the story needs seen. Adds noticeable latency to those tool calls — the turn waits for the image.',
+                default: false,
+                control: { type: 'toggle' },
+            },
+            {
+                path: ['stylePreference'],
+                label: 'Style',
+                description: 'Substituted for {{ @user_style_preference }} in the image prompt templates, so it applies to both item icons and scene images. Blank falls back to "anime screencap".',
+                default: '',
+                control: { type: 'text' },
+            },
+            {
                 path: ['checkpoint'],
                 label: 'Checkpoint',
                 description: 'Model checkpoint name. Leave blank to use whatever Forge currently has loaded.',
@@ -77,17 +91,24 @@ export const FEATURES: Record<string, FeatureSpec> = {
             endpoint: 'http://localhost:7860',
             generateItemIcons: false,
             removeIconBackground: true,
+            generateImages: false,
+            stylePreference: '',
             checkpoint: '',
             iconSize: 512,
         },
     },
 }
 
+/** Style injected for `{{ @user_style_preference }}` when the user left it blank. */
+export const DEFAULT_STYLE_PREFERENCE = 'anime screencap'
+
 /** Typed view of the imageGen feature's resolved values. */
 export type ImageGenConfig = {
     endpoint: string
     generateItemIcons: boolean
     removeIconBackground: boolean
+    generateImages: boolean
+    stylePreference: string
     checkpoint: string
     iconSize: number
 }

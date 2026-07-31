@@ -17,6 +17,7 @@ export type PromptArgs = {
     resumeSessionId: string | null;
     model: string;
     enableChoicePrompts?: boolean;
+    enableSceneImages?: boolean;
 };
 
 let currentAbort: AbortController | null = null;
@@ -40,7 +41,8 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
     const abort = new AbortController();
     currentAbort = abort;
 
-    const mcpServer = buildGameStateMcpServer(args.enableChoicePrompts ?? false);
+    const enableSceneImages = args.enableSceneImages ?? false;
+    const mcpServer = buildGameStateMcpServer(args.enableChoicePrompts ?? false, enableSceneImages);
 
     let capturedSessionId: string | null = args.resumeSessionId;
     let caughtError: { name?: string; message: string } | null = null;
@@ -50,7 +52,7 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
         options: {
             abortController: abort,
             mcpServers: { game_state: mcpServer },
-            allowedTools: allTools(),
+            allowedTools: allTools(enableSceneImages),
             tools: [],
             systemPrompt: args.systemPrompt,
             model: args.model,

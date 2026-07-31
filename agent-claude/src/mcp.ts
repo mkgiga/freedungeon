@@ -16,8 +16,8 @@ import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProd
  * registered under `game_state`. We pass that pattern to `allowedTools` so
  * the model can call them without permission prompts.
  */
-export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
-    const writeTools = commandEntries().map(([key, spec]) => {
+export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableSceneImages = false) {
+    const writeTools = commandEntries(enableSceneImages).map(([key, spec]) => {
         const shape = unwrapToShape(spec.schema);
         return tool(
             spec.name,
@@ -124,8 +124,8 @@ export function buildGameStateMcpServer(enableChoicePrompts: boolean) {
  * `mcp__game_state__<tool>`. We list each one explicitly so we don't
  * accidentally bypass deferred-loading semantics.
  */
-export function allTools(): string[] {
-    const cmds = commandEntries().map(([, c]) => `mcp__game_state__${c.name}`);
+export function allTools(enableSceneImages = false): string[] {
+    const cmds = commandEntries(enableSceneImages).map(([, c]) => `mcp__game_state__${c.name}`);
     const queries = Object.values(QUERIES).map(q => `mcp__game_state__${q.name}`);
     return [...cmds, ...queries, 'mcp__game_state__end_turn'];
 }
@@ -133,11 +133,14 @@ export function allTools(): string[] {
 /**
  * The directly-exposed command tools. `choice_prompt` is excluded — it's an
  * internal block-builder invoked by `end_turn` (via RPC) when given `choices`,
- * not a standalone tool. Keeping this in one place keeps the MCP server's tool
- * set and the `allowedTools` allowlist in agreement.
+ * not a standalone tool. `generate_image` is excluded unless the imageGen
+ * feature's scene-image toggle is on, so the agent is never shown a tool the
+ * server would refuse to execute. Keeping this in one place keeps the MCP
+ * server's tool set and the `allowedTools` allowlist in agreement.
  */
-function commandEntries(): [string, (typeof COMMANDS)[keyof typeof COMMANDS]][] {
-    return Object.entries(COMMANDS).filter(([key]) => key !== 'choice_prompt');
+function commandEntries(enableSceneImages: boolean): [string, (typeof COMMANDS)[keyof typeof COMMANDS]][] {
+    return Object.entries(COMMANDS).filter(([key]) =>
+        key !== 'choice_prompt' && (key !== 'generate_image' || enableSceneImages));
 }
 
 /**

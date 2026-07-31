@@ -10,7 +10,7 @@ import { state, setState } from './server';
 import { db } from './db';
 import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { featureEnabled } from '@shared/features';
-import { generateItemIcon, itemIconsEnabled } from './item-icons';
+import { generateItemIcon, itemIconsEnabled, generateSceneImage, sceneImagesEnabled, type ImageAspect } from './item-icons';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
@@ -208,6 +208,16 @@ export async function execCommand(
     // deliberately blocks on the job so the agent's next step sees a finished
     // item. The per-chat cache is the game state itself: a key that already
     // carries an icon reuses it instead of paying for another generation.
+    // Same deal for generate_image, except the image IS the block: a failed
+    // generation has nothing worth persisting, so it comes back to the agent as
+    // a tool error instead of an <img> pointing at nothing.
+    if (command === 'generate_image') {
+        const args = parsed.data as { description: string; aspect: ImageAspect };
+        const url = await generateSceneImage(args.description, args.aspect);
+        if (!url) return { error: 'image_generation_failed: the image server did not return an image. Continue without it.' };
+        (block as { src: string }).src = url;
+    }
+
     if (block.type === 'defineItem') {
         const existing = state.currentChat.gameState.itemDefs?.[block.key]?.icon;
         if (existing) {
@@ -507,6 +517,7 @@ async function runAiTurn(args: {
     llmConfig: LLMConfig;
     transcript: ModelMessage[];
     enableChoicePrompts: boolean;
+    enableSceneImages: boolean;
 }) {
     const controller = new AbortController();
     inFlightAiTurns.set(args.chatId, controller);
@@ -518,6 +529,7 @@ async function runAiTurn(args: {
             llmConfig: args.llmConfig,
             transcript: args.transcript,
             enableChoicePrompts: args.enableChoicePrompts,
+            enableSceneImages: args.enableSceneImages,
             signal: controller.signal,
         });
         await saveAiTranscript(args.chatId, transcript);
@@ -578,6 +590,11 @@ export async function dispatchPromptToAgent(args: {
     if (enableChoicePrompts && !macroFeatures['MULTICHOICE_PROMPT_INSTRUCTIONS']) {
         expandedSystemPrompt += `\n\n${MULTICHOICE_PROMPT_INSTRUCTIONS}`;
     }
+
+    // Same lockstep for generate_image: the tool only exists when the sub-toggle
+    // is on, so the agent is never told about a capability the exec path would
+    // then refuse.
+    const enableSceneImages = sceneImagesEnabled();
 
     // Provider → loop. Anthropic uses the Claude Agent SDK subprocess; OpenAI-v1
     // (openai/custom) uses the in-process AI SDK loop. Each keeps private memory
@@ -686,6 +703,7 @@ export async function dispatchPromptToAgent(args: {
                     resumeSessionId,
                     model: llmConfig.model || 'claude-sonnet-4-6',
                     enableChoicePrompts,
+                    enableSceneImages,
                 }),
             });
         } catch (err) {
@@ -719,6 +737,7 @@ export async function dispatchPromptToAgent(args: {
             llmConfig,
             transcript,
             enableChoicePrompts,
+            enableSceneImages,
         });
         log.server.info(`AI SDK turn complete for chat ${args.chatId}`);
     }
