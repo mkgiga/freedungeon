@@ -17,7 +17,42 @@ import { Em } from '../typography/Em'
 import { DebugPromptButton } from './DebugPromptButton'
 import { usePlayback } from './playback'
 
-export function ChatInput() {
+const latestMessageId = () => {
+    const msgs = Object.values(state.currentChat.messages ?? {})
+    if (msgs.length === 0) return null
+    const latest = msgs.reduce((a, b) =>
+        (a.createdAt - b.createdAt) > 0 ? a
+            : (a.createdAt - b.createdAt) < 0 ? b
+                : (a.id > b.id ? a : b)
+    )
+    return latest.id
+}
+
+/**
+ * The latest message, if it's an unanswered choice menu and the setting is on.
+ * Its options surface as buttons in the composer, beside the always-available
+ * text field (the "type your own action" escape hatch). GameStatePanel uses the
+ * same memo to flip itself into composer mode when a menu appears.
+ */
+export function createPendingChoicePrompt() {
+    const playback = usePlayback()
+    return createMemo(() => {
+        if (!featureEnabled(state.userPreferences, 'choicePrompts')) return null
+        const id = latestMessageId()
+        if (!id) return null
+        // Don't offer the menu until playback has actually reached this prompt —
+        // otherwise the options appear in the input bar while earlier dialogue
+        // is still typewriting/holding.
+        if (!playback.isMessageRevealed(id)) return null
+        const msg = state.currentChat.messages[id]
+        if (!msg || msg.role !== 'assistant' || msg.metadata?.chosenIndex != null) return null
+        const promptBlock = parseBlocks(msg.content).find(b => b.type === 'choicePrompt')
+        if (!promptBlock || promptBlock.type !== 'choicePrompt') return null
+        return { messageId: id, options: promptBlock.options }
+    })
+}
+
+export function ChatInput(props: { hidden?: boolean }) {
     const [message, setMessage] = createSignal('')
     const modal = useModal()
     const playback = usePlayback()
@@ -156,16 +191,6 @@ export function ChatInput() {
 
     const handleStop = () => trpc.chat.cancel.mutate()
 
-    const latestMessageId = () => {
-        const msgs = Object.values(state.currentChat.messages ?? {})
-        if (msgs.length === 0) return null
-        const latest = msgs.reduce((a, b) =>
-            (a.createdAt - b.createdAt) > 0 ? a
-                : (a.createdAt - b.createdAt) < 0 ? b
-                    : (a.id > b.id ? a : b)
-        )
-        return latest.id
-    }
     const handleRegenerate = async () => {
         const id = latestMessageId()
         if (!id) return
@@ -182,23 +207,7 @@ export function ChatInput() {
         })
     }
 
-    // The latest message, if it's an unanswered choice menu and the setting is
-    // on. Its options surface as buttons here, beside the always-available
-    // text field (the "type your own action" escape hatch).
-    const pendingChoicePrompt = createMemo(() => {
-        if (!featureEnabled(state.userPreferences, 'choicePrompts')) return null
-        const id = latestMessageId()
-        if (!id) return null
-        // Don't offer the menu until playback has actually reached this prompt —
-        // otherwise the options appear in the input bar while earlier dialogue
-        // is still typewriting/holding.
-        if (!playback.isMessageRevealed(id)) return null
-        const msg = state.currentChat.messages[id]
-        if (!msg || msg.role !== 'assistant' || msg.metadata?.chosenIndex != null) return null
-        const promptBlock = parseBlocks(msg.content).find(b => b.type === 'choicePrompt')
-        if (!promptBlock || promptBlock.type !== 'choicePrompt') return null
-        return { messageId: id, options: promptBlock.options }
-    })
+    const pendingChoicePrompt = createPendingChoicePrompt()
 
     const handleChoose = async (messageId: string, optionIndex: number) => {
         await withRehydrationConfirm('Choose anyway', () => {
@@ -208,7 +217,9 @@ export function ChatInput() {
     }
 
     return (
-        <div class="chat-input-container relative">
+        // Hidden rather than unmounted while the band shows the actors rail, so
+        // an unsent draft survives closing and reopening the composer.
+        <div class="chat-composer" classList={{ hidden: props.hidden }}>
             {/* Choice menu sits directly above the textarea so the two read as one
               * unit (no action strip wedged between them) when the latest agent
               * message is a menu. */}
@@ -231,66 +242,71 @@ export function ChatInput() {
                 )}
             </Show>
 
-            <div class="chat-input-row">
-                <textarea
-                    class="chat-input-textarea"
-                    placeholder={pendingChoicePrompt() ? '…or type your own action' : 'Type a message...'}
-                    value={message()}
-                    onInput={(e) => setMessage(e.currentTarget.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                            e.preventDefault()
-                            handleSend()
-                        }
-                    }}
-                />
-            </div>
-
-            {/* Turn-action controls, kept below the textarea. */}
-            <div class="chat-input-actions">
-                <div class="chat-input-spacer" />
-                <Show when={state.currentChat.agentRehydration}>
-                    {(r) => (
-                        <button
-                            class="chat-input-btn text-emphasis-warning"
-                            title={`Agent has no live session — next turn will inject ${r().messageCount} prior messages (~${r().estimatedTokens.toLocaleString()} input tokens) to rebuild context. Click for details.`}
-                            onClick={openRehydrationInfo}
-                        >
-                            <MdFillWarning size={20} />
-                        </button>
-                    )}
-                </Show>
-                <button
-                    class="chat-input-btn"
-                    classList={{ 'is-active-notice': hasPendingNotice() }}
-                    onClick={openDirectorNote}
-                    title={hasPendingNotice()
-                        ? "Director's note pending — will attach to next turn"
-                        : "Director's note for next turn"}
-                >
-                    <MdFillEdit_note size={20} />
-                </button>
-                <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
-                    <MdFillRefresh size={20} />
-                </button>
-                <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
-                    <MdFillFast_forward size={20} />
-                </button>
-                <Show when={state.userPreferences.debug}>
-                    <DebugPromptButton />
-                </Show>
-                <Show
-                    when={state.isGenerating}
-                    fallback={
-                        <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} title="Send">
-                            <MdFillSend size={20} />
-                        </button>
+            <textarea
+                class="chat-input-textarea"
+                placeholder={pendingChoicePrompt() ? '…or type your own action' : 'Type a message...'}
+                value={message()}
+                onInput={(e) => setMessage(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault()
+                        handleSend()
                     }
-                >
-                    <button class="chat-input-btn chat-input-btn-send" onClick={handleStop} title="Stop">
-                        <MdFillStop size={20} />
+                }}
+            />
+
+            {/* Turn actions along the bottom edge: out-of-character tools on the
+              * left, the ones that actually drive a turn on the right. Each side
+              * is its own group so the row's justify-content can't put space
+              * between neighbouring buttons. */}
+            <div class="chat-composer-actions">
+                <div class="chat-composer-actions-group">
+                    <button
+                        class="chat-input-btn"
+                        classList={{ 'is-active-notice': hasPendingNotice() }}
+                        onClick={openDirectorNote}
+                        title={hasPendingNotice()
+                            ? "Director's note pending — will attach to next turn"
+                            : "Director's note for next turn"}
+                    >
+                        <MdFillEdit_note size={20} />
                     </button>
-                </Show>
+                    <Show when={state.userPreferences.debug}>
+                        <DebugPromptButton />
+                    </Show>
+                    <Show when={state.currentChat.agentRehydration}>
+                        {(r) => (
+                            <button
+                                class="chat-input-btn text-emphasis-warning"
+                                title={`Agent has no live session — next turn will inject ${r().messageCount} prior messages (~${r().estimatedTokens.toLocaleString()} input tokens) to rebuild context. Click for details.`}
+                                onClick={openRehydrationInfo}
+                            >
+                                <MdFillWarning size={20} />
+                            </button>
+                        )}
+                    </Show>
+                </div>
+
+                <div class="chat-composer-actions-group">
+                    <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
+                        <MdFillFast_forward size={20} />
+                    </button>
+                    <button class="chat-input-btn" onClick={handleRegenerate} title="Regenerate">
+                        <MdFillRefresh size={20} />
+                    </button>
+                    <Show
+                        when={state.isGenerating}
+                        fallback={
+                            <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} title="Send">
+                                <MdFillSend size={20} />
+                            </button>
+                        }
+                    >
+                        <button class="chat-input-btn chat-input-btn-send" onClick={handleStop} title="Stop">
+                            <MdFillStop size={20} />
+                        </button>
+                    </Show>
+                </div>
             </div>
         </div>
     )

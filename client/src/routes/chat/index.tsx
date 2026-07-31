@@ -8,7 +8,6 @@ import { createViewportObserver } from '@solid-primitives/intersection-observer'
 import { MdFillAdd, MdFillView_sidebar } from 'solid-icons/md'
 import { Text } from '../../components/typography/Text'
 import { ChatMessage } from '../../components/chat/ChatMessage'
-import { ChatInput } from '../../components/chat/ChatInput'
 import { ChatSidebar } from '../../components/chat/ChatSidebar'
 import { useDrawer } from '../../components/Drawer'
 import { useModal } from '../../components/Modal'
@@ -433,7 +432,6 @@ function ConversationViewBody(props: { onBack: () => void }) {
             {(message) => <ChatMessage message={message} />}
           </For>
           <div ref={bottomSentinelRef} class="chat-messages-sentinel" />
-          <ChatInput />
         </div>
 
         <Show when={pinnedIds() !== null && unreadCount() > 0}>

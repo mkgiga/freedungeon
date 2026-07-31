@@ -11,13 +11,20 @@ import { ItemCard } from './inventory/ItemCard'
 import { usePlayback } from './playback'
 import { serializeBlocks } from './blocks'
 import { startItemDrag } from './itemDrag'
-import { MdFillPerson } from 'solid-icons/md'
+import { ChatInput, createPendingChoicePrompt } from './ChatInput'
+import { MdFillChat, MdFillGroups, MdFillKeyboard_arrow_down, MdFillKeyboard_arrow_up, MdFillPerson, MdFillBackpack } from 'solid-icons/md'
 
 /**
- * The persistent bottom band, repurposed from the old input panel into a
- * game-state HUD: present actors (player + NPCs) as small vertical cards on the
- * left, the player's inventory as a 2-column grid on the right. The composer
- * now lives inline at the end of the message feed (see ChatInput).
+ * The persistent bottom band. It is one container with two faces: the present
+ * actors (player + NPCs, small vertical cards) by default, or the composer once
+ * the user taps the top-right bubble — the two never coexist, so neither has to
+ * give up horizontal room for the other. The bubble becomes an ✕ while the
+ * composer is up.
+ *
+ * The inventory hangs off the band's top edge in a drawer opened by the handle,
+ * overlaying the message feed rather than reflowing it. It's anchor-positioned
+ * against the band (`anchor-name: --chat-bottom-ui`) so it stays glued to the
+ * top edge as the band grows with the composer's text.
  *
  * NPC cards reorder by "recency": an actor whose HP changes (or who just
  * entered) jumps to the front of the NPCs. The recency signal is derived purely
@@ -28,6 +35,26 @@ import { MdFillPerson } from 'solid-icons/md'
 export function GameStatePanel() {
     const modal = useModal()
     const playback = usePlayback()
+
+    const [mode, setMode] = createSignal<'actors' | 'composer'>('actors')
+    const [inventoryOpen, setInventoryOpen] = createSignal(false)
+
+    // A menu the agent just offered is unusable while the composer is hidden, so
+    // surface it. Keyed on the message id: re-opening only follows a *new* menu,
+    // otherwise dismissing one that's still pending would immediately undo itself.
+    const pendingChoicePrompt = createPendingChoicePrompt()
+    let autoOpenedFor: string | null = null
+    createEffect(() => {
+        const pending = pendingChoicePrompt()
+        if (!pending) {
+            autoOpenedFor = null
+            return
+        }
+        if (pending.messageId !== autoOpenedFor) {
+            autoOpenedFor = pending.messageId
+            setMode('composer')
+        }
+    })
 
     const resolveActorName = (customId: string) => {
         for (const a of Object.values(state.assets.actors)) {
@@ -125,10 +152,7 @@ export function GameStatePanel() {
         })
     }
 
-    let actorsRef: HTMLDivElement | undefined
-    onMount(() => {
-        if (actorsRef) autoAnimate(actorsRef)
-    })
+    const bindActorsRail = (el: HTMLDivElement) => autoAnimate(el)
 
     // ── Item detail card ──
     // Desktop opens it on hover; touch has no hover, so a tap toggles it. A tap
@@ -173,91 +197,141 @@ export function GameStatePanel() {
     }
 
     return (
-        <div class="chat-status-panel">
-            <div class="chat-status-actors" ref={actorsRef}>
+        <>
+            {/* Anchored to the band's top edge, growing upward over the feed. A
+              * sibling of the band, not a child: `anchor-size()` is invalid when
+              * the anchor is an ancestor of the positioned element (it would be a
+              * circular size dependency), so the drawer couldn't take the band's
+              * width from inside it. */}
+            <div class="chat-inventory-dock">
                 <Show
-                    when={playerActor()}
+                    when={inventoryOpen()}
                     fallback={
-                        <button class="chat-status-set-player" onClick={openPlayerPicker} title="Set player character">
-                            <MdFillPerson size={20} />
+                        <button
+                            class="chat-inventory-handle"
+                            onClick={() => setInventoryOpen(true)}
+                            title="Show inventory"
+                            aria-expanded={false}
+                        >
+                            <MdFillBackpack size={24} />
                         </button>
                     }
                 >
-                    {(p) => (
-                        <div class="chat-status-card is-player" data-drop-actor={p().customId}>
-                            <GameStateActorStatus
-                                customId={p().customId}
-                                hp={hpOf(p().customId) ?? 100}
-                                variant="small"
-                                onClick={openPlayerPicker}
-                            />
+                    <div class="chat-inventory-drawer">
+                        {/* Collapse control lives inside the open drawer rather than
+                          * floating over the feed as a tab. */}
+                        <div class="chat-inventory-drawer-header">
+                            <button
+                                class="chat-inventory-collapse"
+                                onClick={() => setInventoryOpen(false)}
+                                title="Hide inventory"
+                                aria-expanded={true}
+                            >
+                                <MdFillKeyboard_arrow_down size={32} />
+                            </button>
                         </div>
-                    )}
-                </Show>
 
-                <For each={npcIds()}>
-                    {(customId) => (
-                        <div class="chat-status-card" data-drop-actor={customId}>
-                            <GameStateActorStatus
-                                customId={customId}
-                                hp={hpOf(customId) ?? 0}
-                                variant="small"
-                                onClick={() => openActorStatus(customId)}
-                            />
+                        <div class="chat-inventory-grid">
+                            <For each={items()} fallback={<span class="chat-status-inventory-empty">Inventory empty</span>}>
+                                {(item) => {
+                                    // Set once a drag crosses the threshold, so the
+                                    // following pointerup is understood as a drop, not a tap.
+                                    let dragged = false
+                                    return (
+                                        <div
+                                            class="chat-inventory-slot"
+                                            onPointerDown={(e) => {
+                                                dragged = false
+                                                if (state.isGenerating) return
+                                                startItemDrag(
+                                                    e,
+                                                    e.currentTarget,
+                                                    (actorId) => sendTryUse(item.key, actorId),
+                                                    () => { dragged = true; closeCard() },
+                                                )
+                                            }}
+                                            onPointerUp={(e) => {
+                                                if (e.pointerType === 'mouse' || dragged) return
+                                                if (card()?.key === item.key) closeCard()
+                                                else openCard(item.key, e.currentTarget)
+                                            }}
+                                            onPointerEnter={(e) => {
+                                                if (e.pointerType === 'mouse') openCard(item.key, e.currentTarget)
+                                            }}
+                                            onPointerLeave={(e) => {
+                                                if (e.pointerType === 'mouse') closeCard()
+                                            }}
+                                        >
+                                            <Show
+                                                when={item.icon}
+                                                fallback={<span class="chat-inventory-slot-emoji">{pickEmojiForItem(item.label)}</span>}
+                                            >
+                                                {(icon) => <img class="chat-inventory-slot-icon" src={icon()} alt={item.label} />}
+                                            </Show>
+                                            <Show when={item.qty > 1}>
+                                                <span class="chat-inventory-slot-qty">{item.qty}</span>
+                                            </Show>
+                                        </div>
+                                    )
+                                }}
+                            </For>
                         </div>
-                    )}
-                </For>
+                    </div>
+                </Show>
             </div>
 
-            <div class="chat-status-inventory">
-                <For each={items()} fallback={<span class="chat-status-inventory-empty">Inventory empty</span>}>
-                    {(item) => {
-                        // Set once a drag crosses the threshold, so the
-                        // following pointerup is understood as a drop, not a tap.
-                        let dragged = false
-                        return (
-                        <div
-                            class="chat-inventory-slot"
-                            onPointerDown={(e) => {
-                                dragged = false
-                                if (state.isGenerating) return
-                                startItemDrag(
-                                    e,
-                                    e.currentTarget,
-                                    (actorId) => sendTryUse(item.key, actorId),
-                                    () => { dragged = true; closeCard() },
-                                )
-                            }}
-                            onPointerUp={(e) => {
-                                if (e.pointerType === 'mouse' || dragged) return
-                                if (card()?.key === item.key) closeCard()
-                                else openCard(item.key, e.currentTarget)
-                            }}
-                            onPointerEnter={(e) => {
-                                if (e.pointerType === 'mouse') openCard(item.key, e.currentTarget)
-                            }}
-                            onPointerLeave={(e) => {
-                                if (e.pointerType === 'mouse') closeCard()
-                            }}
-                        >
-                            <Show
-                                when={item.icon}
-                                fallback={<span class="chat-inventory-slot-emoji">{pickEmojiForItem(item.label)}</span>}
-                            >
-                                {(icon) => <img class="chat-inventory-slot-icon" src={icon()} alt={item.label} />}
-                            </Show>
-                            <Show when={item.qty > 1}>
-                                <span class="chat-inventory-slot-qty">{item.qty}</span>
-                            </Show>
-                        </div>
-                        )
-                    }}
-                </For>
+            <div class="chat-status-panel">
+                <div class="chat-status-actors" classList={{ hidden: mode() === 'composer' }} ref={bindActorsRail}>
+                    <Show
+                        when={playerActor()}
+                        fallback={
+                            <button class="chat-status-set-player" onClick={openPlayerPicker} title="Set player character">
+                                <MdFillPerson size={20} />
+                            </button>
+                        }
+                    >
+                        {(p) => (
+                            <div class="chat-status-card is-player" data-drop-actor={p().customId}>
+                                <GameStateActorStatus
+                                    customId={p().customId}
+                                    hp={hpOf(p().customId) ?? 100}
+                                    variant="small"
+                                    onClick={openPlayerPicker}
+                                />
+                            </div>
+                        )}
+                    </Show>
+
+                    <For each={npcIds()}>
+                        {(customId) => (
+                            <div class="chat-status-card" data-drop-actor={customId}>
+                                <GameStateActorStatus
+                                    customId={customId}
+                                    hp={hpOf(customId) ?? 0}
+                                    variant="small"
+                                    onClick={() => openActorStatus(customId)}
+                                />
+                            </div>
+                        )}
+                    </For>
+                </div>
+
+                <ChatInput hidden={mode() !== 'composer'} />
+
+                <button
+                    class="chat-status-toggle"
+                    onClick={() => setMode(m => (m === 'composer' ? 'actors' : 'composer'))}
+                    title={mode() === 'composer' ? 'Back to the scene' : 'Write a message'}
+                >
+                    <Show when={mode() === 'composer'} fallback={<MdFillChat size={24} />}>
+                        <MdFillGroups size={24} />
+                    </Show>
+                </button>
             </div>
 
             <Show when={cardItem()}>
                 {(item) => <ItemCard item={item()} anchor={card()!.anchor} />}
             </Show>
-        </div>
+        </>
     )
 }
