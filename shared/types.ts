@@ -9,6 +9,7 @@ export type AppState = {
     assets: {
         actors: Record<string, Actor>;
         notes: Record<string, Note>;
+        images: Record<string, ImageAsset>;
         llmConfigs: Record<string, LLMConfig>;
         chats: Record<string, Chat>;
     },
@@ -159,6 +160,28 @@ export type LLMConfig = {
     updatedAt: number;
 }
 
+/**
+ * A user-curated image attached to a chat (usually a template, as preset
+ * scenery the agent can bring on screen by `key`).
+ *
+ * Agent-generated images deliberately never land here: they're contextual to
+ * the beat that produced them, and a registry row would outlive the message
+ * block that rewinding or regenerating deletes — leaving an image the agent
+ * could still summon for a scene that no longer happened. Those stay as a URL
+ * inside their image block and die with it.
+ */
+export type ImageAsset = {
+    id: string;
+    /** Stable agent-facing identifier, snake_case — how show_image refers to it. */
+    key: string;
+    /** Human-readable label, shown in the editor and listed to the agent. */
+    label: string;
+    /** Serving URL under /uploads. */
+    url: string;
+    createdAt: number;
+    updatedAt: number;
+}
+
 export type Chat = {
     id: string;
     title: string;
@@ -169,6 +192,8 @@ export type Chat = {
          * note from prompts without detaching it from the chat.
          */
         notes: Record<string, { enabled: boolean }>;
+        /** Ids of the images attached to this chat, in display order. */
+        images: string[];
     };
     /** When true, this chat is a reusable template. Templates are filtered out
      *  of the regular chat list and shown in a separate "Templates" tab. */
@@ -195,6 +220,8 @@ export type CurrentChatState = {
          * note from `{{ NOTES() }}` macro output without detaching it.
          */
         notes: Record<string, { enabled: boolean }>;
+        /** Ids of the images attached to this chat, in display order. */
+        images: string[];
     };
     /** Keyed by message id. Render order is determined by `createdAt`. */
     messages: Record<string, ChatMessage>;

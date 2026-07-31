@@ -34,6 +34,11 @@ export type QueryDeps = {
         type: string;
         content: string;
     }>;
+    /** Curated images attached to this chat, addressable by `key`. */
+    images: Array<{
+        key: string;
+        label: string;
+    }>;
 };
 
 export type QuerySpec<S extends z.ZodTypeAny = z.ZodTypeAny> = {
@@ -135,6 +140,16 @@ export const QUERIES = {
             const defs = Object.values(deps.ctx.itemDefs ?? {});
             if (defs.length === 0) return '(no items defined)';
             return defs.map(d => `${d.key} (${d.label})${d.description ? ` — ${d.description}` : ''}`).join('\n');
+        },
+    }),
+
+    list_images: defineQuery({
+        name: 'list_images',
+        description: 'List the images attached to this chat, as `key (Label)`. These are preset visuals the author curated for this story — locations, characters, props, maps. Pass a key to show_image to bring one on screen.',
+        schema: z.object({}),
+        run: (_args, deps) => {
+            if (deps.images.length === 0) return '(no images attached to this chat)';
+            return deps.images.map(i => `${i.key} (${i.label})`).join('\n');
         },
     }),
 

@@ -208,6 +208,18 @@ export async function execCommand(
     // deliberately blocks on the job so the agent's next step sees a finished
     // item. The per-chat cache is the game state itself: a key that already
     // carries an icon reuses it instead of paying for another generation.
+    // Resolve a library image's key to its URL. Same reason as the icon path:
+    // toBlock is pure, and the chat's attached images aren't part of the game
+    // state it's given.
+    if (command === 'show_image') {
+        const { key } = parsed.data as { key: string };
+        const image = (state.currentChat.assets.images ?? [])
+            .map((id) => state.assets.images[id])
+            .find((i) => i?.key === key);
+        if (!image) return { error: `unknown_image: no image with key "${key}" is attached to this chat. Call list_images for the available keys.` };
+        (block as { src: string }).src = image.url;
+    }
+
     // Same deal for generate_image, except the image IS the block: a failed
     // generation has nothing worth persisting, so it comes back to the agent as
     // a tool error instead of an <img> pointing at nothing.
@@ -312,10 +324,16 @@ export function runQuery(chatId: string, query: QueryName, args: Record<string, 
         .filter((n): n is NonNullable<typeof n> => Boolean(n))
         .map((n) => ({ title: n.title, type: n.type, content: n.content }));
 
+    const images = (state.currentChat.assets.images ?? [])
+        .map((id) => state.assets.images[id])
+        .filter((i): i is NonNullable<typeof i> => Boolean(i))
+        .map((i) => ({ key: i.key, label: i.label }));
+
     const deps = {
         ctx: state.currentChat.gameState,
         actors,
         notes,
+        images,
     };
 
     // Cast around the same union-of-generic narrowing limitation as toBlock above.

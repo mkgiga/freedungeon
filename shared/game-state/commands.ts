@@ -112,6 +112,24 @@ export const COMMANDS = {
         }),
     }),
 
+    // `src` is resolved from the key by the server at exec time (toBlock is
+    // pure), so the persisted block holds a URL — detaching or renaming the
+    // image later can't retroactively break a beat that already happened.
+    show_image: defineCommand({
+        name: 'show_image',
+        description: 'Display one of this chat\'s attached images inline in the story. `key` must be one listed by list_images — never invent one. Use when a curated visual fits the moment: arriving somewhere it depicts, a character it portrays, a prop or map coming into play.',
+        schema: z.object({
+            key: z.string().describe('Image key from list_images.'),
+            caption: z.string().optional().describe('Optional text shown under the image, for any purpose.'),
+        }),
+        toBlock: (args) => ({
+            type: 'image',
+            src: '',
+            from: 'library',
+            ...(args.caption ? { caption: args.caption } : {}),
+        }),
+    }),
+
     // Only exposed when the imageGen feature's "Generate scene images" toggle is
     // on (see buildGameStateMcpServer / buildAiSdkTools). `src` is left empty
     // here and filled in by the server at exec time with the generated image's

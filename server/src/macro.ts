@@ -3,6 +3,7 @@ import fs from 'fs'
 import { state } from "./server"
 import { getCurrentTurnResult } from "./game-state"
 import { featureEnabled, resolveFeatureConfig, DEFAULT_STYLE_PREFERENCE } from "@shared/features"
+import { sceneImagesEnabled } from "./item-icons"
 
 const promptsDir = path.join(import.meta.dirname, 'prompts')
 
@@ -143,6 +144,26 @@ When you call \`end_turn\`, you may pass a \`choices\` array — an enumerated s
 
 registry.set('MULTICHOICE_PROMPT_INSTRUCTIONS', { kind: 'fn', fn: () => {
     return featureEnabled(state.userPreferences, 'choicePrompts') ? MULTICHOICE_PROMPT_INSTRUCTIONS : ''
+} });
+
+/**
+ * Instructions for the optional `generate_image` tool. Same contract as the
+ * choice-prompt block above: the macro expands to nothing unless the tool is
+ * actually exposed, so a prompt can carry the macro unconditionally and the
+ * agent is never told about a capability it doesn't have.
+ */
+export const IMAGE_GENERATION_INSTRUCTIONS = `# 【Generated Images】
+
+You can render an image into the story with \`generate_image\`. Pass a \`description\` written for an image model — subject and action, setting, framing and camera angle, lighting, mood, colour, in concrete visual nouns; it knows nothing of the story, so name what is in frame rather than who it is to the plot. Pass an \`aspect\` of "landscape" (establishing shots, vistas), "portrait" (a figure, a tall space) or "square", and optionally \`caption\` text to sit beneath the image.
+
+The image is generated on the spot and the turn blocks until it is done, so spend it where a visual does work prose would not: arriving somewhere the party has never seen, a reveal whose look carries the beat. At most one per beat, and never as decoration for a moment you have already described well.`
+
+registry.set('IMAGE_GENERATION_INSTRUCTIONS', { kind: 'fn', fn: () => {
+    // Reads the same predicate that decides whether the tool is exposed, so the
+    // two can't drift apart. (item-icons.ts imports parseMacros from here, so
+    // this closes an import cycle — benign, as with agent.ts/ai-agent.ts: both
+    // sides only reach across it inside function bodies, never at module init.)
+    return sceneImagesEnabled() ? IMAGE_GENERATION_INSTRUCTIONS : ''
 } });
 
 // ── Scope builders ───────────────────────────────────────────────────────────

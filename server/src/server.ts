@@ -36,6 +36,7 @@ export const [state, _setState] = createStore({
     assets: {
         actors: {},
         notes: {},
+        images: {},
         llmConfigs: {},
         chats: {},
     },
@@ -45,6 +46,7 @@ export const [state, _setState] = createStore({
         assets: {
             actors: [],
             notes: {},
+            images: [],
         },
         messages: {},
         gameState: createInitialContext(),

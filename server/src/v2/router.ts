@@ -2,6 +2,7 @@ import { router } from '../trpc'
 import { actorsRouter } from './actors/actors'
 import { chatRouter } from './chat/chat'
 import { notesRouter } from './notes/notes'
+import { imagesRouter } from './images/images'
 import { llmConfigsRouter } from './llm-configs/llm-configs'
 import { preferencesRouter } from './preferences/preferences'
 import { newsRouter } from './news/news'
@@ -10,6 +11,7 @@ export const appRouter = router({
     actors: actorsRouter,
     chat: chatRouter,
     notes: notesRouter,
+    images: imagesRouter,
     llmConfigs: llmConfigsRouter,
     preferences: preferencesRouter,
     news: newsRouter,

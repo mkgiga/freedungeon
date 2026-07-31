@@ -28,6 +28,7 @@ export const chatRouter = router({
             description: z.string().optional(),
             actors: z.array(z.string()).optional().default([]),
             notes: z.array(z.string()).optional().default([]),
+            images: z.array(z.string()).optional().default([]),
         }))
         .mutation(({ input }) => {
             const now = Date.now()
@@ -36,7 +37,7 @@ export const chatRouter = router({
             const chat: Chat = {
                 id: newId,
                 title: input.title,
-                assets: { actors: [...input.actors], notes: Object.fromEntries(input.notes.map(id => [id, { enabled: true }])) },
+                assets: { actors: [...input.actors], notes: Object.fromEntries(input.notes.map(id => [id, { enabled: true }])), images: [...(input.images ?? [])] },
                 isTemplate: input.isTemplate,
                 avatarUrl: input.avatarUrl || undefined,
                 bannerUrl: input.bannerUrl || undefined,
@@ -77,6 +78,7 @@ export const chatRouter = router({
                 description: z.string().optional(),
                 actors: z.array(z.string()).optional(),
                 notes: z.array(z.string()).optional(),
+                images: z.array(z.string()).optional(),
             }),
         }))
         .mutation(({ input }) => {
@@ -84,7 +86,7 @@ export const chatRouter = router({
             if (!chat) throw new Error(`Chat ${input.id} not found`)
 
             const now = Date.now()
-            const { title, avatarUrl, bannerUrl, description, actors, notes } = input.patch
+            const { title, avatarUrl, bannerUrl, description, actors, notes, images } = input.patch
             const isCurrent = state.currentChat.id === input.id
 
             if (title !== undefined) {
@@ -103,6 +105,10 @@ export const chatRouter = router({
             if (actors !== undefined) {
                 setState('assets', 'chats', input.id, 'assets', 'actors', actors)
                 if (isCurrent) setState('currentChat', 'assets', 'actors', actors)
+            }
+            if (images !== undefined) {
+                setState('assets', 'chats', input.id, 'assets', 'images', images)
+                if (isCurrent) setState('currentChat', 'assets', 'images', images)
             }
             if (notes !== undefined) {
                 // Diff per-key: Solid stores merge object writes, so setting a
@@ -266,7 +272,7 @@ export const chatRouter = router({
                 setState('currentChat', {
                     id: null,
                     title: '',
-                    assets: { actors: [], notes: {} },
+                    assets: { actors: [], notes: {}, images: [] },
                     messages: {},
                     gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
                     agentRehydration: null,

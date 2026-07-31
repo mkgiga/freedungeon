@@ -11,6 +11,7 @@ const [state, _setState] = createStore<AppState>({
   assets: {
     actors: {},
     notes: {},
+    images: {},
     llmConfigs: {},
     chats: {},
   },
@@ -20,6 +21,7 @@ const [state, _setState] = createStore<AppState>({
     assets: {
       actors: [],
       notes: {},
+      images: [],
     },
     messages: {},
     gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },

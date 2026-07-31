@@ -49,6 +49,7 @@ export class CurrentChat {
             assets: {
                 actors: [],
                 notes: {},
+                images: [],
             },
             messages: {},
             gameState: createInitialContext(),
@@ -388,6 +389,7 @@ export class CurrentChat {
                 notes: Object.fromEntries(
                     Object.entries(state.currentChat.assets.notes).map(([id, v]) => [id, { ...v }])
                 ),
+                images: [...(state.currentChat.assets.images ?? [])],
             },
             // Branching a template produces a regular chat — you shouldn't need to
             // clear the flag manually when you start a new chat from a template.
@@ -462,6 +464,9 @@ export class CurrentChat {
                 notes: Object.fromEntries(
                     Object.entries(sourceMeta.assets.notes).map(([id, v]) => [id, { ...v }])
                 ),
+                // Refs, not copies: an image is a shared library asset, so a
+                // chat made from a template points at the same rows.
+                images: [...(sourceMeta.assets.images ?? [])],
             },
             isTemplate: asTemplate,
             createdAt: now,

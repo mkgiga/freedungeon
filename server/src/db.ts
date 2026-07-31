@@ -7,7 +7,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { state } from './server';
 import { savePreferences } from './preferences';
-import type { Actor, Note, ChatMessage, AppState, Chat, LLMConfig, AppNotification, CurrentChatState }  from '@shared/types';
+import type { Actor, Note, ChatMessage, AppState, Chat, LLMConfig, AppNotification, CurrentChatState, ImageAsset }  from '@shared/types';
 export interface DB {
     actor_expressions: {
         id: string;
@@ -34,10 +34,23 @@ export interface DB {
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
+    images: {
+        id: string;
+        key: string;
+        label: Generated<string>;
+        url: string;
+        created_at: Generated<number>;
+        updated_at: Generated<number>;
+    };
     chat_actor_refs: {
         id: string;
         chat_id: string;
         actor_id: string;
+    };
+    chat_image_refs: {
+        id: string;
+        chat_id: string;
+        image_id: string;
     };
     chat_note_refs: {
         id: string;
@@ -177,6 +190,17 @@ export async function initDb() {
     }
 
     await db.schema
+        .createTable('images')
+        .ifNotExists()
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('key', 'text', (col) => col.notNull())
+        .addColumn('label', 'text', (col) => col.notNull().defaultTo(''))
+        .addColumn('url', 'text', (col) => col.notNull())
+        .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
+        .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
+        .execute();
+
+    await db.schema
         .createTable('chats')
         .ifNotExists()
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
@@ -223,6 +247,14 @@ export async function initDb() {
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
         .addColumn('chat_id', 'text', (col) => col.notNull().references('chats.id').onDelete('cascade'))
         .addColumn('actor_id', 'text', (col) => col.notNull().references('actors.id').onDelete('cascade'))
+        .execute();
+
+    await db.schema
+        .createTable('chat_image_refs')
+        .ifNotExists()
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('chat_id', 'text', (col) => col.notNull().references('chats.id').onDelete('cascade'))
+        .addColumn('image_id', 'text', (col) => col.notNull().references('images.id').onDelete('cascade'))
         .execute();
 
     await db.schema
@@ -435,7 +467,28 @@ export function hydrateNotification(row: NotificationRow): AppNotification {
     };
 }
 
+export function hydrateImage(row: Selectable<DB['images']>): ImageAsset {
+    return {
+        id: row.id,
+        key: row.key,
+        label: row.label,
+        url: row.url,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+    };
+}
+
 // ── Dehydration (App → DB) ──
+
+export function dehydrateImage(image: ImageAsset): Omit<Selectable<DB['images']>, 'id'> {
+    return {
+        key: image.key,
+        label: image.label,
+        url: image.url,
+        created_at: image.createdAt,
+        updated_at: image.updatedAt,
+    };
+}
 
 export function dehydrateActor(actor: Actor): Omit<Selectable<DB['actors']>, 'id'> {
     return {
@@ -534,6 +587,11 @@ export async function loadChatById(chatId: string) {
         .where('chat_id', '=', chatId)
         .execute();
 
+    const imageRefs = await db.selectFrom('chat_image_refs')
+        .select('image_id')
+        .where('chat_id', '=', chatId)
+        .execute();
+
     const hydratedChat = hydrateChat(loadedChat);
     const messagesRecord: Record<string, ChatMessage> = {};
     for (const row of chatMessages) {
@@ -568,6 +626,7 @@ export async function loadChatById(chatId: string) {
         assets: {
             actors: actorRefs.map(r => r.actor_id),
             notes: Object.fromEntries(noteRefs.map(r => [r.note_id, { enabled: r.enabled !== 0 }])),
+            images: imageRefs.map(r => r.image_id),
         },
         messages: messagesRecord,
         // Placeholder — CurrentChat.loadChat recomputes this from messages via
@@ -600,6 +659,15 @@ export async function loadAssetLibraryNotes() {
     return hydratedNotes;
 }
 
+export async function loadAssetLibraryImages() {
+    const rows = await db.selectFrom('images').selectAll().execute();
+    const hydrated: Record<string, ImageAsset> = {};
+    for (const row of rows) {
+        hydrated[row.id] = hydrateImage(row);
+    }
+    return hydrated;
+}
+
 /**
  * Loads all chats as lightweight metadata: id, title, timestamps, and asset ref IDs.
  * Does NOT load messages. Matches the shape of the `Chat` type used in `state.assets.chats`.
@@ -608,6 +676,7 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
     const chatRows = await db.selectFrom('chats').selectAll().execute();
     const actorRefs = await db.selectFrom('chat_actor_refs').selectAll().execute();
     const noteRefs = await db.selectFrom('chat_note_refs').selectAll().execute();
+    const imageRefs = await db.selectFrom('chat_image_refs').selectAll().execute();
 
     const result: Record<string, Chat> = {};
     for (const row of chatRows) {
@@ -617,6 +686,7 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
             assets: {
                 actors: actorRefs.filter(r => r.chat_id === row.id).map(r => r.actor_id),
                 notes: Object.fromEntries(noteRefs.filter(r => r.chat_id === row.id).map(r => [r.note_id, { enabled: r.enabled !== 0 }])),
+                images: imageRefs.filter(r => r.chat_id === row.id).map(r => r.image_id),
             },
             isTemplate: row.is_template !== 0,
             avatarUrl: row.avatar_url ?? undefined,
@@ -632,6 +702,7 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
 export async function loadStateFromDb(): Promise<AppState> {
     const actors = await loadAssetLibraryActors();
     const notes = await loadAssetLibraryNotes();
+    const images = await loadAssetLibraryImages();
     const chats = await loadAllChatsLite();
     const llmConfigRows = await db.selectFrom('llm_configs').selectAll().execute();
     const llmConfigs: Record<string, LLMConfig> = {};
@@ -645,13 +716,13 @@ export async function loadStateFromDb(): Promise<AppState> {
         : { activeLLMConfigId: null, playerCharacterId: null, theme: 'system', enableChoicePrompts: false };
 
     return {
-        assets: { actors, notes, llmConfigs, chats },
+        assets: { actors, notes, images, llmConfigs, chats },
         // Always empty on boot: activities are runtime-only and never persisted.
         activities: {},
         currentChat: {
             id: null,
             title: '',
-            assets: { actors: [], notes: {} },
+            assets: { actors: [], notes: {}, images: [] },
             messages: {},
             gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
             agentRehydration: null,
@@ -680,8 +751,15 @@ export function deleteNote(id: string) {
     db.deleteFrom('notes').where('id', '=', id).execute()
 }
 
+export function deleteImage(id: string) {
+    // CASCADE: chat_image_refs. The file under /uploads is left in place —
+    // uploads are content-addressed, so another image row (or a message block
+    // in any chat) may point at the same bytes.
+    db.deleteFrom('images').where('id', '=', id).execute()
+}
+
 export function deleteChat(id: string) {
-    // CASCADE: chat_messages, chat_actor_refs, chat_note_refs
+    // CASCADE: chat_messages, chat_actor_refs, chat_note_refs, chat_image_refs
     db.deleteFrom('chats').where('id', '=', id).execute()
 }
 
@@ -725,6 +803,10 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
     for (const [noteId, ref] of Object.entries(chat.assets.notes)) {
         db.insertInto('chat_note_refs').values({ id: nanoid(), chat_id: chat.id, note_id: noteId, enabled: ref.enabled ? 1 : 0 }).execute()
     }
+    db.deleteFrom('chat_image_refs').where('chat_id', '=', chat.id).execute()
+    for (const imageId of chat.assets.images ?? []) {
+        db.insertInto('chat_image_refs').values({ id: nanoid(), chat_id: chat.id, image_id: imageId }).execute()
+    }
 
     if (messages) {
         // SAVEPOINT so a large message set commits once instead of once per
@@ -757,6 +839,14 @@ export function saveActor(actor: Actor) {
     for (const [name, url] of Object.entries(actor.expressions)) {
         db.insertInto('actor_expressions').values({ id: nanoid(), actor_id: actor.id, name, url }).execute()
     }
+}
+
+/** Upserts a single image row. */
+export function saveImage(image: ImageAsset) {
+    db.insertInto('images')
+        .values({ id: image.id, ...dehydrateImage(image) })
+        .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateImage(image)))
+        .execute()
 }
 
 /** Upserts a single note row. */
@@ -821,6 +911,12 @@ export function persistPath(path: readonly unknown[]) {
             const note = state.assets.notes[b]
             if (note) saveNote(note)
             else deleteNote(b)
+            return
+        }
+        case 'images': {
+            const image = state.assets.images[b]
+            if (image) saveImage(image)
+            else deleteImage(b)
             return
         }
         case 'llmConfigs': {

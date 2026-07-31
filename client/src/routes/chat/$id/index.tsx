@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/solid-router'
-import { Show, createMemo, onMount } from 'solid-js'
+import { For, Show, createMemo, onMount } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import { MdFillAdd, MdFillCheck, MdFillUpload } from 'solid-icons/md'
 import { state } from '../../../state'
@@ -12,9 +12,10 @@ import { ImageIcon } from '../../../components/ImageIcon'
 import { ActorList } from '../../../components/actors'
 import { NoteList } from '../../../components/notes'
 import { ActorPicker, NotePicker } from '../../../components/chat/AssetPicker'
+import { ImagePicker } from '../../../components/chat/ImagePicker'
 import { useModal } from '../../../components/Modal'
 import { generateName } from '../../../utils/names'
-import type { Actor, Note } from '@shared/types'
+import type { Actor, ImageAsset, Note } from '@shared/types'
 
 export const Route = createFileRoute('/chat/$id/')({
     component: ChatDetailRoute,
@@ -54,6 +55,7 @@ function ChatDetailRoute() {
         description: string
         actors: Set<string>
         notes: Set<string>
+        images: string[]
         isTemplate: boolean
     }>({
         title: isNew() ? defaultTitle() : serverChat()?.title ?? '',
@@ -62,6 +64,7 @@ function ChatDetailRoute() {
         description: serverChat()?.description ?? '',
         actors: new Set(serverChat()?.assets.actors ?? []),
         notes: new Set(Object.keys(serverChat()?.assets.notes ?? {})),
+        images: [...(serverChat()?.assets.images ?? [])],
         isTemplate: serverChat()?.isTemplate ?? search().isTemplate,
     })
 
@@ -78,6 +81,7 @@ function ChatDetailRoute() {
             description: c.description ?? '',
             actors: new Set(c.assets.actors),
             notes: new Set(Object.keys(c.assets.notes)),
+            images: [...(c.assets.images ?? [])],
             isTemplate: c.isTemplate,
         })
     })
@@ -114,6 +118,30 @@ function ChatDetailRoute() {
                 <ActorPicker
                     selected={() => draft.actors}
                     onToggle={(a) => toggleActor(a.id)}
+                />
+            ),
+        })
+    }
+
+    const imageItems = createMemo<ImageAsset[]>(() =>
+        draft.images
+            .map(id => state.assets.images[id])
+            .filter((i): i is ImageAsset => Boolean(i))
+    )
+
+    const toggleImage = (id: string) => {
+        setDraft('images', draft.images.includes(id)
+            ? draft.images.filter(i => i !== id)
+            : [...draft.images, id])
+    }
+
+    const openImagePicker = () => {
+        modal.open({
+            title: 'Images',
+            content: () => (
+                <ImagePicker
+                    selected={() => draft.images}
+                    onToggle={(image) => toggleImage(image.id)}
                 />
             ),
         })
@@ -163,6 +191,7 @@ function ChatDetailRoute() {
                 description: draft.description,
                 actors: [...draft.actors],
                 notes: [...draft.notes],
+                images: [...draft.images],
             })
         } else {
             await trpc.chat.update.mutate({
@@ -174,6 +203,7 @@ function ChatDetailRoute() {
                     description: draft.description,
                     actors: [...draft.actors],
                     notes: [...draft.notes],
+                    images: [...draft.images],
                 },
             })
         }
@@ -305,6 +335,33 @@ function ChatDetailRoute() {
                                     },
                                 ]}
                             />
+                        </div>
+                    </section>
+
+                    {/* Images the agent can bring on screen by key (list_images
+                        / show_image). Curated here only — images it generates
+                        mid-story are never added to this library. */}
+                    <section class="mb-4">
+                        <div class="chat-detail-section-header">
+                            <Heading level={2}>Images</Heading>
+                            <button class="chat-detail-plus" onClick={openImagePicker} title="Add image">
+                                <MdFillAdd size={20} />
+                            </button>
+                        </div>
+                        <div class="image-picker-grid">
+                            <For each={imageItems()} fallback={<Text size="sm" class="opacity-50">No images attached.</Text>}>
+                                {(image) => (
+                                    <button
+                                        class="image-picker-item"
+                                        onClick={() => toggleImage(image.id)}
+                                        title="Remove from this chat"
+                                    >
+                                        <img src={image.url} alt="" />
+                                        <Text size="sm" class="truncate w-full">{image.label}</Text>
+                                        <Text size="sm" font="mono" class="opacity-50 truncate w-full">{image.key}</Text>
+                                    </button>
+                                )}
+                            </For>
                         </div>
                     </section>
 
