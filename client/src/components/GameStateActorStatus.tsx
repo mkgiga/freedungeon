@@ -18,6 +18,10 @@ type Props = {
 export function GameStateActorStatus(props: Props): JSXElement {
     const actor = () => Object.values(state.assets.actors).find(a => a.customId === props.customId) ?? null
     const displayName = () => actor()?.name ?? props.customId
+    // The card variants are only ~84px wide, where "Arnold Castus au Victoria"
+    // truncates to an ellipsis and tells you nothing. Show the first name and
+    // keep the full one on the tooltip / accessible name.
+    const shortName = () => displayName().trim().split(/\s+/)[0] || displayName()
     const avatarUrl = () => actor()?.avatarUrl
     const description = () => actor()?.description ?? ''
     const maxHp = () => props.maxHp ?? 100
@@ -46,9 +50,9 @@ export function GameStateActorStatus(props: Props): JSXElement {
                 </Match>
 
                 <Match when={props.variant === 'small'}>
-                    <button type="button" class="game-state-actor-card" onClick={props.onClick}>
+                    <button type="button" class="game-state-actor-card" onClick={props.onClick} title={displayName()}>
                         <ImageIcon url={avatarUrl()} size={props.avatarSize ?? 64} />
-                        <Text size="sm" class="game-state-actor-card-name truncate">{displayName()}</Text>
+                        <Text size="sm" class="game-state-actor-card-name truncate">{shortName()}</Text>
                         <div class="hp-bar hp-bar-horizontal">
                             <div class="hp-bar-fill" style={{ width: `${pct()}%` }} />
                         </div>
@@ -69,7 +73,9 @@ export function GameStateActorStatus(props: Props): JSXElement {
                             </div>
                         </div>
                         <Show when={description()}>
-                            <span class=''>{description()}</span>
+                            {/* Descriptions are authored as multi-line text; without
+                              * pre-wrap the newlines collapse into spaces. */}
+                            <Text size="sm" class="whitespace-pre-wrap">{description()}</Text>
                         </Show>
                     </div>
                 </Match>

@@ -324,7 +324,7 @@ export function GameStatePanel() {
                     title={mode() === 'composer' ? 'Back to the scene' : 'Write a message'}
                 >
                     <Show when={mode() === 'composer'} fallback={<MdFillChat size={24} />}>
-                        <MdFillGroups size={24} />
+                        <MdFillGroups size={32} />
                     </Show>
                 </button>
             </div>

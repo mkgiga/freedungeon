@@ -1037,6 +1037,12 @@ button {
   flex-direction: column;
   flex: 1;
   min-width: 0;
+
+  /* Height of the bottom band: 8px padding + one 123px actor card + the 8px
+     gap + a 17px sliver of the next row — one row for reading room, with just
+     enough of row two showing that a crowded scene doesn't look like it ends
+     there. The rail scrolls for the rest. Also the composer's floor. */
+  --chat-band-h: 156px;
 }
 
 .chat-messages {
@@ -2363,8 +2369,13 @@ menu#main-nav {
 
 /* ── GameStateActorStatus — HP bars ── */
 
+/* The spent part of the bar has to keep reading as bar, otherwise a damaged
+   actor's card looks like it's missing a chunk. The track is a dim ghost of the
+   fill colour — so it reads as "health that was there" — over a hairline that
+   holds the full silhouette regardless of how dark the theme gets. */
 .hp-bar {
-  background: color-mix(in oklch, var(--text), transparent 85%);
+  background: color-mix(in oklch, var(--color-red-400), transparent 84%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--text), transparent 86%);
   border-radius: 2px;
   overflow: hidden;
   position: relative;
@@ -2460,7 +2471,7 @@ menu#main-nav {
   display: flex;
   flex-direction: row;
   flex: none;
-  min-height: 150px;
+  min-height: var(--chat-band-h);
   max-height: 60dvh;
   background: var(--bg);
   border-top: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
@@ -2470,6 +2481,9 @@ menu#main-nav {
 .chat-status-actors {
   flex: 1;
   min-width: 0;
+  /* Fixed, not content-sized: a scene with a dozen actors scrolls the rail
+     rather than growing the band. */
+  height: var(--chat-band-h);
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -2611,7 +2625,7 @@ menu#main-nav {
    are re-interpreted as offsets from the grid region. */
 .chat-inventory-dock {
   position: absolute;
-  bottom: 150px;
+  bottom: var(--chat-band-h);
   left: 0;
   right: 0;
   z-index: 4;
