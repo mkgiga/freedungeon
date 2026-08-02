@@ -28,8 +28,54 @@ import { featureEnabled } from '@shared/features'
 import { state } from '../../state'
 import { usePlayback } from './playback'
 
-export function ChatMessage(props: { message: ChatMessageType }) {
+/**
+ * Block types with no renderer in the Switch below — pure state mutations that
+ * leave nothing on screen. Anything asking "what did the reader last see?"
+ * has to skip them. Keep in sync with the Switch.
+ */
+const SILENT_BLOCK_TYPES = new Set<Block['type']>([
+    'enterActors', 'leaveActors', 'setHp', 'defineItem', 'setFlag', 'clearFlag',
+])
+
+export const isRenderedBlock = (block: Block) => !SILENT_BLOCK_TYPES.has(block.type)
+
+/** The last block of `content` that actually renders, if any. */
+export function lastRenderedBlock(content: string): Block | undefined {
+    const blocks = parseBlocks(content)
+    for (let i = blocks.length - 1; i >= 0; i--) {
+        const b = blocks[i]
+        if (b && isRenderedBlock(b)) return b
+    }
+    return undefined
+}
+
+export function ChatMessage(props: {
+    message: ChatMessageType
+    /**
+     * Last rendered block of the preceding message, supplied by the feed —
+     * agent turns emit one block per message, so a block's neighbour is
+     * usually in another message entirely.
+     */
+    prevBlock?: Block
+    /** Side a portrait image in this message aligns to — alternates down the feed. */
+    portraitSide?: 'left' | 'right'
+}) {
     const blocks = createMemo(() => parseBlocks(props.message.content))
+
+    /**
+     * The block the reader saw immediately before block `i`, skipping silent
+     * ones and crossing the message boundary when needed. Deliberately keyed on
+     * log order rather than playback reveal state: a layout that flipped as the
+     * typewriter advanced would be worse than either arrangement.
+     */
+    const precedingRendered = (i: number): Block | undefined => {
+        const bs = blocks()
+        for (let k = i - 1; k >= 0; k--) {
+            const b = bs[k]
+            if (b && isRenderedBlock(b)) return b
+        }
+        return props.prevBlock
+    }
     const modal = useModal()
     const playback = usePlayback()
 
@@ -163,6 +209,8 @@ export function ChatMessage(props: { message: ChatMessageType }) {
                                 <ImageBlock
                                     block={block as Extract<Block, { type: 'image' }>}
                                     onUpdate={(b) => updateBlock(i(), b)}
+                                    prevBlock={precedingRendered(i())}
+                                    portraitSide={props.portraitSide ?? 'left'}
                                 />
                             </Match>
                             <Match when={block.type === 'pause'}>

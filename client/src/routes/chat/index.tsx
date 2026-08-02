@@ -7,7 +7,8 @@ import { createEffect, createMemo, createSignal, For, onMount, Show, untrack } f
 import { createViewportObserver } from '@solid-primitives/intersection-observer'
 import { MdFillAdd, MdFillView_sidebar } from 'solid-icons/md'
 import { Text } from '../../components/typography/Text'
-import { ChatMessage } from '../../components/chat/ChatMessage'
+import { ChatMessage, lastRenderedBlock } from '../../components/chat/ChatMessage'
+import { parseBlocks, type Block } from '../../components/chat/blocks'
 import { ChatSidebar } from '../../components/chat/ChatSidebar'
 import { useDrawer } from '../../components/Drawer'
 import { useModal } from '../../components/Modal'
@@ -299,6 +300,37 @@ function ConversationViewBody(props: { onBack: () => void }) {
     })
   })
 
+  /**
+   * Presentational layout hints, derived in one forward pass over the same
+   * window the feed renders:
+   *   - `prevBlock`: the last thing the reader saw before this message. Agent
+   *     turns emit one block per message, so a block's on-screen neighbour
+   *     usually lives in the previous message.
+   *   - `portraitSide`: portrait images alternate left/right down the feed.
+   *
+   * Parity comes from the rendered window, so loading older history can flip
+   * which side an image sits on. That's acceptable for something purely
+   * decorative — and far cheaper than re-deriving it from the whole log.
+   */
+  const layouts = createMemo(() => {
+    const map = new Map<string, { prevBlock?: Block; portraitSide: 'left' | 'right' }>()
+    let prevBlock: Block | undefined
+    let portraits = 0
+
+    for (const message of visibleMessages()) {
+      map.set(message.id, {
+        prevBlock,
+        portraitSide: portraits % 2 === 0 ? 'left' : 'right',
+      })
+      for (const block of parseBlocks(message.content)) {
+        if (block.type === 'image' && block.aspect === 'portrait') portraits++
+      }
+      const last = lastRenderedBlock(message.content)
+      if (last) prevBlock = last
+    }
+    return map
+  })
+
   const pinCurrentWindow = () => {
     if (pinnedIds() !== null) return
     const ids = untrack(() => visibleMessages().map(m => m.id))
@@ -429,7 +461,13 @@ function ConversationViewBody(props: { onBack: () => void }) {
             each={visibleMessages()}
             fallback={<Text size="sm" class="p-4 opacity-50">No messages yet</Text>}
           >
-            {(message) => <ChatMessage message={message} />}
+            {(message) => (
+              <ChatMessage
+                message={message}
+                prevBlock={layouts().get(message.id)?.prevBlock}
+                portraitSide={layouts().get(message.id)?.portraitSide ?? 'left'}
+              />
+            )}
           </For>
           <div ref={bottomSentinelRef} class="chat-messages-sentinel" />
         </div>

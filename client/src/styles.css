@@ -1359,14 +1359,42 @@ button {
   aspect-ratio: 1280 / 832;
 }
 
+/* A portrait image only needs half the column, so it sits beside its caption
+   rather than above it — and alternates edges down the feed so a run of them
+   doesn't march down one side. */
+.chat-block-image.is-portrait {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.chat-block-image.is-portrait.is-side-right {
+  flex-direction: row-reverse;
+}
+
 .chat-block-image.is-portrait img {
-  width: min(100%, 320px);
+  width: min(45%, 280px);
+  flex: none;
   aspect-ratio: 832 / 1280;
+}
+
+.chat-block-image.is-portrait .chat-block-image-caption {
+  flex: 1;
+  min-width: 0;
+  /* Beside the image it reads as body copy, not a tucked-under label. */
+  font-style: normal;
+  opacity: 0.8;
 }
 
 .chat-block-image.is-square img {
   width: min(100%, 420px);
   aspect-ratio: 1 / 1;
+}
+
+/* Caption lifted above the image (see ImageBlock.captionAbove). Reordered
+   rather than re-nested so the DOM keeps image-then-caption reading order. */
+.chat-block-image.is-caption-above .chat-block-image-caption {
+  order: -1;
 }
 
 .chat-block-image-caption {
