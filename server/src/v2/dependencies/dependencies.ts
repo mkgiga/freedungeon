@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
-import { ensureDependency, dismissDependency, verifyDependency } from '../../dependencies'
+import {
+    ensureDependency,
+    dismissDependency,
+    verifyDependency,
+    beginClaudeSignIn,
+    submitAuthCode,
+    cancelClaudeSignIn,
+} from '../../dependencies'
 
 const key = z.object({ key: z.enum(['claudeCli', 'rmbgModel']) })
 
@@ -27,5 +34,27 @@ export const dependenciesRouter = router({
         .input(key)
         .mutation(async ({ input }) => {
             return { status: await verifyDependency(input.key) }
+        }),
+
+    /** Kick off the Claude CLI's OAuth flow; the URL arrives over the socket. */
+    signIn: procedure
+        .mutation(async () => {
+            await beginClaudeSignIn()
+            return { success: true }
+        }),
+
+    /** Hand the CLI the code the browser showed, when it can't self-redirect. */
+    submitAuthCode: procedure
+        .input(z.object({ code: z.string().min(1) }))
+        .mutation(({ input }) => {
+            submitAuthCode(input.code)
+            return { success: true }
+        }),
+
+    cancelSignIn: procedure
+        .mutation(async () => {
+            cancelClaudeSignIn()
+            await dismissDependency('claudeCli')
+            return { success: true }
         }),
 })

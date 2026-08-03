@@ -46,6 +46,12 @@ type Spec = {
     resolve: () => Promise<{ url: string; expected: Expected; compressed?: 'zstd' }>
     /** Make it runnable once written (no-op on Windows). */
     executable?: boolean
+    /**
+     * Extra gate beyond "the bytes are right". The Claude CLI is verified but
+     * useless until the user signs in, and that isn't something a download can
+     * fix — so it reports 'unauthenticated' rather than pretending to be ready.
+     */
+    ready?: (file: string) => Promise<{ ok: boolean; account?: string }>
 }
 
 function platformKey(): string {
@@ -59,6 +65,7 @@ const SPECS: Record<DependencyKey, Spec> = {
     claudeCli: {
         file: path.join(NATIVE_DIR, process.platform === 'win32' ? 'claude.exe' : 'claude'),
         executable: true,
+        ready: checkClaudeAuth,
         resolve: async () => {
             const key = platformKey()
             const version = claudeManifest.version
@@ -103,6 +110,123 @@ const SPECS: Record<DependencyKey, Spec> = {
     },
 }
 
+// ── Claude sign-in ──────────────────────────────────────────────────────────
+
+/**
+ * We deliberately do NOT set CLAUDE_CONFIG_DIR: the CLI reads and writes its
+ * credentials in the shared default location, so a user who already has Claude
+ * Code signed in needs no auth step here at all, and signing in through this
+ * app leaves them signed in everywhere.
+ */
+type AuthStatus = { loggedIn: boolean; email?: string; orgName?: string; subscriptionType?: string }
+
+/** Spawning the CLI costs ~300ms, so don't re-ask on every readiness probe. */
+const authCache = new Map<string, { at: number; value: AuthStatus }>()
+const AUTH_TTL_MS = 10_000
+
+async function claudeAuthStatus(file: string, force = false): Promise<AuthStatus> {
+    const hit = authCache.get(file)
+    if (!force && hit && Date.now() - hit.at < AUTH_TTL_MS) return hit.value
+    let value: AuthStatus
+    try {
+        const proc = Bun.spawn([file, 'auth', 'status', '--json'], { stdout: 'pipe', stderr: 'pipe' })
+        const out = await new Response(proc.stdout).text()
+        await proc.exited
+        value = JSON.parse(out) as AuthStatus
+    } catch {
+        // Unreadable or non-JSON output means we can't prove a login exists,
+        // and guessing "yes" would let a broken config be saved.
+        value = { loggedIn: false }
+    }
+    authCache.set(file, { at: Date.now(), value })
+    return value
+}
+
+/** Whether the given Claude CLI has a usable login, and whose it is. */
+export async function checkClaudeAuth(file: string, force = false): Promise<{ ok: boolean; account?: string }> {
+    const status = await claudeAuthStatus(file, force)
+    const account = [status.email, status.subscriptionType].filter(Boolean).join(' · ')
+    return { ok: status.loggedIn === true, account: account || undefined }
+}
+
+/**
+ * The in-progress `claude auth login`, held open until the user pastes a code.
+ * Structurally typed rather than `Bun.Subprocess` because the client's
+ * typecheck reaches these shared server files without Bun's globals.
+ */
+type LoginProcess = {
+    stdin: { write: (s: string) => unknown; flush: () => unknown }
+    stdout: unknown
+    exited: Promise<number>
+    kill: () => void
+}
+let loginProc: LoginProcess | null = null
+
+/**
+ * Start the CLI's own OAuth flow and surface its URL through app state. The
+ * CLI opens a browser itself; if that fails the user can visit `authUrl`. It
+ * then waits on stdin for a pasted code, which `submitAuthCode` supplies.
+ */
+export async function beginClaudeSignIn(): Promise<void> {
+    const file = SPECS.claudeCli.file
+    if (!fs.existsSync(file)) throw new Error('Claude Code is not downloaded yet.')
+    cancelClaudeSignIn()
+
+    publish('claudeCli', { status: 'authenticating', authUrl: undefined, awaitingCode: false, error: undefined })
+
+    const proc = Bun.spawn([file, 'auth', 'login', '--claudeai'], {
+        stdin: 'pipe',
+        stdout: 'pipe',
+        stderr: 'pipe',
+    })
+    loginProc = proc as unknown as LoginProcess
+
+        // Stream stdout so the URL reaches the UI as soon as the CLI prints it,
+        // rather than after the process exits.
+        ; (async () => {
+            let buffered = ''
+            try {
+                for await (const chunk of proc.stdout as unknown as AsyncIterable<Uint8Array>) {
+                    buffered += new TextDecoder().decode(chunk)
+                    const url = buffered.match(/https:\/\/\S*oauth\/authorize\S*/)?.[0]
+                    if (url && state.dependencies.claudeCli?.authUrl !== url) {
+                        publish('claudeCli', { authUrl: url })
+                    }
+                    if (/Paste code here/i.test(buffered)) {
+                        publish('claudeCli', { awaitingCode: true })
+                    }
+                }
+            } catch { /* killed by cancel */ }
+        })()
+
+        // When it exits, re-derive the real status rather than trusting the flow.
+        ; (async () => {
+            await proc.exited
+            if (loginProc !== proc) return
+            loginProc = null
+            authCache.delete(file)
+            const status = await verifyDependency('claudeCli').catch(() => 'unauthenticated' as const)
+            const account = (await claudeAuthStatus(file, true)).email
+            publish('claudeCli', { status, authUrl: undefined, awaitingCode: false, account })
+            if (status === 'satisfied') log.server.ok('Signed in to Claude')
+        })()
+}
+
+/** Feed the browser-provided code to the waiting CLI. */
+export function submitAuthCode(code: string): void {
+    if (!loginProc) throw new Error('No sign-in is in progress.')
+    loginProc.stdin.write(`${code.trim()}\n`)
+    loginProc.stdin.flush()
+    publish('claudeCli', { awaitingCode: false })
+}
+
+export function cancelClaudeSignIn(): void {
+    if (!loginProc) return
+    const proc = loginProc
+    loginProc = null
+    try { proc.kill() } catch { /* already gone */ }
+}
+
 // ── Verification cache ──────────────────────────────────────────────────────
 
 type CacheEntry = { sha256: string; bytes: number; mtimeMs: number }
@@ -145,7 +269,7 @@ export async function verifyDependency(key: DependencyKey): Promise<DependencySt
     const stat = fs.statSync(spec.file)
     const cached = readCache()[key]
     if (cached && cached.bytes === stat.size && cached.mtimeMs === stat.mtimeMs) {
-        return 'satisfied'
+        return await gateReady(spec, 'satisfied')
     }
 
     // No usable cache entry — hash it. An expected value we can't reach the
@@ -166,7 +290,18 @@ export async function verifyDependency(key: DependencyKey): Promise<DependencySt
     const cache = readCache()
     cache[key] = { sha256: actual, bytes: stat.size, mtimeMs: stat.mtimeMs }
     writeCache(cache)
-    return 'satisfied'
+    return await gateReady(spec, 'satisfied')
+}
+
+/**
+ * Apply a spec's extra readiness gate. Bytes being correct is necessary but not
+ * always sufficient — a verified Claude CLI that nobody has signed into is
+ * 'unauthenticated', which the patcher resolves with a sign-in rather than a
+ * download.
+ */
+async function gateReady(spec: Spec, verified: 'satisfied'): Promise<DependencyState['status']> {
+    if (!spec.ready) return verified
+    return (await spec.ready(spec.file)).ok ? verified : 'unauthenticated'
 }
 
 /** Whether a dependency is usable right now, without downloading anything. */
@@ -188,12 +323,16 @@ export async function refreshDependencies(): Promise<void> {
     for (const key of Object.keys(SPECS) as DependencyKey[]) {
         const meta = DEPENDENCIES[key]
         let status: DependencyState['status'] = 'missing'
+        let account: string | undefined
         try {
             status = await verifyDependency(key)
+            if (key === 'claudeCli' && status !== 'missing') {
+                account = (await checkClaudeAuth(SPECS.claudeCli.file)).account
+            }
         } catch (err) {
             log.server.warn(`Could not verify ${key}: ${err instanceof Error ? err.message : err}`)
         }
-        setState('dependencies', key, { key, label: meta.label, reason: meta.reason, status })
+        setState('dependencies', key, { key, label: meta.label, reason: meta.reason, status, account })
     }
 }
 
@@ -270,8 +409,11 @@ export function ensureDependency(key: DependencyKey): Promise<void> {
             cache[key] = { sha256: actual, bytes: stat.size, mtimeMs: stat.mtimeMs }
             writeCache(cache)
 
-            publish(key, { status: 'satisfied', received: stat.size, total: stat.size, error: undefined })
-            log.server.ok(`Dependency ready: ${DEPENDENCIES[key].label}`)
+            // Re-derive rather than assuming 'satisfied': a freshly downloaded
+            // Claude CLI is still unusable until someone signs in.
+            const status = await gateReady(spec, 'satisfied')
+            publish(key, { status, received: stat.size, total: stat.size, error: undefined })
+            log.server.ok(`Dependency downloaded: ${DEPENDENCIES[key].label}${status === 'satisfied' ? '' : ' (sign-in required)'}`)
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err)
             // Leave nothing half-written behind for the next attempt to trip on.

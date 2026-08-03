@@ -1,9 +1,13 @@
 import { runAgentPrompt, cancelCurrentTurn, forkAndReturnNewSessionId, type PromptArgs } from './src/bridge';
 
-const oauthToken = Bun.env.CLAUDE_CODE_OAUTH_TOKEN;
-if (!oauthToken) {
-    console.error('Agent: CLAUDE_CODE_OAUTH_TOKEN is not set. Place it in agent-claude/.env or export it before starting the server.');
-    process.exit(1);
+// CLAUDE_CODE_OAUTH_TOKEN is one of six ways the CLI can authenticate, and the
+// least likely one here: a normal sign-in stores credentials on disk
+// (~/.claude/.credentials.json, or the Keychain on macOS) and the CLI reads
+// them itself. Treating the token as mandatory would make that stored-login
+// path unreachable, so this is a note, not a gate — the server checks real
+// readiness via `claude auth status` before letting an Anthropic config exist.
+if (!Bun.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    console.log('Agent: no CLAUDE_CODE_OAUTH_TOKEN set; relying on the Claude CLI\'s stored credentials.');
 }
 
 const port = Number(process.env.AGENT_PORT ?? 8076);

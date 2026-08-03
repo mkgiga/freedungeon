@@ -24,6 +24,13 @@ export type DependencyStatus =
     | 'downloading'
     /** The last attempt failed; `error` says why. Retryable. */
     | 'failed'
+    /**
+     * On disk and verified, but unusable until the user signs in. Distinct from
+     * 'missing' because there is nothing to download — the fix is an auth flow.
+     */
+    | 'unauthenticated'
+    /** A sign-in is in progress; `authUrl` is waiting to be visited. */
+    | 'authenticating'
 
 export type DependencyState = {
     key: DependencyKey
@@ -38,6 +45,12 @@ export type DependencyState = {
     total?: number
     /** Set when status is 'failed'. */
     error?: string
+    /** While 'authenticating': the URL the user must visit to authorize. */
+    authUrl?: string
+    /** While 'authenticating': whether the CLI is waiting on a pasted code. */
+    awaitingCode?: boolean
+    /** While 'satisfied': who is signed in, for display. */
+    account?: string
 }
 
 /** Static descriptions; the live status lives in `state.dependencies`. */
@@ -52,7 +65,14 @@ export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string
     },
 }
 
-/** A dependency blocks the UI only while it is actively being resolved. */
+/**
+ * A dependency blocks the UI while it is being resolved, and while it is
+ * resolvable-but-not-yet-usable. 'missing' does NOT block: nothing has asked
+ * for it yet, and the patcher only appears once something does.
+ */
 export function isBlocking(dep: DependencyState): boolean {
-    return dep.status === 'downloading' || dep.status === 'failed'
+    return dep.status === 'downloading'
+        || dep.status === 'failed'
+        || dep.status === 'unauthenticated'
+        || dep.status === 'authenticating'
 }

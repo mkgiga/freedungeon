@@ -3185,3 +3185,26 @@ body.item-dragging [data-drop-actor].drop-target-hover {
   gap: 8px;
   margin-top: 8px;
 }
+
+.patcher-link {
+  overflow-wrap: anywhere;
+  color: var(--color-accent, #7aa2f7);
+  font-size: 0.8rem;
+}
+
+.patcher-code {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.patcher-code-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border, #333);
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.3);
+  color: inherit;
+  font-family: monospace;
+}

@@ -4,7 +4,7 @@ import { state, setState, deleteState } from '../../server'
 import { nanoid } from 'nanoid'
 import { LLM_PRESETS, defaultValuesFromSchema } from '@shared/llm-presets'
 import type { LLMConfig } from '@shared/types'
-import { ensureDependency, isSatisfied } from '../../dependencies'
+import { ensureDependency, isSatisfied, verifyDependency, beginClaudeSignIn } from '../../dependencies'
 import { DEPENDENCIES } from '@shared/dependencies'
 import { restartAgentProcess } from '../../agent'
 
@@ -15,14 +15,26 @@ import { restartAgentProcess } from '../../agent'
  */
 async function requireProviderDependencies(provider: string): Promise<void> {
     if (provider !== 'anthropic') return
+
     const alreadyHad = await isSatisfied('claudeCli')
     await ensureDependency('claudeCli')
-    if (!(await isSatisfied('claudeCli'))) {
+
+    const status = await verifyDependency('claudeCli').catch(() => 'missing' as const)
+    if (status === 'unauthenticated') {
+        // The bytes are fine; the account isn't connected. Open the flow now so
+        // the panel shows a sign-in link rather than making the user find it.
+        await beginClaudeSignIn()
+        throw new Error(
+            `Sign in to Claude to finish setting this up — the sign-in panel is open. Save again once it completes.`,
+        )
+    }
+    if (status !== 'satisfied') {
         throw new Error(
             `${DEPENDENCIES.claudeCli.label} could not be downloaded, so this config can't be saved. ` +
             `Retry from the download panel, or use an OpenAI-compatible endpoint instead.`,
         )
     }
+
     // The agent process receives the CLI path at spawn time, so one started
     // before this download needs restarting to see it.
     if (!alreadyHad) await restartAgentProcess()
