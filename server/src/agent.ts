@@ -14,6 +14,7 @@ import { generateItemIcon, itemIconsEnabled, generateSceneImage, sceneImagesEnab
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
+import { isEmbedded } from './embedded';
 import type { ModelMessage } from 'ai';
 import type { GameStateContext, LLMConfig } from '@shared/types';
 // In-process OpenAI-v1 loop. Note: ai-agent.ts imports execCommand/runQuery from
@@ -34,10 +35,17 @@ let agentProcess: ChildProcess | null = null;
  */
 export function spawnAgentProcess() {
     if (agentProcess) return;
-    const agentDir = path.join(import.meta.dirname, '..', '..', 'agent-claude');
-    log.server.info(`Spawning agent process from ${agentDir} on port ${AGENT_PORT}...`);
-    const proc = spawn('bun', ['run', 'index.ts'], {
-        cwd: agentDir,
+
+    // A compiled binary has no agent-claude source tree to point `bun` at, and
+    // no `bun` on the user's machine either — the agent is bundled into this
+    // same executable, so re-exec ourselves with a flag that routes to it.
+    const [command, args, cwd] = isEmbedded()
+        ? [process.execPath, ['--agent'], undefined]
+        : ['bun', ['run', 'index.ts'], path.join(import.meta.dirname, '..', '..', 'agent-claude')];
+
+    log.server.info(`Spawning agent process${cwd ? ` from ${cwd}` : ''} on port ${AGENT_PORT}...`);
+    const proc = spawn(command, args, {
+        cwd,
         env: {
             ...process.env,
             AGENT_PORT: String(AGENT_PORT),

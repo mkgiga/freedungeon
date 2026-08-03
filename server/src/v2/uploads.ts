@@ -3,9 +3,8 @@ import path from 'node:path'
 import fs from 'node:fs'
 import sharp from 'sharp'
 import { fileTypeFromBuffer } from 'file-type'
+import { UPLOADS_DIR, THUMBS_DIR } from '../paths'
 
-const UPLOADS_DIR = path.join(import.meta.dirname, '..', '..', 'data', 'uploads')
-const THUMBS_DIR = path.join(UPLOADS_DIR, 'thumbs')
 const THUMB_MAX_DIM = 128
 
 function ensureDirs() {

@@ -9,19 +9,19 @@
  * changing MODEL_URL and MEAN/STD (2.0 uses ImageNet normalization) — the rest
  * of this file is model-agnostic.
  *
- * Weights are fetched on first use into server/data/models/ and cached there,
+ * Weights are fetched on first use into ~/.freedungeon/models/ and cached there,
  * alongside the db and uploads. Nothing is committed to the repo.
  */
 
 import path from 'node:path'
 import fs from 'node:fs'
 import sharp from 'sharp'
-import * as ort from 'onnxruntime-node'
+import type * as ortTypes from 'onnxruntime-node'
 import { log } from './logger'
+import { MODELS_DIR } from './paths'
 
 const MODEL_URL = 'https://huggingface.co/briaai/RMBG-1.4/resolve/main/onnx/model_fp16.onnx'
-const MODEL_DIR = path.join(import.meta.dirname, '..', 'data', 'models')
-const MODEL_PATH = path.join(MODEL_DIR, 'rmbg-1.4-fp16.onnx')
+const MODEL_PATH = path.join(MODELS_DIR, 'rmbg-1.4-fp16.onnx')
 
 /** RMBG-1.4's preprocessor_config.json: rescale 1/255, mean 0.5, std 1.0. */
 const MEAN = 0.5
@@ -36,11 +36,22 @@ const SIZE = 1024
  */
 const EXECUTION_PROVIDERS: string[] = ['cpu']
 
-let sessionPromise: Promise<ort.InferenceSession> | null = null
+let sessionPromise: Promise<ortTypes.InferenceSession> | null = null
+
+/**
+ * Loaded on first use rather than at import time. onnxruntime-node pulls in a
+ * native addon; keeping it off the startup path means a build that can't load
+ * it degrades to "background removal fails" instead of "server won't boot".
+ */
+let ortPromise: Promise<typeof ortTypes> | null = null
+function loadOrt(): Promise<typeof ortTypes> {
+    if (!ortPromise) ortPromise = import('onnxruntime-node')
+    return ortPromise
+}
 
 async function ensureModel(): Promise<void> {
     if (fs.existsSync(MODEL_PATH)) return
-    fs.mkdirSync(MODEL_DIR, { recursive: true })
+    fs.mkdirSync(MODELS_DIR, { recursive: true })
 
     log.server.info(`Downloading RMBG-1.4 weights (~88MB) to ${MODEL_PATH}`)
     const res = await fetch(MODEL_URL)
@@ -55,10 +66,11 @@ async function ensureModel(): Promise<void> {
 }
 
 /** Lazily create (and reuse) the inference session. */
-function getSession(): Promise<ort.InferenceSession> {
+function getSession(): Promise<ortTypes.InferenceSession> {
     if (!sessionPromise) {
         sessionPromise = (async () => {
             await ensureModel()
+            const ort = await loadOrt()
             return ort.InferenceSession.create(MODEL_PATH, {
                 executionProviders: EXECUTION_PROVIDERS as any,
             })
@@ -106,6 +118,7 @@ export async function removeBackground(png: Uint8Array): Promise<Uint8Array> {
         input[i + px * 2] = (data[i * 3 + 2]! / 255 - MEAN) / STD
     }
 
+    const ort = await loadOrt()
     const outputs = await session.run({
         [session.inputNames[0]!]: new ort.Tensor('float32', input, [1, 3, SIZE, SIZE]),
     })

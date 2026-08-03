@@ -7,6 +7,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { state } from './server';
 import { savePreferences } from './preferences';
+import { DB_PATH, ensureDataDirs } from './paths';
 import type { Actor, Note, ChatMessage, AppState, Chat, LLMConfig, AppNotification, CurrentChatState, ImageAsset }  from '@shared/types';
 export interface DB {
     actor_expressions: {
@@ -128,12 +129,9 @@ export let db: Kysely<DB>;
 let rawDb: InstanceType<typeof SQLite>;
 
 export async function initDb() {
-    const dataDirPath = path.join(import.meta.dirname, '..', 'data');
-    const dbDirPath = path.join(dataDirPath, 'db');
+    ensureDataDirs();
 
-    fs.mkdirSync(dbDirPath, { recursive: true });
-
-    rawDb = new SQLite(path.join(dbDirPath, 'db.sqlite'));
+    rawDb = new SQLite(DB_PATH);
     db = new Kysely<DB>({
         dialect: new BunSqliteDialect({ database: rawDb }),
     });

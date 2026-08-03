@@ -4,6 +4,7 @@ import { state } from "./server"
 import { getCurrentTurnResult } from "./game-state"
 import { featureEnabled, resolveFeatureConfig, DEFAULT_STYLE_PREFERENCE } from "@shared/features"
 import { sceneImagesEnabled } from "./item-icons"
+import { getEmbeddedPrompts } from "./embedded"
 
 const promptsDir = path.join(import.meta.dirname, 'prompts')
 
@@ -252,6 +253,17 @@ scopeBuilders.set('user_style_preference', () => {
 
 /** Loads .macro files from the prompts dir into the registry as template entries. */
 export function loadMacroFiles() {
+    // Compiled builds have no prompts dir to scan — the files were embedded at
+    // build time, so read them from there instead.
+    const embedded = getEmbeddedPrompts()
+    if (embedded) {
+        for (const [file, virtualPath] of Object.entries(embedded)) {
+            const name = path.basename(file, '.macro')
+            registry.set(name, { kind: 'template', body: fs.readFileSync(virtualPath, 'utf-8') })
+        }
+        return
+    }
+
     if (!fs.existsSync(promptsDir)) {
         fs.mkdirSync(promptsDir, { recursive: true })
         return

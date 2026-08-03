@@ -2,8 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import type { ModelMessage } from 'ai';
 import type { LastPromptMessage } from '@shared/types';
-
-const DEBUG_DIR = path.join(import.meta.dirname, '..', '..', 'debug');
+import { DEBUG_DIR } from '../paths';
 
 function ensureDir() {
     if (!fs.existsSync(DEBUG_DIR)) {

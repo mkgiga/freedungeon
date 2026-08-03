@@ -1,8 +1,7 @@
 import path from 'node:path'
 import fs from 'node:fs'
 import type { UserPreferences } from '@shared/types'
-
-const PREFS_PATH = path.join(import.meta.dirname, '..', 'data', 'preferences.json')
+import { PREFS_PATH } from './paths'
 
 const DEFAULT_PREFERENCES: UserPreferences = {
     activeLLMConfigId: null,

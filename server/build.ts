@@ -1,0 +1,247 @@
+/**
+ * Builds freedungeon into a single standalone executable.
+ *
+ *   bun run build              # host platform
+ *   bun run build --skip-client   # reuse the existing client/dist
+ *
+ * What this has to work around, all verified against Bun 1.3.7:
+ *
+ *  - `import.meta.dirname` inside a compiled binary points at the virtual
+ *    filesystem (`B:\~BUN\root`), and `readdirSync` on it fails outright. So
+ *    anything the server reads from disk is embedded here with
+ *    `{ type: 'file' }` and registered through src/embedded.ts.
+ *  - `compile.assets` (directory embedding) is accepted by the API but embeds
+ *    nothing in 1.3.7, hence the generated per-file imports below.
+ *  - sharp resolves its native binding with `require(path)` over a runtime
+ *    array, so the bundler never sees those specifiers. We replace
+ *    sharp/lib/sharp.js wholesale with a shim, and extract the real .node plus
+ *    its libvips DLLs to the data dir at startup — Windows' loader needs the
+ *    DLLs to sit next to the .node on a real filesystem.
+ */
+
+import path from 'node:path'
+import fs from 'node:fs'
+import type { BunPlugin } from 'bun'
+
+const ROOT = import.meta.dirname
+const REPO = path.join(ROOT, '..')
+const DIST = path.join(ROOT, 'client', 'dist')
+const PROMPTS = path.join(ROOT, 'src', 'prompts')
+const OUT_DIR = path.join(ROOT, 'dist')
+
+const skipClient = process.argv.includes('--skip-client')
+
+// ── Native modules ──────────────────────────────────────────────────────────
+
+/** Platform-specific files that must reach a real filesystem to be loadable. */
+type Native = { src: string; name: string }
+
+const PLATFORM = `${process.platform}-${process.arch}`
+/** The binding sharp's shim will require, once extracted. */
+const SHARP_BINDING = `sharp-${PLATFORM}.node`
+
+/**
+ * sharp's prebuilt binary lives in a separate per-platform package. Resolve it
+ * through sharp's own tree (where bun's isolated store puts it) before falling
+ * back to a hoisted top-level install.
+ */
+function findSharpNatives(): Native[] {
+    const pkg = `@img/sharp-${PLATFORM}`
+    // Resolve from the server package — sharp is its dependency, not the root's.
+    const sharpRoot = path.join(path.dirname(Bun.resolveSync('sharp', ROOT)), '..')
+    const candidates = [
+        path.join(sharpRoot, '..', pkg, 'lib'),
+        path.join(sharpRoot, 'node_modules', pkg, 'lib'),
+        path.join(REPO, 'node_modules', pkg, 'lib'),
+    ]
+    const dir = candidates.find(c => fs.existsSync(c))
+    if (!dir) {
+        throw new Error(`No ${pkg} found (looked in:\n  ${candidates.join('\n  ')}\n). Run \`bun install\` first.`)
+    }
+    // The .node plus every DLL beside it — Windows resolves those siblings from
+    // the directory the binding is loaded from.
+    return nativeFilesIn(dir)
+}
+
+/** Every loadable native file directly inside `dir`. */
+function nativeFilesIn(dir: string): Native[] {
+    return fs.readdirSync(dir)
+        .filter(f => /\.(node|dll|so|dylib)$/.test(f))
+        .map(f => ({ src: path.join(dir, f), name: f }))
+}
+
+/**
+ * onnxruntime-node keeps a per-platform binding under bin/napi-v6/, loaded via
+ * a template-literal require the bundler can't see. Same treatment as sharp:
+ * embed the binding plus the runtime DLLs it links against, and extract them
+ * together so the loader resolves the siblings from a real directory.
+ */
+function findOnnxNatives(): Native[] {
+    const dir = path.join(
+        path.dirname(Bun.resolveSync('onnxruntime-node', ROOT)), '..',
+        'bin', 'napi-v6', process.platform, process.arch,
+    )
+    if (!fs.existsSync(dir)) {
+        throw new Error(`No onnxruntime-node binding for ${PLATFORM} at ${dir}. Run \`bun install\` first.`)
+    }
+    // The DirectML provider's libraries are ~37MB and bg-removal.ts pins
+    // EXECUTION_PROVIDERS to ['cpu'], so they never load. Verified by running
+    // background removal with them absent — inference is unaffected. If that
+    // provider list ever gains 'dml', drop this filter.
+    const dmlOnly = /^(DirectML|dxcompiler|dxil)\.dll$/i
+    return nativeFilesIn(dir).filter(n => !dmlOnly.test(n.name))
+}
+
+// ── Codegen ─────────────────────────────────────────────────────────────────
+
+function walk(dir: string): string[] {
+    return fs.readdirSync(dir, { withFileTypes: true, recursive: true })
+        .filter(e => e.isFile())
+        .map(e => path.relative(dir, path.join(e.parentPath, e.name)))
+}
+
+/** POSIX-style, quoted — Windows backslashes would be escapes in a JS string. */
+const lit = (p: string) => JSON.stringify(p.replaceAll('\\', '/'))
+
+function generateEntry(natives: Native[]): string {
+    const clientFiles = fs.existsSync(DIST) ? walk(DIST) : []
+    if (clientFiles.length === 0) {
+        throw new Error(`No client build at ${DIST}. Run without --skip-client.`)
+    }
+    const promptFiles = fs.readdirSync(PROMPTS).filter(f => f.endsWith('.macro'))
+
+    const lines: string[] = [
+        '// GENERATED by server/build.ts — do not edit.',
+        `import { setEmbeddedAssets } from ${lit(path.join(ROOT, 'src', 'embedded.ts'))}`,
+        `import { NATIVE_DIR, ensureDataDirs } from ${lit(path.join(ROOT, 'src', 'paths.ts'))}`,
+        "import fs from 'node:fs'",
+        "import path from 'node:path'",
+        '',
+    ]
+
+    const entries: Array<[string, string, string]> = [] // [group, key, ident]
+    const push = (group: string, i: number, key: string, absPath: string) => {
+        const ident = `${group}_${i}`
+        lines.push(`import ${ident} from ${lit(absPath)} with { type: 'file' }`)
+        entries.push([group, key, ident])
+    }
+
+    clientFiles.forEach((f, i) => push('client', i, f.replaceAll('\\', '/'), path.join(DIST, f)))
+    promptFiles.forEach((f, i) => push('prompt', i, f, path.join(PROMPTS, f)))
+    natives.forEach((n, i) => push('native', i, n.name, n.src))
+
+    const group = (g: string) => entries.filter(([gg]) => gg === g)
+        .map(([, key, ident]) => `  ${JSON.stringify(key)}: ${ident},`).join('\n')
+
+    lines.push(
+        '',
+        `const NATIVES: Record<string, string> = {\n${group('native')}\n}`,
+        '',
+        '// Extract natives before anything imports sharp: the shim require()s',
+        '// them from here, and Windows resolves the .node\'s sibling DLLs from',
+        '// the real directory it lives in.',
+        'ensureDataDirs()',
+        'fs.mkdirSync(NATIVE_DIR, { recursive: true })',
+        'for (const [name, virtualPath] of Object.entries(NATIVES)) {',
+        '  const dest = path.join(NATIVE_DIR, name)',
+        '  const bytes = fs.readFileSync(virtualPath)',
+        '  // Rewrite only when changed, so an upgraded binary refreshes them.',
+        '  if (!fs.existsSync(dest) || fs.statSync(dest).size !== bytes.length) {',
+        '    fs.writeFileSync(dest, bytes)',
+        '  }',
+        '}',
+        'process.env.FREEDUNGEON_NATIVE_DIR = NATIVE_DIR',
+        '',
+        `setEmbeddedAssets({\n  clientFiles: {\n${group('client')}\n  },\n  prompts: {\n${group('prompt')}\n  },\n})`,
+        '',
+        '// Dynamic so the two side effects above land first.',
+        'if (process.argv.includes("--agent")) {',
+        `  await import(${lit(path.join(REPO, 'agent-claude', 'index.ts'))})`,
+        '} else {',
+        `  await import(${lit(path.join(ROOT, 'src', 'server.ts'))})`,
+        '}',
+        '',
+    )
+    return lines.join('\n')
+}
+
+// ── Plugin ──────────────────────────────────────────────────────────────────
+
+const sharpShim: BunPlugin = {
+    name: 'sharp-native-shim',
+    setup(build) {
+        build.onLoad({ filter: /sharp[\\/]lib[\\/]sharp\.js$/ }, () => ({
+            loader: 'js',
+            contents: [
+                "const path = require('node:path')",
+                `module.exports = require(path.join(process.env.FREEDUNGEON_NATIVE_DIR, ${JSON.stringify(SHARP_BINDING)}))`,
+            ].join('\n'),
+        }))
+    },
+}
+
+/**
+ * Rewrites just the binding require in onnxruntime-node's loader, leaving the
+ * rest of the module (initOrt and its log-level handling) intact.
+ */
+const onnxShim: BunPlugin = {
+    name: 'onnx-native-shim',
+    setup(build) {
+        build.onLoad({ filter: /onnxruntime-node[\\/]dist[\\/]binding\.js$/ }, (args) => {
+            const source = fs.readFileSync(args.path, 'utf8')
+            const dynamicRequire = /require\(`[^`]*onnxruntime_binding\.node`\)/
+            if (!dynamicRequire.test(source)) {
+                throw new Error(
+                    `onnxruntime-node's binding require no longer matches (${args.path}). ` +
+                    'Its loader changed — update this shim.',
+                )
+            }
+            return {
+                loader: 'js',
+                contents: source.replace(
+                    dynamicRequire,
+                    "require(require('node:path').join(process.env.FREEDUNGEON_NATIVE_DIR, 'onnxruntime_binding.node'))",
+                ),
+            }
+        })
+    },
+}
+
+// ── Build ───────────────────────────────────────────────────────────────────
+
+if (!skipClient) {
+    console.log('› building client')
+    const vite = Bun.spawnSync(['bun', 'run', 'build'], {
+        cwd: path.join(REPO, 'client'),
+        stdout: 'inherit',
+        stderr: 'inherit',
+    })
+    if (vite.exitCode !== 0) process.exit(vite.exitCode ?? 1)
+}
+
+const natives = [...findSharpNatives(), ...findOnnxNatives()]
+const totalMb = natives.reduce((sum, n) => sum + fs.statSync(n.src).size, 0) / 1e6
+console.log(`› embedding ${natives.length} native files (${totalMb.toFixed(0)}MB):`, natives.map(n => n.name).join(', '))
+
+fs.mkdirSync(OUT_DIR, { recursive: true })
+const entryPath = path.join(OUT_DIR, 'entry.generated.ts')
+fs.writeFileSync(entryPath, generateEntry(natives))
+console.log(`› generated ${path.relative(REPO, entryPath)}`)
+
+const outfile = path.join(OUT_DIR, 'freedungeon.exe')
+const result = await Bun.build({
+    entrypoints: [entryPath],
+    target: 'bun',
+    plugins: [sharpShim, onnxShim],
+    compile: {
+        target: 'bun-windows-x64',
+        outfile,
+        windows: { title: 'freedungeon' },
+    } as any,
+})
+
+if (!result.success) {
+    console.error(result.logs.map(String).join('\n'))
+    process.exit(1)
+}
+console.log(`› ${path.relative(REPO, outfile)}  ${(fs.statSync(outfile).size / 1e6).toFixed(0)}MB`)

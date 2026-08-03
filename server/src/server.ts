@@ -20,6 +20,7 @@ import { notification } from './notifications';
 import { nanoid } from 'nanoid';
 import { createInitialContext } from './game-state';
 import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
+import { getEmbeddedClientFiles } from './embedded';
 
 export const app = new Hono();
 export const httpServer = createServer();
@@ -132,11 +133,24 @@ async function listen() {
     app.route('/agent-rpc', agentRpcRouter);
     app.use('/trpc/*', trpcServer({ router: appRouter }));
 
-    // Serve the built client from server/client/dist. Requests that match a
-    // real file (/, /assets/..., /favicon.svg, ...) resolve to that file;
-    // anything else falls through to index.html so client-side routing works.
-    app.use('/*', serveStatic({ root: './client/dist' }));
-    app.get('*', serveStatic({ path: './client/dist/index.html' }));
+    // Serve the built client. Requests that match a real file (/, /assets/...,
+    // /favicon.svg, ...) resolve to that file; anything else falls through to
+    // index.html so client-side routing works.
+    //
+    // A compiled binary has no client/dist on disk — the bundle was embedded at
+    // build time, so serve it out of the virtual filesystem instead.
+    const embeddedClient = getEmbeddedClientFiles();
+    if (embeddedClient) {
+        app.get('*', async (c) => {
+            const key = decodeURIComponent(new URL(c.req.url).pathname).replace(/^\/+/, '');
+            const virtualPath = embeddedClient[key] ?? embeddedClient['index.html'];
+            if (!virtualPath) return c.text('Not found', 404);
+            return new Response(Bun.file(virtualPath));
+        });
+    } else {
+        app.use('/*', serveStatic({ root: './client/dist' }));
+        app.get('*', serveStatic({ path: './client/dist/index.html' }));
+    }
 
     Bun.serve({
         port: config.server.port || 8078,
