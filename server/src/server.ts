@@ -155,15 +155,16 @@ async function listen() {
         app.get('*', serveStatic({ path: './client/dist/index.html' }));
     }
 
-    Bun.serve({
-        port: config.server.port || 8078,
-        hostname: config.server.hostname || "0.0.0.0",
-        fetch: app.fetch,
-    });
+    // Launch flags beat config.json, which beats the built-in defaults. The
+    // env vars are set by the pre-init pass in main.ts.
+    const port = Number(process.env.FREEDUNGEON_PORT) || config.server.port || 8078;
+    const wsPort = Number(process.env.FREEDUNGEON_WS_PORT) || config.server.wsPort || 8079;
+    const hostname = process.env.FREEDUNGEON_HOST || config.server.hostname || "0.0.0.0";
 
-    httpServer.listen(config.server.wsPort || 8079);
+    Bun.serve({ port, hostname, fetch: app.fetch });
+    httpServer.listen(wsPort);
 
-    log.server.ok(`Server is listening on ${config.server.hostname === '0.0.0.0' ? 'http://localhost' : `http://${config.server.hostname}`}:${config.server.port}`);
+    log.server.ok(`Server is listening on ${hostname === '0.0.0.0' ? 'http://localhost' : `http://${hostname}`}:${port}`);
 }
 
 async function initHttp() {

@@ -11,9 +11,9 @@
     "drizzle-kit": "^0.31.10"
   },
   "scripts": {
-    "start": "bun src/server.ts",
+    "start": "bun src/main.ts",
     "build": "bun build.ts",
-    "dev": "bun --watch src/server.ts",
+    "dev": "bun --watch src/main.ts",
     "build:client": "cd ../client && bun run build",
     "seed:chat": "bun run scripts/seed-test-chat.ts"
   },

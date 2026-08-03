@@ -1,1 +1,1 @@
-bun --watch ./src/server.ts
+bun --watch ./src/main.ts

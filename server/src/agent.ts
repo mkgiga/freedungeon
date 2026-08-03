@@ -55,7 +55,8 @@ export async function spawnAgentProcess() {
         env: {
             ...process.env,
             AGENT_PORT: String(AGENT_PORT),
-            SERVER_RPC_URL: `http://127.0.0.1:${process.env.SERVER_PORT ?? 8078}/agent-rpc`,
+            // Must track --port, or the agent calls back to the wrong server.
+            SERVER_RPC_URL: `http://127.0.0.1:${process.env.FREEDUNGEON_PORT ?? process.env.SERVER_PORT ?? 8078}/agent-rpc`,
             ...(claudeCli ? { CLAUDE_CLI_PATH: claudeCli } : {}),
         },
         stdio: 'inherit',

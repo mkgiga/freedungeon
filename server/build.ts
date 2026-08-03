@@ -154,12 +154,9 @@ function generateEntry(natives: Native[]): string {
         '',
         `setEmbeddedAssets({\n  clientFiles: {\n${group('client')}\n  },\n  prompts: {\n${group('prompt')}\n  },\n})`,
         '',
-        '// Dynamic so the two side effects above land first.',
-        'if (process.argv.includes("--agent")) {',
-        `  await import(${lit(path.join(REPO, 'integrations', 'agent-claude', 'index.ts'))})`,
-        '} else {',
-        `  await import(${lit(path.join(ROOT, 'src', 'server.ts'))})`,
-        '}',
+        '// Dynamic so the two side effects above land first. main.ts parses the',
+        '// launch flags and routes to the server or the bundled agent.',
+        `await import(${lit(path.join(ROOT, 'src', 'main.ts'))})`,
         '',
     )
     return lines.join('\n')
