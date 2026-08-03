@@ -4,7 +4,7 @@
   "workspaces": [
     "client",
     "server",
-    "agent-claude"
+    "integrations/agent-claude"
   ],
   "scripts": {
     "//": "Passthroughs so the common workflows don't need a cd. `cd` rather than `bun --filter` because filtered output is prefixed and elided, which mangles the vite build and watch mode.",

@@ -75,7 +75,7 @@ function buildModel(cfg: LLMConfig) {
  * `tool-error` part instead of a successful result — the loop is unaffected
  * (the SDK catches executor throws and feeds the error back as the tool's
  * output), and it mirrors the `isError: true` the Claude MCP path already
- * sets in agent-claude/src/mcp.ts. The message carries execCommand's reason
+ * sets in integrations/agent-claude/src/mcp.ts. The message carries execCommand's reason
  * prefix (`invalid_action: ...`) so the model is told what to do next.
  */
 class ToolFailure extends Error {
@@ -120,7 +120,7 @@ export function buildAiSdkTools(chatId: string, enableChoicePrompts: boolean, en
         })
     }
 
-    // Turn terminator. Mirrors agent-claude/src/mcp.ts: optional `choices` when
+    // Turn terminator. Mirrors integrations/agent-claude/src/mcp.ts: optional `choices` when
     // the feature is on. The loop stops on `hasToolCall('end_turn')`.
     const endTurnBase = 'Call this when the causal chain initiated by the user\'s prompt is fully resolved and you have nothing more to do. After end_turn, control returns to the user.'
     tools['end_turn'] = tool({

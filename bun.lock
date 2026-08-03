@@ -8,21 +8,6 @@
         "zod": "catalog:",
       },
     },
-    "agent-claude": {
-      "name": "agent-claude",
-      "dependencies": {
-        "@anthropic-ai/claude-agent-sdk": "^0.2.112",
-        "dotenv": "^17.4.2",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-        "@types/node": "^25.6.0",
-      },
-      "peerDependencies": {
-        "typescript": "catalog:",
-      },
-    },
     "client": {
       "name": "client",
       "dependencies": {
@@ -58,6 +43,21 @@
         "vite-plugin-solid": "^2.11.10",
       },
     },
+    "integrations/agent-claude": {
+      "name": "agent-claude",
+      "dependencies": {
+        "@anthropic-ai/claude-agent-sdk": "^0.2.112",
+        "dotenv": "^17.4.2",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/node": "^25.6.0",
+      },
+      "peerDependencies": {
+        "typescript": "catalog:",
+      },
+    },
     "server": {
       "name": "freedungeon",
       "version": "0.0.1",
@@ -91,6 +91,9 @@
       },
     },
   },
+  "trustedDependencies": [
+    "onnxruntime-node",
+  ],
   "catalog": {
     "@trpc/client": "^11.16.0",
     "@types/bun": "^1.3.12",
@@ -678,7 +681,7 @@
 
     "adm-zip": ["adm-zip@0.5.18", "", {}, "sha512-ufJnssQGbxzLNS1Ho9bCtX4rQKCCvoVuDLHoJyc3F9dOGDB4BkWs2Ci0kv53lqocAEQ/Cbi+I2XCsNYGqVYqng=="],
 
-    "agent-claude": ["agent-claude@workspace:agent-claude"],
+    "agent-claude": ["agent-claude@workspace:integrations/agent-claude"],
 
     "ai": ["ai@6.0.208", "", { "dependencies": { "@ai-sdk/gateway": "3.0.133", "@ai-sdk/provider": "3.0.10", "@ai-sdk/provider-utils": "4.0.30", "@opentelemetry/api": "^1.9.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-STz+AaZqJ4ZjH7UkpXkbHx+bjgIDOsE8fIUoZjkZ2whoZcfVmG9K/TqEKouJZ03SuZuD7lagntlU3zBhAEkRpQ=="],
 

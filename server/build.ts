@@ -156,7 +156,7 @@ function generateEntry(natives: Native[]): string {
         '',
         '// Dynamic so the two side effects above land first.',
         'if (process.argv.includes("--agent")) {',
-        `  await import(${lit(path.join(REPO, 'agent-claude', 'index.ts'))})`,
+        `  await import(${lit(path.join(REPO, 'integrations', 'agent-claude', 'index.ts'))})`,
         '} else {',
         `  await import(${lit(path.join(ROOT, 'src', 'server.ts'))})`,
         '}',

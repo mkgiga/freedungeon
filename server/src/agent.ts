@@ -42,7 +42,7 @@ export async function spawnAgentProcess() {
     // same executable, so re-exec ourselves with a flag that routes to it.
     const [command, args, cwd] = isEmbedded()
         ? [process.execPath, ['--agent'], undefined]
-        : ['bun', ['run', 'index.ts'], path.join(import.meta.dirname, '..', '..', 'agent-claude')];
+        : ['bun', ['run', 'index.ts'], path.join(import.meta.dirname, '..', '..', 'integrations', 'agent-claude')];
 
     // May be null on a first run that has never used an Anthropic config; the
     // SDK only needs it once such a config actually drives a turn, and

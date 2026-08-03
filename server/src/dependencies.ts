@@ -29,8 +29,8 @@ import { state, setState } from './server'
 import { log } from './logger'
 // The SDK ships the manifest of the CLI build it expects — version and
 // checksum both come from the installed package, so they can't drift apart.
-import claudeManifest from '../../agent-claude/node_modules/@anthropic-ai/claude-agent-sdk/manifest.json' with { type: 'json' }
-import claudeZstManifest from '../../agent-claude/node_modules/@anthropic-ai/claude-agent-sdk/manifest.zst.json' with { type: 'json' }
+import claudeManifest from '../../integrations/agent-claude/node_modules/@anthropic-ai/claude-agent-sdk/manifest.json' with { type: 'json' }
+import claudeZstManifest from '../../integrations/agent-claude/node_modules/@anthropic-ai/claude-agent-sdk/manifest.zst.json' with { type: 'json' }
 
 const RELEASES = 'https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases'
 
