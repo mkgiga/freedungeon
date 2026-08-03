@@ -4,6 +4,29 @@ import { state, setState, deleteState } from '../../server'
 import { nanoid } from 'nanoid'
 import { LLM_PRESETS, defaultValuesFromSchema } from '@shared/llm-presets'
 import type { LLMConfig } from '@shared/types'
+import { ensureDependency, isSatisfied } from '../../dependencies'
+import { DEPENDENCIES } from '@shared/dependencies'
+import { restartAgentProcess } from '../../agent'
+
+/**
+ * Block a config from being saved until whatever its provider needs is on disk
+ * and verified. Only Anthropic has an external dependency today; the others are
+ * plain HTTP and need nothing.
+ */
+async function requireProviderDependencies(provider: string): Promise<void> {
+    if (provider !== 'anthropic') return
+    const alreadyHad = await isSatisfied('claudeCli')
+    await ensureDependency('claudeCli')
+    if (!(await isSatisfied('claudeCli'))) {
+        throw new Error(
+            `${DEPENDENCIES.claudeCli.label} could not be downloaded, so this config can't be saved. ` +
+            `Retry from the download panel, or use an OpenAI-compatible endpoint instead.`,
+        )
+    }
+    // The agent process receives the CLI path at spawn time, so one started
+    // before this download needs restarting to see it.
+    if (!alreadyHad) await restartAgentProcess()
+}
 
 export const llmConfigsRouter = router({
     list: procedure
@@ -29,7 +52,13 @@ export const llmConfigsRouter = router({
             schema: z.string(),
             values: z.string(),
         }))
-        .mutation(({ input }) => {
+        .mutation(async ({ input }) => {
+            // An Anthropic config is useless without the CLI the agent drives,
+            // so resolve that first and refuse to save if it can't be had. The
+            // client renders the patcher off `state.dependencies` while this
+            // awaits, then this either proceeds or throws.
+            await requireProviderDependencies(input.provider)
+
             const now = Date.now()
             const parsedSchema = JSON.parse(input.schema)
             const parsedValues = JSON.parse(input.values)
@@ -71,9 +100,11 @@ export const llmConfigsRouter = router({
 
     createFromPreset: procedure
         .input(z.object({ presetKey: z.string() }))
-        .mutation(({ input }) => {
+        .mutation(async ({ input }) => {
             const preset = LLM_PRESETS[input.presetKey]
             if (!preset) throw new Error(`Unknown preset: ${input.presetKey}`)
+
+            await requireProviderDependencies(preset.provider)
 
             const now = Date.now()
             const newId = nanoid()

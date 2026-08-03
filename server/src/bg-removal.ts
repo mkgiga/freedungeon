@@ -6,22 +6,17 @@
  * (`gated: "auto"` — a form grants access, but downloads then need a token),
  * while 1.4 is a plain 88MB fp16 fetch with no credentials. Both carry BRIA's
  * non-commercial terms, which this project satisfies. Swapping to 2.0 means
- * changing MODEL_URL and MEAN/STD (2.0 uses ImageNet normalization) — the rest
- * of this file is model-agnostic.
+ * changing the rmbgModel spec's URL and MEAN/STD (2.0 uses ImageNet
+ * normalization) — the rest of this file is model-agnostic.
  *
- * Weights are fetched on first use into ~/.freedungeon/models/ and cached there,
- * alongside the db and uploads. Nothing is committed to the repo.
+ * The weights themselves are fetched and checksum-verified by the dependency
+ * system (server/src/dependencies.ts) when the user enables background removal.
+ * Nothing is committed to the repo.
  */
 
-import path from 'node:path'
-import fs from 'node:fs'
 import sharp from 'sharp'
 import type * as ortTypes from 'onnxruntime-node'
-import { log } from './logger'
-import { MODELS_DIR } from './paths'
-
-const MODEL_URL = 'https://huggingface.co/briaai/RMBG-1.4/resolve/main/onnx/model_fp16.onnx'
-const MODEL_PATH = path.join(MODELS_DIR, 'rmbg-1.4-fp16.onnx')
+import { dependencyPath } from './dependencies'
 
 /** RMBG-1.4's preprocessor_config.json: rescale 1/255, mean 0.5, std 1.0. */
 const MEAN = 0.5
@@ -49,27 +44,28 @@ function loadOrt(): Promise<typeof ortTypes> {
     return ortPromise
 }
 
-async function ensureModel(): Promise<void> {
-    if (fs.existsSync(MODEL_PATH)) return
-    fs.mkdirSync(MODELS_DIR, { recursive: true })
-
-    log.server.info(`Downloading RMBG-1.4 weights (~88MB) to ${MODEL_PATH}`)
-    const res = await fetch(MODEL_URL)
-    if (!res.ok) throw new Error(`RMBG download failed: ${res.status} ${res.statusText}`)
-
-    // Write to a temp path first so an interrupted download can't leave a
-    // truncated file that later looks like a valid cached model.
-    const tmp = `${MODEL_PATH}.partial`
-    await Bun.write(tmp, res)
-    fs.renameSync(tmp, MODEL_PATH)
-    log.server.ok('RMBG-1.4 weights ready')
+/**
+ * The weights are fetched through the dependency system when the user enables
+ * background removal, not lazily here — a mid-turn 88MB download would stall
+ * the turn with no way to show progress. This only asserts the verified file is
+ * still there, so a deleted or truncated model surfaces as a clear error rather
+ * than a confusing onnxruntime failure.
+ */
+async function requireModel(): Promise<string> {
+    const file = await dependencyPath('rmbgModel')
+    if (!file) {
+        throw new Error(
+            'RMBG-1.4 weights are missing or failed verification. Re-enable background removal in preferences to download them again.',
+        )
+    }
+    return file
 }
 
 /** Lazily create (and reuse) the inference session. */
 function getSession(): Promise<ortTypes.InferenceSession> {
     if (!sessionPromise) {
         sessionPromise = (async () => {
-            await ensureModel()
+            const MODEL_PATH = await requireModel()
             const ort = await loadOrt()
             return ort.InferenceSession.create(MODEL_PATH, {
                 executionProviders: EXECUTION_PROVIDERS as any,

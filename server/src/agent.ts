@@ -15,6 +15,7 @@ import { runTurn, setCurrentTurnResult } from './game-state';
 import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
 import { isEmbedded } from './embedded';
+import { dependencyPath } from './dependencies';
 import type { ModelMessage } from 'ai';
 import type { GameStateContext, LLMConfig } from '@shared/types';
 // In-process OpenAI-v1 loop. Note: ai-agent.ts imports execCommand/runQuery from
@@ -33,7 +34,7 @@ let agentProcess: ChildProcess | null = null;
  * means the agent dies with the server (and restarts if we ever crash-loop
  * it). The agent listens on AGENT_PORT and we call into it via HTTP.
  */
-export function spawnAgentProcess() {
+export async function spawnAgentProcess() {
     if (agentProcess) return;
 
     // A compiled binary has no agent-claude source tree to point `bun` at, and
@@ -43,6 +44,11 @@ export function spawnAgentProcess() {
         ? [process.execPath, ['--agent'], undefined]
         : ['bun', ['run', 'index.ts'], path.join(import.meta.dirname, '..', '..', 'agent-claude')];
 
+    // May be null on a first run that has never used an Anthropic config; the
+    // SDK only needs it once such a config actually drives a turn, and
+    // restartAgentProcess picks it up after the download completes.
+    const claudeCli = await dependencyPath('claudeCli');
+
     log.server.info(`Spawning agent process${cwd ? ` from ${cwd}` : ''} on port ${AGENT_PORT}...`);
     const proc = spawn(command, args, {
         cwd,
@@ -50,6 +56,7 @@ export function spawnAgentProcess() {
             ...process.env,
             AGENT_PORT: String(AGENT_PORT),
             SERVER_RPC_URL: `http://127.0.0.1:${process.env.SERVER_PORT ?? 8078}/agent-rpc`,
+            ...(claudeCli ? { CLAUDE_CLI_PATH: claudeCli } : {}),
         },
         stdio: 'inherit',
     });
@@ -61,6 +68,16 @@ export function spawnAgentProcess() {
         log.server.error(`Agent process error: ${err.message}`);
     });
     agentProcess = proc;
+}
+
+/**
+ * Restart the agent so it picks up a newly-downloaded CLI. The path is passed
+ * through the environment at spawn time, so a process started before the
+ * download would otherwise keep running without it.
+ */
+export async function restartAgentProcess() {
+    killAgentProcess();
+    await spawnAgentProcess();
 }
 
 export function killAgentProcess() {

@@ -3110,3 +3110,78 @@ body.item-dragging [data-drop-actor].drop-target-hover {
   background: color-mix(in oklch, var(--primary), transparent 85%);
   border: 1px solid color-mix(in oklch, var(--primary), transparent 70%);
 }
+/* ── Dependency patcher ───────────────────────────────────────────────────
+   Blocks the whole app while a required external file downloads. Fixed rather
+   than absolute so it covers the tab panes and the bottom nav alike. */
+.patcher-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.patcher-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(440px, 100%);
+  padding: 20px;
+  border: 1px solid var(--color-border, #333);
+  border-radius: 10px;
+  background: var(--color-surface, #16161c);
+}
+
+.patcher-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.patcher-reason {
+  opacity: 0.7;
+}
+
+.patcher-progress {
+  height: 8px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.1);
+}
+
+.patcher-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent, #7aa2f7);
+  transition: width 200ms ease-out;
+}
+
+/* No content-length: sweep instead of reporting a fake percentage. */
+.patcher-progress-fill.indeterminate {
+  width: 35%;
+  animation: patcher-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes patcher-sweep {
+  0% { margin-left: -35%; }
+  100% { margin-left: 100%; }
+}
+
+.patcher-bytes {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.patcher-error {
+  color: var(--color-danger, #f7768e);
+}
+
+.patcher-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}

@@ -21,6 +21,7 @@ import { nanoid } from 'nanoid';
 import { createInitialContext } from './game-state';
 import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
 import { getEmbeddedClientFiles } from './embedded';
+import { refreshDependencies } from './dependencies';
 
 export const app = new Hono();
 export const httpServer = createServer();
@@ -58,6 +59,7 @@ export const [state, _setState] = createStore({
     } as CurrentChatState,
     isGenerating: false,
     activities: {},
+    dependencies: {},
     notifications: [],
     userPreferences: {
         theme: "system",
@@ -97,6 +99,7 @@ function start() {
         setState('assets', loaded.assets);
         setState('userPreferences', loadPreferences());
         await logChatMessageCounts();
+        await refreshDependencies();
         await initProcessHandlers();
         await initHttp();
         await initWebSocket();

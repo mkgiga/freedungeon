@@ -6,8 +6,10 @@ import { imagesRouter } from './images/images'
 import { llmConfigsRouter } from './llm-configs/llm-configs'
 import { preferencesRouter } from './preferences/preferences'
 import { newsRouter } from './news/news'
+import { dependenciesRouter } from './dependencies/dependencies'
 
 export const appRouter = router({
+    dependencies: dependenciesRouter,
     actors: actorsRouter,
     chat: chatRouter,
     notes: notesRouter,

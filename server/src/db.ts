@@ -3,8 +3,6 @@ import SQLite from 'bun:sqlite';
 import { Kysely, sql, type Generated } from 'kysely';
 import { BunSqliteDialect } from 'kysely-bun-sqlite';
 import { nanoid } from 'nanoid';
-import path from 'node:path';
-import fs from 'node:fs';
 import { state } from './server';
 import { savePreferences } from './preferences';
 import { DB_PATH, ensureDataDirs } from './paths';
@@ -717,6 +715,8 @@ export async function loadStateFromDb(): Promise<AppState> {
         assets: { actors, notes, images, llmConfigs, chats },
         // Always empty on boot: activities are runtime-only and never persisted.
         activities: {},
+        // Likewise re-derived from disk by refreshDependencies() at startup.
+        dependencies: {},
         currentChat: {
             id: null,
             title: '',

@@ -5,6 +5,8 @@
  * All `createdAt` / `updatedAt` fields are Unix timestamps in **milliseconds**
  * (compatible with `Date.now()` and `new Date(ms)`).
  */
+import type { DependencyKey, DependencyState } from './dependencies'
+
 export type AppState = {
     assets: {
         actors: Record<string, Actor>;
@@ -27,6 +29,13 @@ export type AppState = {
      * workflows) without clobbering each other. Consumers filter by `kind`.
      */
     activities: Record<string, Activity>;
+    /**
+     * Readiness of the external files the app fetches on demand (see
+     * shared/dependencies.ts). Transient like `activities` — never persisted,
+     * and re-verified against the data dir on every boot, so the client always
+     * renders the true on-disk state rather than a remembered one.
+     */
+    dependencies: Partial<Record<DependencyKey, DependencyState>>;
     notifications: AppNotification[];
     userPreferences: UserPreferences;
 }

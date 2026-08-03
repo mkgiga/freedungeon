@@ -32,6 +32,7 @@ const [state, _setState] = createStore<AppState>({
   } as CurrentChatState,
   isGenerating: false,
   activities: {},
+  dependencies: {},
   notifications: [],
   userPreferences: {
     theme: 'system',

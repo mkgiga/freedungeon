@@ -60,6 +60,10 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
             ...(args.resumeSessionId ? { resume: args.resumeSessionId } : {}),
             settingSources: [],
             persistSession: true,
+            // The server downloads and verifies the CLI into the data dir and
+            // passes its path through; without this the SDK falls back to
+            // looking for a native install the user may not have.
+            ...(process.env.CLAUDE_CLI_PATH ? { pathToClaudeCodeExecutable: process.env.CLAUDE_CLI_PATH } : {}),
         },
     });
 
