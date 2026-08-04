@@ -20,6 +20,7 @@ import { Route as ScenariosIdIndexRouteImport } from './routes/scenarios/$id/ind
 import { Route as NotesIdIndexRouteImport } from './routes/notes/$id/index'
 import { Route as ChatIdIndexRouteImport } from './routes/chat/$id/index'
 import { Route as ActorsIdIndexRouteImport } from './routes/actors/$id/index'
+import { Route as ScenariosIdCollaborateRouteImport } from './routes/scenarios/$id/collaborate'
 import { Route as PreferencesLlmConfigsIdIndexRouteImport } from './routes/preferences/llm-configs/$id/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +78,11 @@ const ActorsIdIndexRoute = ActorsIdIndexRouteImport.update({
   path: '/actors/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScenariosIdCollaborateRoute = ScenariosIdCollaborateRouteImport.update({
+  id: '/scenarios/$id/collaborate',
+  path: '/scenarios/$id/collaborate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PreferencesLlmConfigsIdIndexRoute =
   PreferencesLlmConfigsIdIndexRouteImport.update({
     id: '/preferences/llm-configs/$id/',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/notes/': typeof NotesIndexRoute
   '/preferences/': typeof PreferencesIndexRoute
   '/scenarios/': typeof ScenariosIndexRoute
+  '/scenarios/$id/collaborate': typeof ScenariosIdCollaborateRoute
   '/actors/$id/': typeof ActorsIdIndexRoute
   '/chat/$id/': typeof ChatIdIndexRoute
   '/notes/$id/': typeof NotesIdIndexRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/notes': typeof NotesIndexRoute
   '/preferences': typeof PreferencesIndexRoute
   '/scenarios': typeof ScenariosIndexRoute
+  '/scenarios/$id/collaborate': typeof ScenariosIdCollaborateRoute
   '/actors/$id': typeof ActorsIdIndexRoute
   '/chat/$id': typeof ChatIdIndexRoute
   '/notes/$id': typeof NotesIdIndexRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/notes/': typeof NotesIndexRoute
   '/preferences/': typeof PreferencesIndexRoute
   '/scenarios/': typeof ScenariosIndexRoute
+  '/scenarios/$id/collaborate': typeof ScenariosIdCollaborateRoute
   '/actors/$id/': typeof ActorsIdIndexRoute
   '/chat/$id/': typeof ChatIdIndexRoute
   '/notes/$id/': typeof NotesIdIndexRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/notes/'
     | '/preferences/'
     | '/scenarios/'
+    | '/scenarios/$id/collaborate'
     | '/actors/$id/'
     | '/chat/$id/'
     | '/notes/$id/'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/preferences'
     | '/scenarios'
+    | '/scenarios/$id/collaborate'
     | '/actors/$id'
     | '/chat/$id'
     | '/notes/$id'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/notes/'
     | '/preferences/'
     | '/scenarios/'
+    | '/scenarios/$id/collaborate'
     | '/actors/$id/'
     | '/chat/$id/'
     | '/notes/$id/'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   NotesIndexRoute: typeof NotesIndexRoute
   PreferencesIndexRoute: typeof PreferencesIndexRoute
   ScenariosIndexRoute: typeof ScenariosIndexRoute
+  ScenariosIdCollaborateRoute: typeof ScenariosIdCollaborateRoute
   ActorsIdIndexRoute: typeof ActorsIdIndexRoute
   ChatIdIndexRoute: typeof ChatIdIndexRoute
   NotesIdIndexRoute: typeof NotesIdIndexRoute
@@ -266,6 +279,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof ActorsIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scenarios/$id/collaborate': {
+      id: '/scenarios/$id/collaborate'
+      path: '/scenarios/$id/collaborate'
+      fullPath: '/scenarios/$id/collaborate'
+      preLoaderRoute: typeof ScenariosIdCollaborateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/preferences/llm-configs/$id/': {
       id: '/preferences/llm-configs/$id/'
       path: '/preferences/llm-configs/$id'
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotesIndexRoute: NotesIndexRoute,
   PreferencesIndexRoute: PreferencesIndexRoute,
   ScenariosIndexRoute: ScenariosIndexRoute,
+  ScenariosIdCollaborateRoute: ScenariosIdCollaborateRoute,
   ActorsIdIndexRoute: ActorsIdIndexRoute,
   ChatIdIndexRoute: ChatIdIndexRoute,
   NotesIdIndexRoute: NotesIdIndexRoute,

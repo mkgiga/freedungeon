@@ -5,15 +5,18 @@ import { SCENARIO_TOOLS } from '@shared/scenario-agent/tools'
 import { state, setState } from '../../server'
 import { nanoid } from 'nanoid'
 
+import { saveMessage, loadChatById } from '../../db'
+import type { ChatMessage } from '@shared/types'
 import type { ModelMessage } from 'ai'
 
 /**
  * The Scenario collaborator panel talks to this.
  *
- * The conversation is deliberately client-owned and unpersisted: the panel
- * sends its history back each turn and stores whatever comes out. Nothing about
- * authoring a Scenario belongs in the chat log, and a transient conversation
- * can't drift out of sync with a session on the model's side.
+ * The conversation is a real chat: messages are written as `chat_messages` rows
+ * against the collaborator chat, so it survives reloads and is a foundation for
+ * rewind/branch/regenerate later. It is never loaded into `currentChat` though —
+ * the collaborator's tools don't consult it, so the panel can run alongside a
+ * loaded roleplay chat without either disturbing the other.
  */
 export const scenarioAgentRouter = router({
     /** What the collaborator can do — for showing the user, not the model. */
@@ -54,26 +57,56 @@ export const scenarioAgentRouter = router({
             return { id, created: true }
         }),
 
+    /** The conversation so far, read straight from its chat rows. */
+    history: procedure
+        .input(z.object({ conversationId: z.string() }))
+        .query(async ({ input }) => {
+            const chat = await loadChatById(input.conversationId).catch(() => null)
+            if (!chat) return []
+            return Object.values(chat.messages)
+                .sort((a, b) => a.createdAt - b.createdAt)
+                .map(m => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt }))
+        }),
+
     send: procedure
         .input(z.object({
-            chatId: z.string(),
+            /** The Scenario being authored — what the tools are scoped to. */
+            scenarioId: z.string(),
+            /** The collaborator chat the conversation is stored in. */
+            conversationId: z.string(),
             message: z.string().min(1),
-            /** Prior turns, owned by the panel. */
-            history: z.array(z.object({
-                role: z.enum(['user', 'assistant']),
-                content: z.string(),
-            })).optional().default([]),
         }))
         .mutation(async ({ input }) => {
             const llmConfig = activeLlmConfig()
+
+            const prior = await loadChatById(input.conversationId).catch(() => null)
+            const history = Object.values(prior?.messages ?? {})
+                .sort((a, b) => a.createdAt - b.createdAt)
+                .map(m => ({ role: m.role === 'user' ? 'user' as const : 'assistant' as const, content: m.content }))
+
+            const now = Date.now()
+            const userMsg: ChatMessage = {
+                id: nanoid(), role: 'user', chatId: input.conversationId,
+                content: input.message, createdAt: now, updatedAt: now,
+            }
+            saveMessage(userMsg)
+
             const result = await runScenarioTurn({
-                chatId: input.chatId,
+                chatId: input.scenarioId,
                 userMessage: input.message,
-                history: input.history as ModelMessage[],
+                history: history as ModelMessage[],
                 llmConfig,
             })
+
+            const replyMsg: ChatMessage = {
+                id: nanoid(), role: 'assistant', chatId: input.conversationId,
+                content: result.reply, createdAt: Date.now(), updatedAt: Date.now(),
+            }
+            saveMessage(replyMsg)
+
             return {
                 reply: result.reply,
+                messages: [userMsg, replyMsg].map(m => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt })),
                 provider: llmConfig.provider,
                 model: llmConfig.model,
             }

@@ -3799,3 +3799,111 @@ menu.left-nav.compact .left-nav-detail {
   border-color: var(--color-danger, #f7768e);
   color: var(--color-danger, #f7768e);
 }
+
+/* ── Scenario collaborator ───────────────────────────────────────────────
+   One component, two homes: docked beside the editor on a wide screen, its
+   own screen on a phone. */
+.collab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.collab-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.collab-loading,
+.collab-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: auto;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.collab-message {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The user's own turns sit right and tinted, so the thread is scannable
+   without avatars taking up width the panel doesn't have. */
+.collab-message.is-user {
+  align-self: flex-end;
+  max-width: 85%;
+  background: color-mix(in oklch, var(--primary), transparent 85%);
+}
+
+.collab-thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+}
+
+.collab-error {
+  padding: 0 12px 8px;
+  color: var(--color-danger, #f7768e);
+}
+
+.collab-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+.collab-input {
+  flex: 1;
+  min-width: 0;
+  max-height: 40dvh;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  border-radius: 8px;
+  background: var(--bg);
+  color: inherit;
+  resize: none;
+  /* Grows with content without measuring scrollHeight. */
+  field-sizing: content;
+}
+
+.collab-send {
+  flex-shrink: 0;
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--primary);
+}
+
+.collab-send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Editor body becomes a row so the collaborator can dock beside it. */
+.preset-editor-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.scenario-assets {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 4px;
+}

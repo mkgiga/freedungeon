@@ -21,6 +21,12 @@ function ScenarioDetailRoute() {
             id={params().id}
             isTemplate
             onDone={() => navigate({ to: '/scenarios' })}
+            // Phones have no room to dock the collaborator; it gets its own
+            // screen in this same nav stack.
+            onOpenCollaborator={() => navigate({
+                to: '/scenarios/$id/collaborate',
+                params: { id: params().id },
+            })}
         />
     )
 }

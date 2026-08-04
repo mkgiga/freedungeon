@@ -1,6 +1,6 @@
-import { For, Show, createMemo, onMount } from 'solid-js'
+import { For, Show, createMemo, createSignal, onMount } from 'solid-js'
 import { createStore } from 'solid-js/store'
-import { MdFillAdd, MdFillCheck, MdFillUpload } from 'solid-icons/md'
+import { MdFillAdd, MdFillCheck, MdFillSmart_toy, MdFillUpload } from 'solid-icons/md'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../TopBar'
@@ -15,6 +15,8 @@ import { ImagePicker } from '../chat/ImagePicker'
 import { useModal } from '../Modal'
 import { generateName } from '../../utils/names'
 import type { Actor, ImageAsset, Note } from '@shared/types'
+import { viewport } from '../../viewport'
+import { ScenarioCollaborator } from '../scenario/ScenarioCollaborator'
 import { visible } from '@shared/visibility'
 
 /**
@@ -26,7 +28,14 @@ export function ChatPresetEditor(props: {
     id: string
     isTemplate: boolean
     onDone: () => void
+    /**
+     * Scenario-only. On a wide screen the collaborator docks beside the editor;
+     * on a phone there's no room, so this opens it as its own screen instead.
+     */
+    onOpenCollaborator?: () => void
 }) {
+    const [collabOpen, setCollabOpen] = createSignal(false)
+    const wide = () => viewport() === 'wide'
     const modal = useModal()
 
     const serverChat = () => state.assets.chats[props.id]
@@ -214,14 +223,29 @@ export function ChatPresetEditor(props: {
                 title={draft.title || 'Untitled'}
                 backButton={cancel}
                 slots={{
+                    // A fragment, not a wrapper div: `.toolbar-right > button`
+                    // styles direct children only, so wrapping these strips
+                    // their padding and hover state and jams them together.
                     right: (
-                        <button onClick={save} title="Save">
-                            <MdFillCheck size={28} />
-                        </button>
+                        <>
+                            <Show when={props.isTemplate}>
+                                <button
+                                    onClick={() => wide() ? setCollabOpen(o => !o) : props.onOpenCollaborator?.()}
+                                    title="Scenario collaborator"
+                                    classList={{ active: collabOpen() }}
+                                >
+                                    <MdFillSmart_toy size={26} />
+                                </button>
+                            </Show>
+                            <button onClick={save} title="Save">
+                                <MdFillCheck size={28} />
+                            </button>
+                        </>
                     ),
                 }}
             />
 
+            <div class="preset-editor-body">
             <div class="flex-1 overflow-y-auto">
                 {/* Banner + avatar — click to upload */}
                 <div
@@ -363,6 +387,18 @@ export function ChatPresetEditor(props: {
                         <button class="modal-btn modal-btn-confirm" onClick={save}>Save</button>
                     </div>
                 </div>
+            </div>
+
+            {/* Docked, not overlaid: opening it narrows the editor, the same
+                way the actors/notes panel behaves in a chat. Wide only — a
+                phone opens the collaborator as its own screen. */}
+            <Show when={props.isTemplate && wide()}>
+                <aside class="chat-side-panel" classList={{ open: collabOpen() }} aria-hidden={!collabOpen()}>
+                    <div class="chat-side-panel-inner">
+                        <ScenarioCollaborator scenarioId={props.id} />
+                    </div>
+                </aside>
+            </Show>
             </div>
         </div>
     )
