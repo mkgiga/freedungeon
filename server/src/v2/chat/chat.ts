@@ -263,6 +263,21 @@ export const chatRouter = router({
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
+            // Evict this Scenario's residents into the global library before
+            // the chat goes. The `ON DELETE SET NULL` foreign key already does
+            // this on disk, but reads are served from memory — without this the
+            // actors stay invisible everywhere until the next restart.
+            for (const actor of Object.values(state.assets.actors)) {
+                if (actor.homeChatId === input.id) {
+                    setState('assets', 'actors', actor.id, { ...actor, homeChatId: null })
+                }
+            }
+            for (const note of Object.values(state.assets.notes)) {
+                if (note.homeChatId === input.id) {
+                    setState('assets', 'notes', note.id, { ...note, homeChatId: null })
+                }
+            }
+
             // DB delete via persistPath; CASCADE removes chat_messages,
             // chat_actor_refs, and chat_note_refs for this chat.
             deleteState('assets', 'chats', input.id)

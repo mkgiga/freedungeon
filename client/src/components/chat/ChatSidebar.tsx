@@ -8,22 +8,23 @@ import { NoteList } from '../notes'
 import { useModal } from '../Modal'
 import { ActorPicker, NotePicker } from './AssetPicker'
 import type { Actor, Note } from '@shared/types'
+import { visible } from '@shared/visibility'
 
 export function ChatSidebar() {
     const modal = useModal()
 
     const chatActors = createMemo<Actor[]>(() => {
         const actorIds = state.currentChat?.assets?.actors ?? []
-        return actorIds
+        return visible(actorIds
             .map((id) => state.assets.actors?.[id])
-            .filter((a): a is Actor => Boolean(a))
+            .filter((a): a is Actor => Boolean(a)))
     })
 
     const chatNotes = createMemo<Note[]>(() => {
         const noteIds = Object.keys(state.currentChat?.assets?.notes ?? {})
-        return noteIds
+        return visible(noteIds
             .map((id) => state.assets.notes?.[id])
-            .filter((n): n is Note => Boolean(n))
+            .filter((n): n is Note => Boolean(n)))
     })
 
     const openActorPicker = () => {

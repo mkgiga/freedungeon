@@ -138,6 +138,22 @@ export type Actor = {
      * case-insensitively when grouping.
      */
     group?: string;
+    /**
+     * The Scenario this was authored for, or null for the global library.
+     *
+     * Purely a *listing* rule: the global library is "things with no home".
+     * It does NOT restrict use — a character can be attached to any number of
+     * chats via chat_actor_refs regardless of where it lives, which is how
+     * importing between Scenarios works. Deleting the home Scenario evicts
+     * rather than deletes (FK `ON DELETE SET NULL`), so residents fall back
+     * into the global library instead of vanishing.
+     */
+    homeChatId?: string | null;
+    /**
+     * Soft-delete tombstone (ms epoch). See the note on Note.deletedAt — the
+     * row survives so chat history keeps resolving portraits and expressions.
+     */
+    deletedAt?: number | null;
     createdAt: number;
     updatedAt: number;
 }
@@ -148,6 +164,25 @@ export type Note = {
     type: string;
     content: string;
     emoji?: string;
+    /**
+     * The Scenario this was authored for, or null for the global library.
+     *
+     * Purely a *listing* rule: the global library is "things with no home".
+     * It does NOT restrict use — a character can be attached to any number of
+     * chats via chat_actor_refs regardless of where it lives, which is how
+     * importing between Scenarios works. Deleting the home Scenario evicts
+     * rather than deletes (FK `ON DELETE SET NULL`), so residents fall back
+     * into the global library instead of vanishing.
+     */
+    homeChatId?: string | null;
+    /**
+     * Soft-delete tombstone (ms epoch). The row is never removed, because chat
+     * history resolves actors and notes live — deleting outright would strip
+     * portraits and expressions from messages already written. Everything that
+     * *presents* a library, picker, or agent tool filters on this; history does
+     * not, so old chats keep rendering exactly as they did.
+     */
+    deletedAt?: number | null;
     createdAt: number;
     updatedAt: number;
 }

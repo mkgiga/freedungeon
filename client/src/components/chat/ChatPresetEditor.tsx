@@ -15,6 +15,7 @@ import { ImagePicker } from '../chat/ImagePicker'
 import { useModal } from '../Modal'
 import { generateName } from '../../utils/names'
 import type { Actor, ImageAsset, Note } from '@shared/types'
+import { visible } from '@shared/visibility'
 
 /**
  * Editor for a chat or a Scenario — they are the same record, distinguished by
@@ -84,14 +85,14 @@ export function ChatPresetEditor(props: {
     })
 
     const actorItems = createMemo<Actor[]>(() =>
-        [...draft.actors]
+        visible([...draft.actors]
             .map(id => state.assets.actors[id])
-            .filter((a): a is Actor => Boolean(a))
+            .filter((a): a is Actor => Boolean(a)))
     )
     const noteItems = createMemo<Note[]>(() =>
-        [...draft.notes]
+        visible([...draft.notes]
             .map(id => state.assets.notes[id])
-            .filter((n): n is Note => Boolean(n))
+            .filter((n): n is Note => Boolean(n)))
     )
 
     const toggleActor = (id: string) => {

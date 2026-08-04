@@ -21,6 +21,8 @@ export interface DB {
         description: Generated<string>;
         avatar_url: string;
         group: string | null;
+        home_chat_id: string | null;
+        deleted_at: number | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
@@ -30,6 +32,8 @@ export interface DB {
         type: Generated<string>;
         content: Generated<string>;
         emoji: string | null;
+        home_chat_id: string | null;
+        deleted_at: number | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
     };
@@ -155,6 +159,17 @@ export async function initDb() {
     if (!actorCols.rows.some(r => r.name === 'group')) {
         await db.schema.alterTable('actors').addColumn('group', 'text').execute();
     }
+    // Soft-delete tombstone. Nullable and unset for every existing row, so
+    // nothing changes visibility on upgrade.
+    if (!actorCols.rows.some(r => r.name === 'deleted_at')) {
+        await db.schema.alterTable('actors').addColumn('deleted_at', 'integer').execute();
+    }
+    // Home Scenario. ON DELETE SET NULL makes eviction a database guarantee
+    // rather than something application code has to remember: delete a Scenario
+    // and its private cast falls back into the global library intact.
+    if (!actorCols.rows.some(r => r.name === 'home_chat_id')) {
+        await sql`ALTER TABLE actors ADD COLUMN home_chat_id TEXT REFERENCES chats(id) ON DELETE SET NULL`.execute(db);
+    }
 
     await db.schema
         .createTable('actor_expressions')
@@ -176,6 +191,14 @@ export async function initDb() {
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .execute();
+
+    const noteCols = await sql<{ name: string }>`PRAGMA table_info(notes)`.execute(db);
+    if (!noteCols.rows.some(r => r.name === 'deleted_at')) {
+        await db.schema.alterTable('notes').addColumn('deleted_at', 'integer').execute();
+    }
+    if (!noteCols.rows.some(r => r.name === 'home_chat_id')) {
+        await sql`ALTER TABLE notes ADD COLUMN home_chat_id TEXT REFERENCES chats(id) ON DELETE SET NULL`.execute(db);
+    }
 
     // Self-healing migration: add `emoji` column to existing notes tables that
     // predate it. `createTable().ifNotExists()` is a no-op if the table already
@@ -372,6 +395,8 @@ export function hydrateActor(row: ActorRow, expressions: ExpressionRow[]): Actor
         description: row.description,
         avatarUrl: row.avatar_url,
         group: row.group ?? undefined,
+        homeChatId: row.home_chat_id ?? null,
+        deletedAt: row.deleted_at ?? null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         expressions: Object.fromEntries(
@@ -389,6 +414,8 @@ export function hydrateNote(row: NoteRow): Note {
         type: row.type,
         content: row.content,
         emoji: row.emoji ?? undefined,
+        homeChatId: row.home_chat_id ?? null,
+        deletedAt: row.deleted_at ?? null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -493,6 +520,8 @@ export function dehydrateActor(actor: Actor): Omit<Selectable<DB['actors']>, 'id
         description: actor.description,
         avatar_url: actor.avatarUrl,
         group: actor.group ?? null,
+        home_chat_id: actor.homeChatId ?? null,
+        deleted_at: actor.deletedAt ?? null,
         created_at: actor.createdAt,
         updated_at: actor.updatedAt,
     };
@@ -504,6 +533,8 @@ export function dehydrateNote(note: Note): Omit<Selectable<DB['notes']>, 'id'> {
         type: note.type,
         content: note.content,
         emoji: note.emoji ?? null,
+        home_chat_id: note.homeChatId ?? null,
+        deleted_at: note.deletedAt ?? null,
         created_at: note.createdAt,
         updated_at: note.updatedAt,
     };

@@ -13,6 +13,7 @@ import { Dropdown } from '../../components/Dropdown'
 import { useModal } from '../../components/Modal'
 import { setActiveTab } from '../../tab-state'
 import type { Chat } from '@shared/types'
+import { visible } from '@shared/visibility'
 
 export const Route = createFileRoute('/scenarios/')({ component: RouteComponent })
 
@@ -68,9 +69,9 @@ function RouteComponent() {
     }
 
     const castOf = (scenario: Chat) =>
-        scenario.assets.actors
+        visible(scenario.assets.actors
             .map(id => state.assets.actors?.[id])
-            .filter(Boolean)
+            .filter((a): a is NonNullable<typeof a> => Boolean(a)))
             .slice(0, 5)
 
     return (

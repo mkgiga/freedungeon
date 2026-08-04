@@ -10,6 +10,7 @@ import { state, setState } from './server';
 import { db } from './db';
 import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { featureEnabled } from '@shared/features';
+import { visible } from '@shared/visibility';
 import { generateItemIcon, itemIconsEnabled, generateSceneImage, sceneImagesEnabled, type ImageAspect } from './item-icons';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { normalizeModelMessage } from './game-state/debug';
@@ -328,9 +329,14 @@ export function runQuery(chatId: string, query: QueryName, args: Record<string, 
         return { error: `chat_mismatch: agent is querying ${chatId} but server's current chat is ${state.currentChat.id}` };
     }
 
-    const actors = state.currentChat.assets.actors
-        .map((id) => state.assets.actors[id])
-        .filter((a): a is NonNullable<typeof a> => Boolean(a))
+    // Soft-deleted actors are withheld from the agent: it can still *see* them
+    // in replayed history (blocks resolve independently), but it must not be
+    // offered them as something to act on.
+    const actors = visible(
+        state.currentChat.assets.actors
+            .map((id) => state.assets.actors[id])
+            .filter((a): a is NonNullable<typeof a> => Boolean(a)),
+    )
         .map((a) => ({
             // Aliasing boundary: the agent-facing field is `id`, backed
             // by the DB's `Actor.customId` (user-authored, stable,
@@ -344,10 +350,12 @@ export function runQuery(chatId: string, query: QueryName, args: Record<string, 
             group: a.group,
         }));
 
-    const notes = Object.entries(state.currentChat.assets.notes)
-        .filter(([, ref]) => ref.enabled)
-        .map(([id]) => state.assets.notes[id])
-        .filter((n): n is NonNullable<typeof n> => Boolean(n))
+    const notes = visible(
+        Object.entries(state.currentChat.assets.notes)
+            .filter(([, ref]) => ref.enabled)
+            .map(([id]) => state.assets.notes[id])
+            .filter((n): n is NonNullable<typeof n> => Boolean(n)),
+    )
         .map((n) => ({ title: n.title, type: n.type, content: n.content }));
 
     const images = (state.currentChat.assets.images ?? [])

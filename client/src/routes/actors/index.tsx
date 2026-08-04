@@ -8,6 +8,7 @@ import { MdFillAdd } from 'solid-icons/md'
 import { ActorList } from '../../components/actors'
 import { nanoid } from 'nanoid'
 import { useModal } from '../../components/Modal'
+import { inLibrary } from '@shared/visibility'
 
 export const Route = createFileRoute('/actors/')({
   component: RouteComponent,
@@ -31,7 +32,7 @@ function RouteComponent() {
       }} />
       <div class="flex-1 overflow-y-auto">
         <ActorList
-          actors={Object.values(state.assets.actors ?? {})}
+          actors={inLibrary(Object.values(state.assets.actors ?? {}))}
           onActorClick={(actor) => {
             navigate({ to: '/actors/$id', params: { id: actor.customId }, search: { edit: true } })
           }}

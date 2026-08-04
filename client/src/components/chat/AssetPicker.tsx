@@ -4,6 +4,7 @@ import { trpc } from '../../trpc'
 import { ActorList } from '../actors'
 import { NoteList } from '../notes'
 import type { Actor, Note } from '@shared/types'
+import { inLibrary } from '@shared/visibility'
 
 function SearchInput(props: { placeholder: string; value: string; onInput: (v: string) => void }) {
     return (
@@ -29,7 +30,7 @@ export function ActorPicker(props: {
 
     const items = createMemo<Actor[]>(() => {
         const q = query().toLowerCase().trim()
-        return Object.values(state.assets.actors ?? {})
+        return inLibrary(Object.values(state.assets.actors ?? {}))
             .filter(a => !q
                 || a.name.toLowerCase().includes(q)
                 || a.description.toLowerCase().includes(q)
@@ -72,7 +73,7 @@ export function PlayerCharacterPicker(props: { onPick?: () => void }) {
 
     const items = createMemo<Actor[]>(() => {
         const q = query().toLowerCase().trim()
-        return Object.values(state.assets.actors ?? {})
+        return inLibrary(Object.values(state.assets.actors ?? {}))
             .filter(a => !q
                 || a.name.toLowerCase().includes(q)
                 || a.description.toLowerCase().includes(q)
@@ -122,7 +123,7 @@ export function NotePicker(props: {
 
     const items = createMemo<Note[]>(() => {
         const q = query().toLowerCase().trim()
-        return Object.values(state.assets.notes ?? {})
+        return inLibrary(Object.values(state.assets.notes ?? {}))
             .filter(n => !q
                 || n.title.toLowerCase().includes(q)
                 || n.type.toLowerCase().includes(q)

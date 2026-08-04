@@ -7,6 +7,7 @@ import { TopBar } from '../../components/TopBar'
 import { MdFillAdd } from 'solid-icons/md'
 import { NoteList } from '../../components/notes'
 import { useModal } from '../../components/Modal'
+import { inLibrary } from '@shared/visibility'
 
 export const Route = createFileRoute('/notes/')({
   component: RouteComponent,
@@ -29,7 +30,7 @@ function RouteComponent() {
       }} />
       <div class="flex-1 overflow-y-auto">
         <NoteList
-          notes={Object.values(state.assets.notes ?? {})}
+          notes={inLibrary(Object.values(state.assets.notes ?? {}))}
           showType={false}
           onNoteClick={(note) => {
             navigate({ to: '/notes/$id', params: { id: note.id }, search: { edit: true } })
