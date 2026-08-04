@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/solid-router'
 import { state } from '../../../../state'
 import { trpc } from '../../../../trpc'
 import { TopBar } from '../../../../components/TopBar'
-import { Show } from 'solid-js'
+import { createEffect, Show } from 'solid-js'
 import { MdFillCheck, MdFillAdd } from 'solid-icons/md'
 import { createStore } from 'solid-js/store'
 import { Heading } from '../../../../components/typography/Heading'
@@ -11,6 +11,7 @@ import { SchemaForm } from '../../../../components/json-ui'
 import { TextEditor } from '../../../../components/TextEditor'
 import type { SchemaField, SchemaFormHooks } from '@shared/schema-ui'
 import { LLM_PRESETS } from '@shared/llm-presets'
+import { pendingConfigEdit, setPendingConfigEdit } from '../../../../pending-nav'
 
 export const Route = createFileRoute('/preferences/llm-configs/$id/')({
     component: RouteComponent,
@@ -55,6 +56,32 @@ function RouteComponent() {
             if (prompt && !draft.systemPrompt) setDraft('systemPrompt', prompt)
         })
     }
+
+    /**
+     * Arriving here straight from onboarding with a custom (OpenAI-compatible)
+     * preset: its endpoint is a placeholder until the user points it at their
+     * own server, so bring the field into view and mark it. Runs once — the
+     * request is cleared as soon as it's honoured, so re-visiting the config
+     * later is an ordinary edit.
+     */
+    let endpointInput: HTMLInputElement | undefined
+    createEffect(() => {
+        const pending = pendingConfigEdit()
+        if (!pending || pending.id !== routeId() || !endpointInput) return
+        setPendingConfigEdit(null)
+        if (!pending.focusEndpoint) return
+
+        const el = endpointInput
+        // Next frame: the route has just mounted, so layout isn't settled and
+        // scrollIntoView would measure the wrong position.
+        requestAnimationFrame(() => {
+            el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            el.focus()
+            el.select()
+            el.classList.add('field-attention')
+            el.addEventListener('animationend', () => el.classList.remove('field-attention'), { once: true })
+        })
+    })
 
     // Detect if schema matches a preset (non-editable)
     const isPresetSchema = () => {
@@ -152,6 +179,7 @@ function RouteComponent() {
                             <Text size="sm" class="opacity-50">Endpoint URL</Text>
                             <Show when={edit()} fallback={<Text font="mono">{draft.endpoint || '—'}</Text>}>
                                 <input
+                                    ref={endpointInput}
                                     type="text"
                                     value={draft.endpoint}
                                     placeholder="https://api.openai.com/v1/chat/completions"

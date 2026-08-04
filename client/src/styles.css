@@ -3467,3 +3467,41 @@ menu.left-nav.compact .left-nav-header {
   height: 100%;
   overflow-y: auto;
 }
+
+/* The avatar is a button now — strip the default chrome and add affordance. */
+.left-nav-avatar {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease-out, border-color 120ms ease-out;
+}
+
+.left-nav-avatar:hover {
+  opacity: 1;
+}
+
+.left-nav-avatar.is-empty:hover {
+  border-color: var(--primary);
+}
+
+/* Field the app has just sent the user to — a brief pulse so the reason for
+   landing here is obvious, then it gets out of the way. */
+.field-attention {
+  animation: field-attention 1.6s ease-out;
+}
+
+@keyframes field-attention {
+  0%, 100% {
+    border-color: color-mix(in oklch, var(--text), transparent 85%);
+    box-shadow: none;
+  }
+  15%, 60% {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary), transparent 80%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field-attention { animation-duration: 0.01ms; border-color: var(--primary); }
+}

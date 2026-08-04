@@ -3,6 +3,8 @@ import { Portal } from 'solid-js/web'
 import { state } from '../state'
 import { trpc } from '../trpc'
 import { LLM_PRESETS } from '@shared/llm-presets'
+import { setPendingConfigEdit } from '../pending-nav'
+import { setActiveTab } from '../tab-state'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
 import { Em } from './typography/Em'
@@ -56,6 +58,17 @@ export function OnboardingOverlay() {
                 activeLLMConfigId: config.id,
                 onboardingCompletedAt: Date.now(),
             })
+
+            // Hand the user straight into the config they just made, in edit
+            // mode. Dismissing to an unchanged-looking app reads as though the
+            // click did nothing — and for the custom preset there's still a
+            // required step, since its endpoint is a placeholder until the user
+            // points it at their own server.
+            setPendingConfigEdit({
+                id: config.id,
+                focusEndpoint: LLM_PRESETS[presetKey]?.editable === true,
+            })
+            setActiveTab('preferences')
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err))
         } finally {

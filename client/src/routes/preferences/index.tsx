@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/solid-router'
 import { TopBar } from '../../components/TopBar'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
-import { For, Show } from 'solid-js'
+import { createEffect, For, Show } from 'solid-js'
 import { MdFillAdd } from 'solid-icons/md'
 import { Heading } from '../../components/typography/Heading'
 import { Text } from '../../components/typography/Text'
@@ -15,6 +15,7 @@ import { LLM_PRESETS } from '@shared/llm-presets'
 import { FEATURES, resolveFeatureConfig, type FeatureKey } from '@shared/features'
 import { SchemaForm } from '../../components/json-ui'
 import { installAvailable, isStandalone, triggerInstall } from '../../pwa-install'
+import { pendingConfigEdit } from '../../pending-nav'
 
 export const Route = createFileRoute('/preferences/')({
   component: RouteComponent,
@@ -25,6 +26,15 @@ function RouteComponent() {
   const modal = useModal()
 
   const llmConfigs = () => Object.values(state.assets.llmConfigs ?? {})
+
+  // Onboarding can't navigate itself — it's mounted outside the routers — so
+  // it leaves a request here and this route performs it. The signal isn't
+  // cleared yet; the editor clears it once it has used `focusEndpoint`.
+  createEffect(() => {
+    const pending = pendingConfigEdit()
+    if (!pending) return
+    navigate({ to: '/preferences/llm-configs/$id', params: { id: pending.id }, search: { edit: true } })
+  })
 
   const addConfig = () => {
     modal.open({
