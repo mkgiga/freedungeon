@@ -207,9 +207,9 @@ const result = await Bun.build({
     compile: {
         target: 'bun-windows-x64',
         outfile,
-        // Bun rejects a PNG here ("image type is not icon") — it needs a real
-        // .ico. logo96 is the largest size the new art exists at.
-        windows: { title: 'freedungeon', icon: path.join(REPO, 'client', 'public', 'logo96.ico') },
+        // Bun rejects a PNG here ("image type is not icon"). logo.ico holds
+        // 16/24/32/48/64/96 so Windows never has to rescale.
+        windows: { title: 'freedungeon', icon: path.join(REPO, 'client', 'public', 'logo.ico') },
     } as any,
 })
 
