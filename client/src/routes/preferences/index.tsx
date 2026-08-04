@@ -78,6 +78,51 @@ function RouteComponent() {
               </select>
             </label>
 
+            {/* Directly under the selector rather than at the foot of the page:
+                the list is where you go to create the thing the selector is
+                asking you to choose, and below the fold it may as well not
+                exist for a first-time user. */}
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <Text size="sm" class="opacity-50">LLM Configs</Text>
+                <button onClick={addConfig} title="New LLM config">
+                  <MdFillAdd size={24} />
+                </button>
+              </div>
+              <LLMConfigList
+                configs={llmConfigs()}
+                onConfigClick={(config) => {
+                  navigate({ to: '/preferences/llm-configs/$id', params: { id: String(config.id) }, search: { edit: false } })
+                }}
+                actions={[
+                  {
+                    label: 'Edit',
+                    callback: (config) => {
+                      navigate({ to: '/preferences/llm-configs/$id', params: { id: String(config.id) }, search: { edit: true } })
+                    },
+                  },
+                  {
+                    label: 'Delete',
+                    danger: true,
+                    callback: (config) => {
+                      modal.open({
+                        title: 'Delete Config',
+                        content: () => (
+                          <div>
+                            <Text>Are you sure you want to delete <Em type="danger" bold>{config.name}</Em>?</Text>
+                            <div class="modal-confirm-actions">
+                              <button class="modal-btn modal-btn-cancel" onClick={() => modal.close()}>Cancel</button>
+                              <button class="modal-btn modal-btn-confirm" onClick={() => { trpc.llmConfigs.delete.mutate({ id: config.id }); modal.close() }}>Confirm</button>
+                            </div>
+                          </div>
+                        ),
+                      })
+                    },
+                  },
+                ]}
+              />
+            </div>
+
             <label class="flex flex-col gap-1">
               <Text size="sm" class="opacity-50">Player Character</Text>
               <button
@@ -177,47 +222,6 @@ function RouteComponent() {
           </section>
         </Show>
 
-        {/* LLM Configs */}
-        <section>
-          <div class="flex items-center justify-between mb-4">
-            <Heading level={2}>LLM Configs</Heading>
-            <button onClick={addConfig}>
-              <MdFillAdd size={24} />
-            </button>
-          </div>
-          <LLMConfigList
-            configs={llmConfigs()}
-            onConfigClick={(config) => {
-              navigate({ to: '/preferences/llm-configs/$id', params: { id: String(config.id) }, search: { edit: false } })
-            }}
-            actions={[
-              {
-                label: 'Edit',
-                callback: (config) => {
-                  navigate({ to: '/preferences/llm-configs/$id', params: { id: String(config.id) }, search: { edit: true } })
-                },
-              },
-              {
-                label: 'Delete',
-                danger: true,
-                callback: (config) => {
-                  modal.open({
-                    title: 'Delete Config',
-                    content: () => (
-                      <div>
-                        <Text>Are you sure you want to delete <Em type="danger" bold>{config.name}</Em>?</Text>
-                        <div class="modal-confirm-actions">
-                          <button class="modal-btn modal-btn-cancel" onClick={() => modal.close()}>Cancel</button>
-                          <button class="modal-btn modal-btn-confirm" onClick={() => { trpc.llmConfigs.delete.mutate({ id: config.id }); modal.close() }}>Confirm</button>
-                        </div>
-                      </div>
-                    ),
-                  })
-                },
-              },
-            ]}
-          />
-        </section>
       </div>
     </div>
   )

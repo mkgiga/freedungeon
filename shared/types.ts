@@ -313,6 +313,17 @@ export type UserPreferences = {
     /** When true, the chat UI exposes a button to inspect the exact prompt last
      *  dispatched to the provider (see CurrentChatState.lastPrompt). Dev-only. */
     debug?: boolean;
+    /**
+     * When the user finished (or skipped) first-run onboarding, as ms epoch.
+     * Null/absent means it hasn't happened and the overlay shows.
+     *
+     * Deliberately an explicit stamp rather than something inferred from
+     * "has no LLM configs": a user who deletes every config to start over
+     * hasn't become a new user, and shouldn't be onboarded again. The one
+     * inference we do make is a single backfill at startup — see
+     * backfillOnboarding in server.ts.
+     */
+    onboardingCompletedAt?: number | null;
     /** Per-feature config keyed by feature key (see shared/features.ts).
      *  Stores only what the user changed; registry defaults are merged on read
      *  via resolveFeatureConfig. */

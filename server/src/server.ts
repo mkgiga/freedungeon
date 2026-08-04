@@ -101,6 +101,7 @@ function start() {
         setState('assets', loaded.assets);
         setState('userPreferences', loadPreferences());
         await logChatMessageCounts();
+        backfillOnboarding();
         await refreshDependencies();
         await initProcessHandlers();
         await initHttp();
@@ -108,6 +109,27 @@ function start() {
         await listen();
         spawnAgentProcess();
     })();
+}
+
+/**
+ * Mark pre-existing installs as already onboarded, once.
+ *
+ * Without this, everyone who was using freedungeon before onboarding existed
+ * gets the first-run overlay on their next launch. "Has a chat or an LLM
+ * config" is a safe read of "has clearly used this app" — and it's safe
+ * precisely because it runs only when the stamp is absent. From then on the
+ * stamp is authoritative, so later deleting every config doesn't re-trigger
+ * anything.
+ */
+function backfillOnboarding() {
+    if (state.userPreferences.onboardingCompletedAt) return;
+
+    const hasHistory = Object.keys(state.assets.chats).length > 0
+        || Object.keys(state.assets.llmConfigs).length > 0;
+    if (!hasHistory) return;
+
+    log.server.info('Existing install detected; skipping first-run onboarding.');
+    setState('userPreferences', 'onboardingCompletedAt', Date.now());
 }
 
 async function logChatMessageCounts() {

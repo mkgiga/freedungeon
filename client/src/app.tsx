@@ -8,6 +8,7 @@ import { BottomSheetProvider } from './components/BottomSheet'
 import { ToastProvider } from './components/Toast'
 import { BottomNav } from './components/BottomNav'
 import { PatcherOverlay } from './components/PatcherOverlay'
+import { OnboardingOverlay } from './components/OnboardingOverlay'
 import { activeTab, setActiveTab, type Tab } from './tab-state'
 
 const TAB_INITIAL: Record<Tab, string> = {
@@ -60,7 +61,11 @@ export function App() {
                                 </For>
                             </main>
                             <BottomNav activeTab={activeTab()} onChange={setActiveTab} />
-                            {/* Outside the tab panes so it blocks every tab, not just the active one. */}
+                            {/* Outside the tab panes so they block every tab, not just the active
+                                one. Patcher is mounted last so it layers above onboarding —
+                                choosing Anthropic during setup starts a download that has to
+                                stay visible. */}
+                            <OnboardingOverlay />
                             <PatcherOverlay />
                         </ToastProvider>
                     </BottomSheetProvider>

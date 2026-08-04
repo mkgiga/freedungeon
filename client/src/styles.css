@@ -3208,3 +3208,96 @@ body.item-dragging [data-drop-actor].drop-target-hover {
   color: inherit;
   font-family: monospace;
 }
+
+/* ── First-run onboarding ─────────────────────────────────────────────────
+   Sits below .patcher-overlay (z 100) so a dependency download triggered
+   during setup layers above it. */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+  background: rgb(0 0 0 / 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.onboarding-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(460px, 100%);
+  padding: 24px;
+  border: 1px solid var(--color-border, #333);
+  border-radius: 12px;
+  background: var(--color-surface, #16161c);
+}
+
+.onboarding-lede {
+  opacity: 0.7;
+}
+
+.onboarding-step {
+  margin-top: 8px;
+  opacity: 0.9;
+}
+
+.onboarding-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onboarding-preset {
+  padding: 12px;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  border-radius: 10px;
+  text-align: left;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+}
+
+.onboarding-preset:hover:not(:disabled) {
+  border-color: var(--color-accent, #7aa2f7);
+  background: rgb(255 255 255 / 0.04);
+}
+
+.onboarding-preset:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.onboarding-error {
+  color: var(--color-danger, #f7768e);
+}
+
+.onboarding-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Deliberately understated — the primary path is picking a preset. */
+.onboarding-skip {
+  align-self: center;
+  padding: 4px 8px;
+  opacity: 0.45;
+  font-size: 0.85rem;
+  text-decoration: underline;
+}
+
+.onboarding-skip:hover {
+  opacity: 0.8;
+}
+
+.onboarding-skip-warning {
+  opacity: 0.7;
+}
+
+.onboarding-skip-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
