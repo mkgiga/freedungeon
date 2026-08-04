@@ -236,3 +236,70 @@ export async function forkAndReturnNewSessionId(args: {
     });
     return { newSessionId: sessionId };
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Scenario collaborator
+// ─────────────────────────────────────────────────────────────────────────
+
+export type ScenarioPromptArgs = {
+    chatId: string;
+    userMessage: string;
+    systemPrompt: string;
+    model: string;
+    history: Array<{ role: string; content: string }>;
+    claudeCliPath?: string | null;
+};
+
+export type ScenarioPromptResult =
+    | { ok: true; reply: string }
+    | { ok: false; error: string };
+
+/**
+ * One collaborator exchange through the Claude SDK.
+ *
+ * Deliberately much simpler than runAgentPrompt: no session resume, no fork
+ * anchors, no produced-message bookkeeping. The collaborator writes directly to
+ * actors and notes rather than emitting blocks, so there is no transcript to
+ * keep in sync — history is replayed as plain text each turn.
+ */
+export async function runScenarioPrompt(args: ScenarioPromptArgs): Promise<ScenarioPromptResult> {
+    const { buildScenarioMcpServer, scenarioAllowedTools } = await import('./scenario-mcp');
+
+    const replayed = args.history
+        .map(m => `${m.role === 'user' ? 'User' : 'You'}: ${m.content}`)
+        .join('\n');
+    const prompt = replayed
+        ? `<conversation_so_far>\n${replayed}\n</conversation_so_far>\n\n<user>\n${args.userMessage}\n</user>`
+        : args.userMessage;
+
+    try {
+        const q = query({
+            prompt,
+            options: {
+                mcpServers: { scenario: buildScenarioMcpServer(args.chatId) },
+                allowedTools: scenarioAllowedTools(),
+                tools: [],
+                systemPrompt: args.systemPrompt,
+                model: args.model,
+                permissionMode: 'bypassPermissions',
+                settingSources: [],
+                persistSession: false,
+                ...((args.claudeCliPath || process.env.CLAUDE_CLI_PATH)
+                    ? { pathToClaudeCodeExecutable: args.claudeCliPath || process.env.CLAUDE_CLI_PATH }
+                    : {}),
+            },
+        });
+
+        let reply = '';
+        for await (const msg of q) {
+            if (msg.type === 'assistant') {
+                for (const block of msg.message.content) {
+                    if (block.type === 'text') reply += block.text;
+                }
+            }
+        }
+        return { ok: true, reply: reply.trim() };
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+}

@@ -74,3 +74,19 @@ async function rpcCall(body: object): Promise<unknown> {
     }
     return res.json();
 }
+
+export type ServerScenarioResponse =
+    | { result: string }
+    | { error: string };
+
+/**
+ * Execute one Scenario collaborator tool. The subprocess holds no scenario
+ * state of its own — the server owns the scoped deps, so every call goes back.
+ */
+export async function rpcScenarioTool(
+    chatId: string,
+    tool: string,
+    args: Record<string, unknown>
+): Promise<ServerScenarioResponse> {
+    return rpcCall({ kind: 'scenario', chatId, tool, args }) as Promise<ServerScenarioResponse>;
+}

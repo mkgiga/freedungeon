@@ -1,4 +1,4 @@
-import { runAgentPrompt, cancelCurrentTurn, forkAndReturnNewSessionId, type PromptArgs } from './src/bridge';
+import { runAgentPrompt, cancelCurrentTurn, forkAndReturnNewSessionId, runScenarioPrompt, type PromptArgs, type ScenarioPromptArgs } from './src/bridge';
 
 // CLAUDE_CODE_OAUTH_TOKEN is one of six ways the CLI can authenticate, and the
 // least likely one here: a normal sign-in stores credentials on disk
@@ -17,6 +17,19 @@ Bun.serve({
     hostname: '127.0.0.1',
     routes: {
         '/health': () => new Response('ok'),
+
+        // Scenario collaborator — separate toolset, separate prompt, no session.
+        '/scenario-prompt': {
+            POST: async (req: Request) => {
+                let body: ScenarioPromptArgs;
+                try {
+                    body = await req.json() as ScenarioPromptArgs;
+                } catch {
+                    return new Response('invalid_json', { status: 400 });
+                }
+                return Response.json(await runScenarioPrompt(body));
+            },
+        },
 
         '/prompt': {
             POST: async (req) => {

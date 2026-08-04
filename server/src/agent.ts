@@ -17,6 +17,8 @@ import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
 import { isEmbedded } from './embedded';
 import { dependencyPath } from './dependencies';
+import { runScenarioTool } from './scenario-agent';
+import type { ScenarioToolName } from '@shared/scenario-agent/tools';
 import type { ModelMessage } from 'ai';
 import type { GameStateContext, LLMConfig } from '@shared/types';
 // In-process OpenAI-v1 loop. Note: ai-agent.ts imports execCommand/runQuery from
@@ -130,7 +132,15 @@ type TurnClosedRequest = {
     trailingWrapperSessionId: string;
 };
 
-type RpcRequest = ExecRequest | QueryRequest | AnnouncementRequest | SdkUuidRequest | TurnClosedRequest;
+/** One Scenario collaborator tool call, proxied from the Claude subprocess. */
+type ScenarioRequest = {
+    kind: 'scenario';
+    chatId: string;
+    tool: string;
+    args: Record<string, unknown>;
+};
+
+type RpcRequest = ExecRequest | QueryRequest | AnnouncementRequest | SdkUuidRequest | TurnClosedRequest | ScenarioRequest;
 
 export const agentRpcRouter = new Hono();
 
@@ -147,6 +157,9 @@ agentRpcRouter.post('/', async (c) => {
     if (body.kind === 'announce') return c.json(handleAnnounce(body));
     if (body.kind === 'sdk_uuid') return c.json(handleSdkUuid(body));
     if (body.kind === 'turn_closed') return c.json(handleTurnClosed(body));
+    if (body.kind === 'scenario') {
+        return c.json(await runScenarioTool(body.chatId, body.tool as ScenarioToolName, body.args));
+    }
     return c.json({ error: 'unknown_kind' }, 400);
 });
 
