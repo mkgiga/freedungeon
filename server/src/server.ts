@@ -24,6 +24,7 @@ import { createInitialContext } from './game-state';
 import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
 import { getEmbeddedClientFiles } from './embedded';
 import { refreshDependencies } from './dependencies';
+import { applyDeleteCascades } from './cascade';
 
 export const app = new Hono();
 export const httpServer = createServer();
@@ -83,6 +84,13 @@ export function setState(...args: any[]) {
 }
 
 export function deleteState(...path: string[]) {
+    // Foreign keys handle this on disk, but the store is what everything reads
+    // — see cascade.ts. Runs first so a rule can still inspect the entity.
+    applyDeleteCascades(path, state, {
+        set: (root, id, value) => setState('assets', root, id, value),
+        remove: (root, id) => deleteState('assets', root, id),
+    });
+
     const key = path.at(-1)!;
     const parentPath = path.slice(0, -1);
     _setState(produce((s: any) => {
