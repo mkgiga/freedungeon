@@ -30,7 +30,7 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
         apiKeyLocation: { type: 'header', header: 'Authorization', prefix: 'Bearer ' },
         schema: [
             { path: ['temperature'], label: 'Temperature', default: 1, control: { type: 'slider', min: 0, max: 2, step: 0.01 } },
-            { path: ['max_tokens'], label: 'Max Tokens', default: 4096, control: { type: 'number', min: 1, max: 128000 } },
+            { path: ['max_tokens'], label: 'Max Tokens', default: 8192, control: { type: 'number', min: 1, max: 128000 } },
             { path: ['top_p'], label: 'Top P', default: 1, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },
             { path: ['frequency_penalty'], label: 'Frequency Penalty', default: 0, control: { type: 'slider', min: -2, max: 2, step: 0.1 } },
             { path: ['presence_penalty'], label: 'Presence Penalty', default: 0, control: { type: 'slider', min: -2, max: 2, step: 0.1 } },
@@ -45,8 +45,14 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
         editable: false,
         apiKeyLocation: { type: 'header', header: 'x-api-key' },
         schema: [
-            { path: ['temperature'], label: 'Temperature', default: 1, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },
-            { path: ['max_tokens'], label: 'Max Tokens', default: 4096, control: { type: 'number', min: 1, max: 200000 } },
+            // Matches the other presets. Anthropic's own API documents 0–1 and
+            // rejects higher, so values above 1 only make sense while this
+            // path doesn't forward them.
+            { path: ['temperature'], label: 'Temperature', default: 1, control: { type: 'slider', min: 0, max: 2, step: 0.01 } },
+            // 4096 is a relic of much smaller models — current Claude models
+            // take 256K and up, so starting there means every new config has to
+            // be edited before it's usable.
+            { path: ['max_tokens'], label: 'Max Tokens', default: 256000, control: { type: 'number', min: 1, max: 1000000 } },
             { path: ['top_p'], label: 'Top P', default: 1, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },
             { path: ['top_k'], label: 'Top K', default: 0, control: { type: 'number', min: 0, max: 500 } },
             { path: ['stop_sequences'], label: 'Stop Sequences', default: [], control: { type: 'tags' } },
@@ -140,7 +146,7 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
         apiKeyLocation: { type: 'header', header: 'Authorization', prefix: 'Bearer ' },
         schema: [
             { path: ['temperature'], label: 'Temperature', default: 1, control: { type: 'slider', min: 0, max: 2, step: 0.01 } },
-            { path: ['max_tokens'], label: 'Max Tokens', default: 4096, control: { type: 'number', min: 1 } },
+            { path: ['max_tokens'], label: 'Max Tokens', default: 8192, control: { type: 'number', min: 1 } },
             { path: ['top_p'], label: 'Top P', default: 1, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },
         ],
     },

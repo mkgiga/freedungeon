@@ -29,8 +29,5 @@
     "paths": {
       "@shared/*": ["../shared/*"]
     }
-  },
-  // dist/ holds the build's generated entry, whose `{ type: 'file' }` imports
-  // of .png/.ico/.js assets aren't modules tsc can resolve.
-  "exclude": ["dist"]
+  }
 }

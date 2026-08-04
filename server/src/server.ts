@@ -4,7 +4,9 @@ import { isPrivateIP } from './utils/net';
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { getConnInfo, serveStatic } from "hono/bun";
-import { log } from './logger';
+import { log, startupBanner } from './logger';
+import { DATA_DIR } from './paths';
+import pkg from '../package.json' with { type: 'json' };
 import { initDb, persistPath, loadStateFromDb, db } from './db';
 import { sql } from 'kysely';
 import './macro.ts';
@@ -145,10 +147,16 @@ async function listen() {
     const embeddedClient = getEmbeddedClientFiles();
     if (embeddedClient) {
         app.get('*', async (c) => {
-            const key = decodeURIComponent(new URL(c.req.url).pathname).replace(/^\/+/, '');
-            const virtualPath = embeddedClient[key] ?? embeddedClient['index.html'];
-            if (!virtualPath) return c.text('Not found', 404);
-            return new Response(Bun.file(virtualPath));
+            const requested = decodeURIComponent(new URL(c.req.url).pathname).replace(/^\/+/, '');
+            const key = embeddedClient.has(requested) ? requested : 'index.html';
+            const bytes = embeddedClient.get(key);
+            if (!bytes) return c.text('Not found', 404);
+            // Serving bytes rather than a file loses the Content-Type that
+            // Bun.file() infers from disk, and a stylesheet sent as
+            // application/octet-stream is simply ignored by the browser.
+            // Bun.file() derives the type from the path alone, without the
+            // file needing to exist.
+            return new Response(bytes, { headers: { 'content-type': Bun.file(key).type } });
         });
     } else {
         app.use('/*', serveStatic({ root: './client/dist' }));
@@ -164,7 +172,13 @@ async function listen() {
     Bun.serve({ port, hostname, fetch: app.fetch });
     httpServer.listen(wsPort);
 
-    log.server.ok(`Server is listening on ${hostname === '0.0.0.0' ? 'http://localhost' : `http://${hostname}`}:${port}`);
+    startupBanner({
+        version: pkg.version,
+        host: hostname,
+        port,
+        agentPort: Number(process.env.AGENT_PORT ?? 8076),
+        dataDir: DATA_DIR,
+    });
 }
 
 async function initHttp() {

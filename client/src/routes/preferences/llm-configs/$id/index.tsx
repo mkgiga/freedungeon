@@ -45,6 +45,17 @@ function RouteComponent() {
         }
     )
 
+    // Seed a brand-new config with the house system prompt (RP_PROMPT.md), the
+    // same one createFromPreset uses. Fetched rather than bundled so the client
+    // doesn't carry a second copy that can drift from the file on disk. Only
+    // applied while the field is still untouched, so a fast typist doesn't get
+    // their input overwritten when the request lands.
+    if (isNew()) {
+        trpc.llmConfigs.defaultSystemPrompt.query().then((prompt) => {
+            if (prompt && !draft.systemPrompt) setDraft('systemPrompt', prompt)
+        })
+    }
+
     // Detect if schema matches a preset (non-editable)
     const isPresetSchema = () => {
         return Object.values(LLM_PRESETS).some(
@@ -161,18 +172,33 @@ function RouteComponent() {
                                 />
                             </Show>
                         </label>
-                        <label class="flex flex-col gap-1">
-                            <Text size="sm" class="opacity-50">API Key</Text>
-                            <Show when={edit()} fallback={<Text font="mono">{draft.apiKey ? '••••••••' : '—'}</Text>}>
-                                <input
-                                    type="password"
-                                    value={draft.apiKey}
-                                    placeholder="sk-..."
-                                    class="p-2 rounded-lg bg-(--bg) border border-[color-mix(in_oklch,var(--text),transparent_85%)]"
-                                    onInput={(e) => setDraft('apiKey', e.currentTarget.value)}
-                                />
-                            </Show>
-                        </label>
+                        {/* Anthropic configs drive the Claude Code CLI, which
+                            authenticates with its own stored sign-in — the key
+                            here would never be sent anywhere. */}
+                        <Show
+                            when={draft.provider !== 'anthropic'}
+                            fallback={
+                                <div class="flex flex-col gap-1">
+                                    <Text size="sm" class="opacity-50">API Key</Text>
+                                    <Text size="sm" class="opacity-50">
+                                        Not needed — Claude signs in through its own account.
+                                    </Text>
+                                </div>
+                            }
+                        >
+                            <label class="flex flex-col gap-1">
+                                <Text size="sm" class="opacity-50">API Key</Text>
+                                <Show when={edit()} fallback={<Text font="mono">{draft.apiKey ? '••••••••' : '—'}</Text>}>
+                                    <input
+                                        type="password"
+                                        value={draft.apiKey}
+                                        placeholder="sk-..."
+                                        class="p-2 rounded-lg bg-(--bg) border border-[color-mix(in_oklch,var(--text),transparent_85%)]"
+                                        onInput={(e) => setDraft('apiKey', e.currentTarget.value)}
+                                    />
+                                </Show>
+                            </label>
+                        </Show>
                     </div>
                 </section>
 

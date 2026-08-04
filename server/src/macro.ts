@@ -257,9 +257,12 @@ export function loadMacroFiles() {
     // build time, so read them from there instead.
     const embedded = getEmbeddedPrompts()
     if (embedded) {
-        for (const [file, virtualPath] of Object.entries(embedded)) {
+        const decoder = new TextDecoder()
+        for (const [file, bytes] of embedded) {
+            // The blob also carries RP_PROMPT.md, which isn't a macro template.
+            if (!file.endsWith('.macro')) continue
             const name = path.basename(file, '.macro')
-            registry.set(name, { kind: 'template', body: fs.readFileSync(virtualPath, 'utf-8') })
+            registry.set(name, { kind: 'template', body: decoder.decode(bytes) })
         }
         return
     }

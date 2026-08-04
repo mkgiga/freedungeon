@@ -1,4 +1,5 @@
 import { brightBlue, brightGreen, ComfyLogger, green, rgb, style, yellow } from 'comfylogger';
+import { networkInterfaces, homedir } from 'node:os';
 
 const dbLogger = new ComfyLogger({
     name: 'db',
@@ -56,3 +57,71 @@ export const log = {
 }
 
 log.db.info('Logger initialized');
+
+/**
+ * The "we're up, here's where to go" banner.
+ *
+ * Printed with console.log rather than through a ComfyLogger so it isn't
+ * prefixed per line — the point is a block that reads as one thing.
+ */
+export function startupBanner(info: {
+    version: string
+    host: string
+    port: number
+    agentPort: number
+    dataDir: string
+}): void {
+    const dim_ = (s: string) => rgb(120, 120, 130, s)
+    const accent = (s: string) => rgb(180, 140, 255, s)
+    const url = (s: string) => brightBlue(s)
+
+    const rows: Array<[string, string]> = [
+        ['Play', `http://localhost:${info.port}`],
+    ]
+
+    // Bound to 0.0.0.0 means phones and tablets on the same network can reach
+    // it, which is worth surfacing — the private-IP gate already allows exactly
+    // those peers and nothing else.
+    if (info.host === '0.0.0.0') {
+        const lan = lanAddress()
+        if (lan) rows.push(['Network', `http://${lan}:${info.port}`])
+    }
+    rows.push(['Agent', `http://127.0.0.1:${info.agentPort}`])
+    rows.push(['Data', tildify(info.dataDir)])
+
+    const title = ` freedungeon ${dim_(`v${info.version}`)} `
+    // Styled strings carry escape codes, so measure the plain text.
+    const titleWidth = ` freedungeon v${info.version} `.length
+    // Sized from the URLs only. Letting a long data path drive the width
+    // stretches the box across the terminal for no benefit.
+    const urlWidth = Math.max(...rows
+        .filter(([, v]) => v.startsWith('http'))
+        .map(([k, v]) => k.length + v.length + 4))
+    const width = Math.max(titleWidth, urlWidth)
+
+    console.log('')
+    console.log(accent(`  ╭${'─'.repeat(width)}╮`))
+    console.log(accent('  │') + title + ' '.repeat(width - titleWidth) + accent('│'))
+    console.log(accent(`  ╰${'─'.repeat(width)}╯`))
+    for (const [label, value] of rows) {
+        const isUrl = value.startsWith('http')
+        console.log(`   ${dim_(label.padEnd(9))}${isUrl ? url(value) : dim_(value)}`)
+    }
+    console.log('')
+}
+
+/** `C:\Users\Emil\.freedungeon` → `~\.freedungeon`, for a readable banner. */
+function tildify(p: string): string {
+    const home = homedir()
+    return p.startsWith(home) ? `~${p.slice(home.length)}` : p
+}
+
+/** First non-internal IPv4 address, or null when there's no usable network. */
+function lanAddress(): string | null {
+    for (const addresses of Object.values(networkInterfaces())) {
+        for (const addr of addresses ?? []) {
+            if (addr.family === 'IPv4' && !addr.internal) return addr.address
+        }
+    }
+    return null
+}

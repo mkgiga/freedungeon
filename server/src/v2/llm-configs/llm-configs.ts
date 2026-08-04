@@ -7,6 +7,7 @@ import type { LLMConfig } from '@shared/types'
 import { ensureDependency, isSatisfied, verifyDependency, beginClaudeSignIn } from '../../dependencies'
 import { DEPENDENCIES } from '@shared/dependencies'
 import { restartAgentProcess } from '../../agent'
+import { getDefaultSystemPrompt } from '../../system-prompt'
 
 /**
  * Block a config from being saved until whatever its provider needs is on disk
@@ -41,6 +42,11 @@ async function requireProviderDependencies(provider: string): Promise<void> {
 }
 
 export const llmConfigsRouter = router({
+    /** RP_PROMPT.md, so the editor can seed a new config the same way
+     *  createFromPreset does. */
+    defaultSystemPrompt: procedure
+        .query(() => getDefaultSystemPrompt()),
+
     list: procedure
         .query(() => {
             return Object.values(state.assets.llmConfigs)
@@ -127,7 +133,7 @@ export const llmConfigsRouter = router({
                 endpoint: preset.endpoint,
                 model: preset.model,
                 apiKey: '',
-                systemPrompt: '',
+                systemPrompt: getDefaultSystemPrompt(),
                 schema: preset.schema,
                 values: defaultValuesFromSchema(preset.schema),
                 createdAt: now,
