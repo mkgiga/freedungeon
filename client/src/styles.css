@@ -3321,3 +3321,59 @@ body.item-dragging [data-drop-actor].drop-target-hover {
     20%, 70% { border-color: var(--color-danger, #f7768e); }
   }
 }
+
+/* ── Side navigation (tablet / widescreen) ────────────────────────────────
+   Replaces #main-nav above the md breakpoint; see client/src/viewport.ts,
+   whose thresholds match Tailwind's md/lg so the two can't disagree. */
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+menu.left-nav {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 200px;
+  margin: 0;
+  padding: 0;
+  border-right: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+  overflow-y: auto;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    border-left: 2px solid transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      background-color: var(--bg-2);
+    }
+
+    &.active {
+      color: var(--primary);
+      border-left-color: var(--primary);
+      background-color: color-mix(in oklch, var(--primary), transparent 92%);
+    }
+  }
+}
+
+/* Tablet: icons only, so the rail costs as little width as possible. */
+menu.left-nav.compact {
+  width: 56px;
+
+  button {
+    justify-content: center;
+    gap: 0;
+    padding: 12px 0;
+  }
+}
