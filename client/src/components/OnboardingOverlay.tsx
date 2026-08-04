@@ -19,6 +19,23 @@ import { Em } from './typography/Em'
  * which is what you want: picking Anthropic here kicks off the Claude Code
  * download, and that progress needs to be visible over the top.
  */
+/**
+ * First-run copy for the presets, kept here rather than on the presets
+ * themselves: at this point the user is picking a *provider*, not a model, so
+ * "Claude Opus 4.7" and an endpoint URL are detail they can't act on yet. Both
+ * are editable straight afterwards. Unknown keys fall back to the preset's own
+ * name, so adding a preset degrades gracefully instead of rendering blank.
+ */
+const CHOICES: Record<string, { label: string; hint?: string }> = {
+    'openai-gpt4o': { label: 'OpenAI' },
+    'anthropic-claude': { label: 'Claude' },
+    'gemini-2.5-pro': { label: 'Google Gemini' },
+    'openai-compatible': {
+        label: 'Custom (OpenAI-compatible)',
+        hint: 'Pick this to connect a local model — llama.cpp, Ollama, LM Studio, KoboldCpp.',
+    },
+}
+
 export function OnboardingOverlay() {
     const [busy, setBusy] = createSignal(false)
     const [error, setError] = createSignal<string | null>(null)
@@ -77,12 +94,11 @@ export function OnboardingOverlay() {
                     >
                         <Heading level={2}>Welcome to freedungeon</Heading>
                         <Text size="sm" class="onboarding-lede">
-                            A roleplaying game where the dungeon master is a language model. You bring
-                            the model — freedungeon handles the characters, inventory, scenes and story.
+                            Roleplaying with a language model as the dungeon master.
                         </Text>
 
                         <Text size="sm" class="onboarding-step">
-                            Pick where your model runs. You can change or add more later in Preferences.
+                            Where should it run? You can change this later.
                         </Text>
 
                         <div class="onboarding-presets">
@@ -93,8 +109,10 @@ export function OnboardingOverlay() {
                                         disabled={busy()}
                                         onClick={() => choose(key)}
                                     >
-                                        <Text><Em semibold>{preset.name}</Em></Text>
-                                        <Text size="sm" class="opacity-50">{preset.endpoint}</Text>
+                                        <Text><Em semibold>{CHOICES[key]?.label ?? preset.name}</Em></Text>
+                                        <Show when={CHOICES[key]?.hint}>
+                                            {(hint) => <Text size="sm" class="opacity-50">{hint()}</Text>}
+                                        </Show>
                                     </button>
                                 )}
                             </For>
