@@ -3377,3 +3377,93 @@ menu.left-nav.compact {
     padding: 12px 0;
   }
 }
+
+/* ── LeftNav identity header ──────────────────────────────────────────── */
+.left-nav-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+.left-nav-avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+
+  .image-icon {
+    border-radius: 50%;
+    overflow: hidden;
+  }
+}
+
+/* No character picked yet: a dotted ring around the ? placeholder, so the slot
+   reads as "something belongs here" rather than as a broken avatar. */
+.left-nav-avatar.is-empty {
+  border: 2px dotted color-mix(in oklch, var(--text), transparent 65%);
+  padding: 3px;
+  opacity: 0.6;
+}
+
+.left-nav-identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.left-nav-welcome {
+  opacity: 0.5;
+}
+
+/* Names and model ids are arbitrary length; the rail is not. */
+.left-nav-character,
+.left-nav-model {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.left-nav-model {
+  opacity: 0.5;
+}
+
+/* Tablet: avatar only, centred in the 56px rail. */
+menu.left-nav.compact .left-nav-header {
+  justify-content: center;
+  padding: 12px 0;
+}
+
+/* ── Chat layout with inline side panel (widescreen) ──────────────────────
+   On wide viewports the actors/notes sidebar joins the layout instead of
+   overlaying it, so opening it narrows the feed and the bottom band rather
+   than covering them. Narrower viewports keep the overlay drawer. */
+.chat-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.chat-side-panel {
+  flex-shrink: 0;
+  width: 0;
+  overflow: hidden;
+  border-left: 1px solid transparent;
+  transition: width 220ms ease-out, border-color 220ms ease-out;
+}
+
+.chat-side-panel.open {
+  width: 320px;
+  border-left-color: color-mix(in oklch, var(--text), transparent 88%);
+}
+
+/* Fixed inner width so the contents don't reflow while the panel animates —
+   they slide in as a unit instead of squeezing. */
+.chat-side-panel-inner {
+  width: 320px;
+  height: 100%;
+  overflow-y: auto;
+}

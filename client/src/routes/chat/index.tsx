@@ -18,6 +18,8 @@ import { Em } from '../../components/typography/Em'
 import type { Chat, ChatMessage as ChatMessageType } from '@shared/types'
 import { PlaybackProvider, usePlayback } from '../../components/chat/playback'
 import { ActivityOverlay } from '../../components/ActivityOverlay'
+import { ShowOn } from '../../components/ShowOn'
+import { viewport } from '../../viewport'
 
 const PAGE_SIZE = 60    // how many messages to load per sentinel-trigger
 const WINDOW_SIZE = 200 // max messages rendered to the DOM at once
@@ -419,10 +421,17 @@ function ConversationViewBody(props: { onBack: () => void }) {
     }
   })
 
-  const openSidebar = () => {
-    drawer.open({
-      content: () => <ChatSidebar />,
-    })
+  /**
+   * On a wide screen the sidebar is part of the layout rather than an overlay:
+   * opening it narrows the chat instead of covering it, so the feed and the
+   * bottom band stay fully usable while you're picking actors or notes. Narrow
+   * screens have no width to give, so they keep the overlay drawer.
+   */
+  const [inlineSidebar, setInlineSidebar] = createSignal(false)
+
+  const toggleSidebar = () => {
+    if (viewport() === 'wide') setInlineSidebar((open) => !open)
+    else drawer.open({ content: () => <ChatSidebar /> })
   }
 
   return (
@@ -433,54 +442,71 @@ function ConversationViewBody(props: { onBack: () => void }) {
         height="60px"
         slots={{
           right: (
-            <button onClick={openSidebar}>
+            <button onClick={toggleSidebar} title="Actors & notes">
               <MdFillView_sidebar size={48} />
             </button>
           ),
         }}
       />
 
-      <div class="chat-main flex flex-col grow min-h-0 relative">
-        <Show when={state.isGenerating}>
-          <div class="chat-generation-indicator" aria-hidden="true" />
-        </Show>
-        <ActivityOverlay />
-        <Show when={playback.effectiveGameState().scene.location}>
-          {(loc) => (
-            <div class="chat-location-overlay" aria-hidden="true">
-              <Text size="sm" class="chat-location-label">{loc()}</Text>
-            </div>
-          )}
-        </Show>
-        <div
-          ref={scrollEl}
-          class="chat-messages flex-1 overflow-y-auto"
-        >
-          <div ref={topSentinelRef} class="chat-messages-sentinel" />
-          <For
-            each={visibleMessages()}
-            fallback={<Text size="sm" class="p-4 opacity-50">No messages yet</Text>}
-          >
-            {(message) => (
-              <ChatMessage
-                message={message}
-                prevBlock={layouts().get(message.id)?.prevBlock}
-                portraitSide={layouts().get(message.id)?.portraitSide ?? 'left'}
-              />
+      <div class="chat-layout">
+        <div class="chat-main flex flex-col grow min-h-0 relative">
+          <Show when={state.isGenerating}>
+            <div class="chat-generation-indicator" aria-hidden="true" />
+          </Show>
+          <ActivityOverlay />
+          <Show when={playback.effectiveGameState().scene.location}>
+            {(loc) => (
+              <div class="chat-location-overlay" aria-hidden="true">
+                <Text size="sm" class="chat-location-label">{loc()}</Text>
+              </div>
             )}
-          </For>
-          <div ref={bottomSentinelRef} class="chat-messages-sentinel" />
-        </div>
-
-        <Show when={pinnedIds() !== null && unreadCount() > 0}>
-          <button
-            class="chat-jump-to-latest"
-            onClick={unpinToLatest}
+          </Show>
+          <div
+            ref={scrollEl}
+            class="chat-messages flex-1 overflow-y-auto"
           >
-            {unreadCount()} new — jump to latest
-          </button>
-        </Show>
-        <GameStatePanel />
+            <div ref={topSentinelRef} class="chat-messages-sentinel" />
+            <For
+              each={visibleMessages()}
+              fallback={<Text size="sm" class="p-4 opacity-50">No messages yet</Text>}
+            >
+              {(message) => (
+                <ChatMessage
+                  message={message}
+                  prevBlock={layouts().get(message.id)?.prevBlock}
+                  portraitSide={layouts().get(message.id)?.portraitSide ?? 'left'}
+                />
+              )}
+            </For>
+            <div ref={bottomSentinelRef} class="chat-messages-sentinel" />
+          </div>
+
+          <Show when={pinnedIds() !== null && unreadCount() > 0}>
+            <button
+              class="chat-jump-to-latest"
+              onClick={unpinToLatest}
+            >
+              {unreadCount()} new — jump to latest
+            </button>
+          </Show>
+            <GameStatePanel />
+          </div>
+
+        {/* Kept mounted so the width can transition — a conditionally rendered
+            element has nothing to animate from. ChatSidebar is pure memos with
+            no effects or subscriptions, so an idle mount costs nothing. */}
+        <ShowOn viewport="wide">
+          <aside
+            class="chat-side-panel"
+            classList={{ open: inlineSidebar() }}
+            aria-hidden={!inlineSidebar()}
+          >
+            <div class="chat-side-panel-inner">
+              <ChatSidebar />
+            </div>
+          </aside>
+        </ShowOn>
       </div>
     </>
   )
