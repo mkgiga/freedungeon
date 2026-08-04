@@ -23,6 +23,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { DEPENDENCIES, type DependencyKey, type DependencyState } from '@shared/dependencies'
 import { NATIVE_DIR, MODELS_DIR, DATA_DIR } from './paths'
 import { state, setState } from './server'
@@ -119,6 +120,36 @@ const SPECS: Record<DependencyKey, Spec> = {
  * app leaves them signed in everywhere.
  */
 type AuthStatus = { loggedIn: boolean; email?: string; orgName?: string; subscriptionType?: string }
+
+/**
+ * Locate a usable Claude CLI: the copy we manage, or one the user already has.
+ *
+ * Plenty of people install Claude Code before they ever run freedungeon — that
+ * is how `claude setup-token` works for them — and downloading a second 228MB
+ * copy for those users is both wasteful and, when we then fail to pass the path
+ * along, actively broken. A system install is accepted as-is: it is whatever
+ * version the user chose, so it is deliberately NOT checked against our pinned
+ * manifest, which would report a perfectly good binary as corrupt.
+ */
+export function resolveClaudeCli(): { file: string; managed: boolean } | null {
+    const managed = SPECS.claudeCli.file
+    if (fs.existsSync(managed)) return { file: managed, managed: true }
+
+    const onPath = Bun.which('claude')
+    if (onPath) return { file: onPath, managed: false }
+
+    // The native installer's location, in case PATH isn't inherited (services,
+    // detached launches, a shell that never sourced the profile).
+    const home = os.homedir()
+    const names = process.platform === 'win32' ? ['claude.exe', 'claude'] : ['claude']
+    for (const dir of [path.join(home, '.local', 'bin'), path.join(home, '.claude', 'local')]) {
+        for (const name of names) {
+            const candidate = path.join(dir, name)
+            if (fs.existsSync(candidate)) return { file: candidate, managed: false }
+        }
+    }
+    return null
+}
 
 /** Spawning the CLI costs ~300ms, so don't re-ask on every readiness probe. */
 const authCache = new Map<string, { at: number; value: AuthStatus }>()
@@ -264,6 +295,18 @@ function publish(key: DependencyKey, patch: Partial<DependencyState>): void {
  */
 export async function verifyDependency(key: DependencyKey): Promise<DependencyState['status']> {
     const spec = SPECS[key]
+
+    // A system-installed CLI satisfies this without a download. Checked before
+    // the hash comparison below, since that pins our own build and a user's
+    // (legitimately different) version would fail it.
+    if (key === 'claudeCli') {
+        const found = resolveClaudeCli()
+        if (!found) return 'missing'
+        if (!found.managed) {
+            return (await checkClaudeAuth(found.file)).ok ? 'satisfied' : 'unauthenticated'
+        }
+    }
+
     if (!fs.existsSync(spec.file)) return 'missing'
 
     const stat = fs.statSync(spec.file)
@@ -315,7 +358,10 @@ export async function isSatisfied(key: DependencyKey): Promise<boolean> {
 
 /** Absolute path to a verified dependency, or null if it isn't usable. */
 export async function dependencyPath(key: DependencyKey): Promise<string | null> {
-    return (await isSatisfied(key)) ? SPECS[key].file : null
+    if (!(await isSatisfied(key))) return null
+    // May be a system install rather than the path in SPECS.
+    if (key === 'claudeCli') return resolveClaudeCli()?.file ?? null
+    return SPECS[key].file
 }
 
 /** Re-check everything against disk. Called once at startup. */

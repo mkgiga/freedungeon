@@ -748,6 +748,12 @@ export async function dispatchPromptToAgent(args: {
                     model: llmConfig.model || 'claude-sonnet-4-6',
                     enableChoicePrompts,
                     enableSceneImages,
+                    // Resolved per turn rather than read from the environment
+                    // the agent was spawned with. A CLI downloaded (or
+                    // installed) after startup would otherwise never reach a
+                    // long-running agent, and the SDK fails with "Native CLI
+                    // binary not found" instead of using it.
+                    claudeCliPath: await dependencyPath('claudeCli'),
                 }),
             });
         } catch (err) {

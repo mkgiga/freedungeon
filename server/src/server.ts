@@ -155,6 +155,19 @@ async function checkpointWal() {
     }
 }
 
+/** Report a port collision in terms the user can act on, then stop. */
+function exitWithPortError(err: unknown, port: number, wsPort: number): never {
+    const message = err instanceof Error ? err.message : String(err);
+    log.server.error(`Could not start: ${message}`);
+    console.error(
+        `\nfreedungeon needs ports ${port} and ${wsPort}, and one of them is already in use.\n` +
+        `Most likely another copy of freedungeon is already running — check for it before starting a new one.\n` +
+        `Otherwise pick different ports:\n\n` +
+        `    freedungeon --port ${port + 10} --ws-port ${wsPort + 10}\n`,
+    );
+    process.exit(1);
+}
+
 async function listen() {
     app.route('/uploads', uploadsRouter);
     app.route('/agent-rpc', agentRpcRouter);
@@ -191,8 +204,19 @@ async function listen() {
     const wsPort = Number(process.env.FREEDUNGEON_WS_PORT) || config.server.wsPort || 8079;
     const hostname = process.env.FREEDUNGEON_HOST || config.server.hostname || "0.0.0.0";
 
-    Bun.serve({ port, hostname, fetch: app.fetch });
-    httpServer.listen(wsPort);
+    // Bind failures are the single most likely startup error — a second copy of
+    // the app, or something else on the port. Left unhandled it surfaces as an
+    // unhandled rejection, the event loop empties, and `beforeExit` runs the
+    // shutdown path, so the user sees "Graceful shutdown initiated by 0" and no
+    // mention of a port. Catch it and say what actually happened.
+    try {
+        Bun.serve({ port, hostname, fetch: app.fetch });
+        httpServer.listen(wsPort);
+    } catch (err) {
+        exitWithPortError(err, port, wsPort);
+    }
+    // node's http server reports bind failures asynchronously, not by throwing.
+    httpServer.on('error', (err) => exitWithPortError(err, port, wsPort));
 
     startupBanner({
         version: pkg.version,
@@ -276,11 +300,8 @@ async function initProcessHandlers() {
     });
 
     const gracefulShutdown = (signal: string) => {
-        console.log(signal);
         if (shuttingDown) return;
-        console.log(`Graceful shutdown initiated by ${signal}...`);
         shuttingDown = true;
-
 
         console.log(`Received ${signal}, shutting down...`)
 
@@ -295,8 +316,12 @@ async function initProcessHandlers() {
         console.log('Exiting now.')
         process.exit(0)
     }
-    process.prependOnceListener('beforeExit', gracefulShutdown);
-    process.prependOnceListener('exit', gracefulShutdown);
+    // Only real termination requests. `beforeExit` fires whenever the event
+    // loop merely runs dry — during startup, that made a failed port bind look
+    // like "Graceful shutdown initiated by 0" with no mention of a port. And an
+    // `exit` listener that calls process.exit(0) overwrites the code the
+    // process was already exiting with, turning a failure into an apparent
+    // success. Neither is a signal; neither belongs here.
     process.prependOnceListener('SIGINT', gracefulShutdown);
     process.prependOnceListener('SIGTERM', gracefulShutdown);
 

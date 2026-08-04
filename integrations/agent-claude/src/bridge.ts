@@ -18,6 +18,8 @@ export type PromptArgs = {
     model: string;
     enableChoicePrompts?: boolean;
     enableSceneImages?: boolean;
+    /** Absolute path to the Claude CLI, resolved by the server per turn. */
+    claudeCliPath?: string | null;
 };
 
 let currentAbort: AbortController | null = null;
@@ -60,10 +62,13 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
             ...(args.resumeSessionId ? { resume: args.resumeSessionId } : {}),
             settingSources: [],
             persistSession: true,
-            // The server downloads and verifies the CLI into the data dir and
-            // passes its path through; without this the SDK falls back to
-            // looking for a native install the user may not have.
-            ...(process.env.CLAUDE_CLI_PATH ? { pathToClaudeCodeExecutable: process.env.CLAUDE_CLI_PATH } : {}),
+            // The server resolves the CLI (its own download, or the user's
+            // existing install) and sends the path with each turn. The env var
+            // is only a fallback for a manually launched agent — without one of
+            // them the SDK throws "Native CLI binary for <platform> not found".
+            ...((args.claudeCliPath || process.env.CLAUDE_CLI_PATH)
+                ? { pathToClaudeCodeExecutable: args.claudeCliPath || process.env.CLAUDE_CLI_PATH }
+                : {}),
         },
     });
 
