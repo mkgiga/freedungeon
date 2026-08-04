@@ -166,7 +166,7 @@ function RouteComponent() {
 
         {/* Features */}
         <section class="mb-8">
-          <Heading level={2} class="mb-4">Features</Heading>
+          <Heading level={2} class="mb-4">Optional Features</Heading>
           <div class="flex flex-col gap-4">
             <For each={Object.values(FEATURES)}>
               {(spec) => {

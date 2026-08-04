@@ -22,7 +22,6 @@ import { Em } from './typography/Em'
 export function OnboardingOverlay() {
     const [busy, setBusy] = createSignal(false)
     const [error, setError] = createSignal<string | null>(null)
-    const [confirmingSkip, setConfirmingSkip] = createSignal(false)
 
     const needed = () => !state.userPreferences.onboardingCompletedAt
 
@@ -47,11 +46,35 @@ export function OnboardingOverlay() {
         }
     }
 
+    let panel: HTMLDivElement | undefined
+
+    /**
+     * Clicking the backdrop does nothing, which on its own reads as the app
+     * being broken. Shake the panel instead so the refusal is legible.
+     *
+     * The class is removed and re-added around a forced reflow because a CSS
+     * animation won't restart just by re-applying its class — an impatient
+     * second click would otherwise get no feedback at all.
+     */
+    const refuseDismiss = () => {
+        if (!panel) return
+        panel.classList.remove('is-refusing')
+        void panel.offsetWidth
+        panel.classList.add('is-refusing')
+    }
+
     return (
         <Show when={needed()}>
             <Portal>
-                <div class="onboarding-overlay">
-                    <div class="onboarding-panel">
+                <div
+                    class="onboarding-overlay"
+                    onMouseDown={(e) => { if (e.target === e.currentTarget) refuseDismiss() }}
+                >
+                    <div
+                        class="onboarding-panel"
+                        ref={panel}
+                        onAnimationEnd={() => panel?.classList.remove('is-refusing')}
+                    >
                         <Heading level={2}>Welcome to freedungeon</Heading>
                         <Text size="sm" class="onboarding-lede">
                             A roleplaying game where the dungeon master is a language model. You bring
@@ -81,37 +104,14 @@ export function OnboardingOverlay() {
                             <Text size="sm" class="onboarding-error">{error()}</Text>
                         </Show>
 
-                        {/* Two-step on purpose. There is no click-outside and no
-                            Escape handler here — this is a bare portal rather
-                            than a ModalProvider modal — so the only way out is
-                            deliberate, and the one escape hatch takes a
-                            confirmation rather than a single stray click. */}
+                        {/* Dismisses on one click. Accidental dismissal is still
+                            guarded against by the overlay itself, which has no
+                            click-outside and no Escape handler — so this is a
+                            deliberate press, and doesn't need confirming. */}
                         <div class="onboarding-actions">
-                            <Show
-                                when={confirmingSkip()}
-                                fallback={
-                                    <button
-                                        class="onboarding-skip"
-                                        disabled={busy()}
-                                        onClick={() => setConfirmingSkip(true)}
-                                    >
-                                        Skip for now
-                                    </button>
-                                }
-                            >
-                                <Text size="sm" class="onboarding-skip-warning">
-                                    Without a model, chats can't generate anything. You can set one up
-                                    later under Preferences.
-                                </Text>
-                                <div class="onboarding-skip-actions">
-                                    <button class="modal-btn modal-btn-cancel" onClick={() => setConfirmingSkip(false)}>
-                                        Go back
-                                    </button>
-                                    <button class="modal-btn modal-btn-confirm" disabled={busy()} onClick={complete}>
-                                        Skip anyway
-                                    </button>
-                                </div>
-                            </Show>
+                            <button class="onboarding-skip" disabled={busy()} onClick={complete}>
+                                Skip for now
+                            </button>
                         </div>
                     </div>
                 </div>
