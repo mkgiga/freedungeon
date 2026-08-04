@@ -29,7 +29,7 @@ function RouteComponent() {
 
     const scenarios = createMemo<Chat[]>(() =>
         Object.values(state.assets.chats ?? {})
-            .filter(c => c.isTemplate)
+            .filter(c => c.isTemplate && (c.kind ?? 'roleplay') === 'roleplay')
             .sort((a, b) => b.updatedAt - a.updatedAt),
     )
 

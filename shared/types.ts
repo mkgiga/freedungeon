@@ -187,6 +187,8 @@ export type Note = {
     updatedAt: number;
 }
 
+export type ChatKind = 'roleplay' | 'collaborator';
+
 export type LLMProvider = 'openai' | 'anthropic' | 'google' | 'custom'
 
 export type LLMConfig = {
@@ -242,6 +244,26 @@ export type Chat = {
     /** When true, this chat is a reusable template. Templates are filtered out
      *  of the regular chat list and shown in a separate "Templates" tab. */
     isTemplate: boolean;
+    /**
+     * What this chat *is*, which selects both the agent that drives it and the
+     * contextual UI around it.
+     *
+     *  - `roleplay`     — the game. Party rail, inventory, game state, blocks.
+     *  - `collaborator` — an authoring conversation. No game state; the agent
+     *                     edits actors and notes instead of narrating.
+     *
+     * Absent on chats written before this existed, which are all roleplay.
+     */
+    kind?: ChatKind;
+    /**
+     * For a `collaborator` chat: the Scenario it belongs to. Keeps it out of the
+     * recent-chats list and scopes its agent to that Scenario's resources.
+     *
+     * Unlike actors and notes this CASCADEs on delete rather than orphaning —
+     * an evicted character is still useful, an authoring conversation without
+     * its subject is not.
+     */
+    homeChatId?: string | null;
     /** Small avatar image shown in the chat list's leading column. */
     avatarUrl?: string;
     /** Banner image shown at the top of the chat detail view and as a

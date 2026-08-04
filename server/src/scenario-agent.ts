@@ -207,8 +207,21 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
             }
             throw new Error(`Nothing in the library with id ${id}`)
         },
+
+        // Overridden per provider by buildScenarioDeps' caller; the default is
+        // the honest answer for everything except Claude.
+        fetchUrl: async () => WEB_FETCH_UNAVAILABLE,
     }
 }
+
+/**
+ * Returned when the active provider has no web access. Written as guidance to
+ * the model rather than a bare error, so it tells the user what to do instead
+ * of retrying or inventing page content.
+ */
+export const WEB_FETCH_UNAVAILABLE =
+    'Web fetch is not available with the currently selected model. Only Anthropic (Claude) configurations can browse. '
+    + 'Tell the user this, and ask them to paste the relevant text if they need it.'
 
 /** Execute one collaborator tool. Shared by both agent paths. */
 export async function runScenarioTool(

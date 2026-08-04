@@ -36,6 +36,15 @@ export type ScenarioAgentDeps = {
     /** The global library, for importing something that already exists. */
     searchLibrary: (query: string) => Array<{ id: string; kind: 'character' | 'note'; name: string }>
     importFromLibrary: (id: string) => Promise<{ name: string }>
+
+    /**
+     * Fetch a web page. Only Anthropic configs have a real implementation (the
+     * Claude SDK ships WebFetch); every other provider returns an explanatory
+     * refusal. The tool is still *registered* everywhere on purpose — a model
+     * that can't see the tool tends to claim it browsed the page anyway,
+     * whereas one that gets a clear "unavailable" says so to the user.
+     */
+    fetchUrl: (url: string) => Promise<string>
 }
 
 export type ScenarioToolSpec<S extends z.ZodTypeAny = z.ZodTypeAny> = {
@@ -179,6 +188,13 @@ export const SCENARIO_TOOLS = {
         schema: z.object({ query: z.string().describe('Free text; matches names, titles and descriptions') }),
         run: ({ query }, deps) =>
             asList(deps.searchLibrary(query), `Nothing in the library matches "${query}".`),
+    }),
+
+    fetch_url: defineTool({
+        name: 'fetch_url',
+        description: 'Fetch and read a web page, for pulling reference material into a character or note. May be unavailable depending on the configured model.',
+        schema: z.object({ url: z.string().describe('Absolute http(s) URL') }),
+        run: async ({ url }, deps) => deps.fetchUrl(url),
     }),
 
     import_from_library: defineTool({

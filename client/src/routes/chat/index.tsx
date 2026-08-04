@@ -71,8 +71,10 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
     await trpc.chat.saveAsTemplate.mutate({ sourceChatId: chat.id })
   }
 
-  // Scenarios (isTemplate) have their own screen; this list is real chats only.
-  const filteredChats = () => Object.values(state.assets.chats ?? {}).filter(c => !c.isTemplate)
+  // Recent chats means roleplay only: Scenarios have their own screen, and
+  // collaborator conversations belong to the Scenario that owns them.
+  const filteredChats = () => Object.values(state.assets.chats ?? {})
+    .filter(c => !c.isTemplate && (c.kind ?? 'roleplay') === 'roleplay')
 
   const renameChat = (chat: Chat) => {
     const [title, setTitle] = createSignal(chat.title)

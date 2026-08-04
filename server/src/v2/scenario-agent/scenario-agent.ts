@@ -2,6 +2,9 @@ import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { runScenarioTurn, activeLlmConfig } from '../../scenario-turn'
 import { SCENARIO_TOOLS } from '@shared/scenario-agent/tools'
+import { state, setState } from '../../server'
+import { nanoid } from 'nanoid'
+
 import type { ModelMessage } from 'ai'
 
 /**
@@ -17,6 +20,39 @@ export const scenarioAgentRouter = router({
     tools: procedure.query(() =>
         Object.values(SCENARIO_TOOLS).map(t => ({ name: t.name, description: t.description })),
     ),
+
+    /**
+     * The collaborator conversation for a Scenario, created on first use.
+     *
+     * It is a real chat row — so it inherits message persistence and, later,
+     * rewind/branch/regenerate — but `kind: 'collaborator'` and a `homeChatId`
+     * keep it out of the recent-chats list and bind its agent's scope to the
+     * Scenario it belongs to.
+     */
+    ensureConversation: procedure
+        .input(z.object({ scenarioId: z.string() }))
+        .mutation(({ input }) => {
+            const scenario = state.assets.chats[input.scenarioId]
+            if (!scenario) throw new Error('Scenario not found')
+
+            const existing = Object.values(state.assets.chats)
+                .find(c => c.kind === 'collaborator' && c.homeChatId === input.scenarioId)
+            if (existing) return { id: existing.id, created: false }
+
+            const id = nanoid()
+            const now = Date.now()
+            setState('assets', 'chats', id, {
+                id,
+                title: `Collaborator — ${scenario.title}`,
+                assets: { actors: [], notes: {}, images: [] },
+                isTemplate: false,
+                kind: 'collaborator',
+                homeChatId: input.scenarioId,
+                createdAt: now,
+                updatedAt: now,
+            })
+            return { id, created: true }
+        }),
 
     send: procedure
         .input(z.object({

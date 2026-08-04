@@ -394,6 +394,7 @@ export class CurrentChat {
             // Branching a template produces a regular chat — you shouldn't need to
             // clear the flag manually when you start a new chat from a template.
             isTemplate: false,
+            kind: 'roleplay' as const,
             createdAt: Date.now(),
             updatedAt: Date.now(),
         };
@@ -475,6 +476,7 @@ export class CurrentChat {
             avatarUrl: sourceMeta.avatarUrl,
             bannerUrl: sourceMeta.bannerUrl,
             isTemplate: asTemplate,
+            kind: 'roleplay' as const,
             createdAt: now,
             updatedAt: now,
         };

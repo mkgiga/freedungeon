@@ -65,6 +65,8 @@ export interface DB {
         id: string;
         title: Generated<string>;
         is_template: Generated<number>;
+        kind: string | null;
+        home_chat_id: string | null;
         avatar_url: string | null;
         banner_url: string | null;
         description: string | null;
@@ -240,6 +242,17 @@ export async function initDb() {
     }
     if (!haveChatCol('avatar_url')) {
         await db.schema.alterTable('chats').addColumn('avatar_url', 'text').execute();
+    }
+    // What drives this chat: the roleplaying agent, or the authoring
+    // collaborator. Absent on older rows, which are all roleplay.
+    if (!haveChatCol('kind')) {
+        await db.schema.alterTable('chats').addColumn('kind', 'text').execute();
+    }
+    // CASCADE, not SET NULL: a collaborator conversation is meaningless without
+    // the Scenario it was authoring. Deliberately inverts the eviction rule used
+    // for actors and notes, where an orphan is still worth keeping.
+    if (!haveChatCol('home_chat_id')) {
+        await sql`ALTER TABLE chats ADD COLUMN home_chat_id TEXT REFERENCES chats(id) ON DELETE CASCADE`.execute(db);
     }
     if (!haveChatCol('banner_url')) {
         await db.schema.alterTable('chats').addColumn('banner_url', 'text').execute();
@@ -438,6 +451,8 @@ export function hydrateChat(row: ChatRow) {
         id: row.id,
         title: row.title,
         isTemplate: row.is_template !== 0,
+        kind: (row.kind as 'roleplay' | 'collaborator' | null) ?? 'roleplay',
+        homeChatId: row.home_chat_id ?? null,
         avatarUrl: row.avatar_url ?? undefined,
         bannerUrl: row.banner_url ?? undefined,
         description: row.description ?? undefined,
@@ -716,6 +731,8 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
                 images: imageRefs.filter(r => r.chat_id === row.id).map(r => r.image_id),
             },
             isTemplate: row.is_template !== 0,
+            kind: (row.kind as 'roleplay' | 'collaborator' | null) ?? 'roleplay',
+            homeChatId: row.home_chat_id ?? null,
             avatarUrl: row.avatar_url ?? undefined,
             bannerUrl: row.banner_url ?? undefined,
             description: row.description ?? undefined,
@@ -813,6 +830,8 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
     const row = {
         title: chat.title,
         is_template: chat.isTemplate ? 1 : 0,
+        kind: chat.kind ?? 'roleplay',
+        home_chat_id: chat.homeChatId ?? null,
         avatar_url: chat.avatarUrl ?? null,
         banner_url: chat.bannerUrl ?? null,
         description: chat.description ?? null,

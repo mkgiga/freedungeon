@@ -277,7 +277,10 @@ export async function runScenarioPrompt(args: ScenarioPromptArgs): Promise<Scena
             prompt,
             options: {
                 mcpServers: { scenario: buildScenarioMcpServer(args.chatId) },
-                allowedTools: scenarioAllowedTools(),
+                // Claude is the only provider with real browsing, so WebFetch is
+                // allowed here and nowhere else. Other providers get the
+                // registry's fetch_url, which returns an explanatory refusal.
+                allowedTools: [...scenarioAllowedTools(), 'WebFetch'],
                 tools: [],
                 systemPrompt: args.systemPrompt,
                 model: args.model,

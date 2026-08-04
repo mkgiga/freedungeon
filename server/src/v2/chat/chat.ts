@@ -39,6 +39,8 @@ export const chatRouter = router({
                 title: input.title,
                 assets: { actors: [...input.actors], notes: Object.fromEntries(input.notes.map(id => [id, { enabled: true }])), images: [...(input.images ?? [])] },
                 isTemplate: input.isTemplate,
+                kind: 'roleplay' as const,
+                homeChatId: null,
                 avatarUrl: input.avatarUrl || undefined,
                 bannerUrl: input.bannerUrl || undefined,
                 description: input.description || undefined,
@@ -275,6 +277,16 @@ export const chatRouter = router({
             for (const note of Object.values(state.assets.notes)) {
                 if (note.homeChatId === input.id) {
                     setState('assets', 'notes', note.id, { ...note, homeChatId: null })
+                }
+            }
+
+            // Collaborator conversations belong to this chat and go with it.
+            // The `ON DELETE CASCADE` foreign key does this on disk; as with the
+            // eviction above, in-memory state has to be told separately or the
+            // conversation lingers in the store until the next restart.
+            for (const other of Object.values(state.assets.chats)) {
+                if (other.homeChatId === input.id) {
+                    deleteState('assets', 'chats', other.id)
                 }
             }
 
