@@ -1,4 +1,4 @@
-import { createMemo, createSignal } from 'solid-js'
+import { createMemo, createSignal, For } from 'solid-js'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { ActorList } from '../actors'
@@ -149,6 +149,58 @@ export function NotePicker(props: {
                 isSelected={(n) => added().has(n.id)}
                 toolbar={<SearchInput placeholder="Search notes…" value={query()} onInput={setQuery} />}
             />
+        </div>
+    )
+}
+
+/**
+ * Switch the active LLM config. Mirrors PlayerCharacterPicker: same shape, same
+ * "none" escape hatch, so the two feel like one idea.
+ */
+export function LlmConfigPicker(props: { onPick?: () => void }) {
+    const [query, setQuery] = createSignal('')
+    const currentId = () => state.userPreferences.activeLLMConfigId
+
+    const items = createMemo(() => {
+        const q = query().toLowerCase().trim()
+        return Object.values(state.assets.llmConfigs ?? {})
+            .filter(c => !q
+                || c.name.toLowerCase().includes(q)
+                || c.model.toLowerCase().includes(q)
+                || c.provider.toLowerCase().includes(q))
+    })
+
+    const pick = async (id: string | null) => {
+        await trpc.preferences.update.mutate({ activeLLMConfigId: id })
+        props.onPick?.()
+    }
+
+    return (
+        <div class="flex flex-col gap-3 min-h-0 min-w-0 h-full w-full max-w-[520px]">
+            <SearchInput placeholder="Search models…" value={query()} onInput={setQuery} />
+            <div class="overflow-y-auto flex-1 min-w-0 flex flex-col gap-2">
+                <button
+                    type="button"
+                    onClick={() => pick(null)}
+                    class="text-left px-4 py-3 rounded-lg border border-[color-mix(in_oklch,var(--text),transparent_85%)] hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
+                    classList={{ 'border-(--primary)': currentId() === null }}
+                >
+                    <span class="opacity-70">No model selected</span>
+                </button>
+                <For each={items()}>
+                    {(config) => (
+                        <button
+                            type="button"
+                            onClick={() => pick(config.id)}
+                            class="text-left px-4 py-3 rounded-lg border border-[color-mix(in_oklch,var(--text),transparent_85%)] hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
+                            classList={{ 'border-(--primary)': currentId() === config.id }}
+                        >
+                            <div class="truncate">{config.name}</div>
+                            <div class="text-sm opacity-50 truncate">{config.model || config.provider}</div>
+                        </button>
+                    )}
+                </For>
+            </div>
         </div>
     )
 }

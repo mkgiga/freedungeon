@@ -1,8 +1,9 @@
 import { For, Show } from 'solid-js'
+import { MdFillSmart_toy } from 'solid-icons/md'
 import { state } from '../state'
 import { activeTab, setActiveTab } from '../tab-state'
 import { viewport } from '../viewport'
-import { PlayerCharacterPicker } from './chat/AssetPicker'
+import { LlmConfigPicker, PlayerCharacterPicker } from './chat/AssetPicker'
 import { ImageIcon } from './ImageIcon'
 import { useModal } from './Modal'
 import { NAV_ITEMS } from './nav-items'
@@ -39,28 +40,53 @@ export function LeftNav() {
         })
     }
 
+    const openModelPicker = () => {
+        modal.open({
+            title: 'Model',
+            content: () => <LlmConfigPicker onPick={() => modal.close()} />,
+        })
+    }
+
     return (
         <menu class="left-nav" classList={{ compact: !showLabels() }}>
-            {/* On a tablet this collapses to just the avatar — the rail is only
-                56px wide, so names and model labels have nowhere to go. */}
-            <div class="left-nav-header">
-                <button
-                    type="button"
-                    class="left-nav-avatar"
-                    classList={{ 'is-empty': !player() }}
-                    title={player() ? `Playing as ${player()!.name} — click to change` : 'Choose your character'}
-                    onClick={openPlayerPicker}
-                >
-                    <ImageIcon url={player()?.avatarUrl} size={showLabels() ? 40 : 34} />
-                </button>
-                <Show when={showLabels()}>
-                    <div class="left-nav-identity">
-                        <Text size="sm" class="left-nav-welcome">Welcome, User.</Text>
-                        <Text class="left-nav-character">{player()?.name ?? 'No character'}</Text>
-                        <Text size="sm" class="left-nav-model">{llmConfig()?.name ?? 'No model'}</Text>
-                    </div>
-                </Show>
-            </div>
+            {/* Who you are on top, then secondary rows beneath — one line per
+                thing the session is currently bound to. On a tablet the rail is
+                56px, so every row degrades to just its icon. */}
+            <section class="left-nav-header">
+                <div class="left-nav-primary">
+                    <button
+                        type="button"
+                        class="left-nav-avatar"
+                        classList={{ 'is-empty': !player() }}
+                        title={player() ? `Playing as ${player()!.name} — click to change` : 'Choose your character'}
+                        onClick={openPlayerPicker}
+                    >
+                        <ImageIcon url={player()?.avatarUrl} size={showLabels() ? 40 : 34} />
+                    </button>
+                    <Show when={showLabels()}>
+                        <div class="left-nav-identity">
+                            <Text size="sm" class="left-nav-welcome">Welcome, User.</Text>
+                            <Text class="left-nav-character">{player()?.name ?? 'No character'}</Text>
+                        </div>
+                    </Show>
+                </div>
+
+                <div class="left-nav-secondary">
+                    <button
+                        type="button"
+                        class="left-nav-detail"
+                        title={llmConfig() ? `Model: ${llmConfig()!.name} — click to change` : 'Choose a model'}
+                        onClick={openModelPicker}
+                    >
+                        <span class="left-nav-detail-icon"><MdFillSmart_toy size={20} /></span>
+                        <Show when={showLabels()}>
+                            <Text size="sm" class="left-nav-detail-value">
+                                {llmConfig()?.name ?? 'No model'}
+                            </Text>
+                        </Show>
+                    </button>
+                </div>
+            </section>
 
             <For each={NAV_ITEMS}>
                 {(item) => (

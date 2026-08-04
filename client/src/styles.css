@@ -3342,7 +3342,9 @@ menu.left-nav {
   border-right: 1px solid color-mix(in oklch, var(--text), transparent 88%);
   overflow-y: auto;
 
-  button {
+  /* Direct children only. The avatar in .left-nav-header is also a button, and
+     an unscoped `button` here stretched it to the full rail width. */
+  & > button {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -3371,7 +3373,7 @@ menu.left-nav {
 menu.left-nav.compact {
   width: 56px;
 
-  button {
+  & > button {
     justify-content: center;
     gap: 0;
     padding: 12px 0;
@@ -3381,10 +3383,64 @@ menu.left-nav.compact {
 /* ── LeftNav identity header ──────────────────────────────────────────── */
 .left-nav-header {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
   border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+/* Identity: avatar beside the greeting and character name. */
+.left-nav-primary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Secondary rows: one line per thing the session is bound to. An icon column
+   on the left keeps them aligned as more are added. */
+.left-nav-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.left-nav-detail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 4px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.left-nav-detail:hover {
+  background: var(--bg-2);
+}
+
+/* Fixed column so every row's label starts at the same x. */
+.left-nav-detail-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  opacity: 0.5;
+}
+
+.left-nav-detail:hover .left-nav-detail-icon {
+  opacity: 0.9;
+}
+
+.left-nav-detail-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
 }
 
 .left-nav-avatar {
@@ -3419,21 +3475,22 @@ menu.left-nav.compact {
 }
 
 /* Names and model ids are arbitrary length; the rail is not. */
-.left-nav-character,
-.left-nav-model {
+.left-nav-character {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.left-nav-model {
-  opacity: 0.5;
-}
 
 /* Tablet: avatar only, centred in the 56px rail. */
 menu.left-nav.compact .left-nav-header {
-  justify-content: center;
+  align-items: center;
   padding: 12px 0;
+}
+
+menu.left-nav.compact .left-nav-detail {
+  justify-content: center;
+  padding: 6px 0;
 }
 
 /* ── Chat layout with inline side panel (widescreen) ──────────────────────
