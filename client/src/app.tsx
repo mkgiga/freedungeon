@@ -15,6 +15,7 @@ import { activeTab, setActiveTab, type Tab } from './tab-state'
 
 const TAB_INITIAL: Record<Tab, string> = {
     home: '/',
+    scenarios: '/scenarios',
     actors: '/actors',
     chat: '/chat',
     notes: '/notes',
@@ -36,11 +37,12 @@ declare module '@tanstack/solid-router' {
     }
 }
 
-const TABS: Tab[] = ['home', 'actors', 'chat', 'notes', 'preferences']
+const TABS: Tab[] = ['home', 'scenarios', 'actors', 'chat', 'notes', 'preferences']
 
 export function App() {
     const routers: Record<Tab, ReturnType<typeof makeTabRouter>> = {
         home: makeTabRouter('home'),
+        scenarios: makeTabRouter('scenarios'),
         actors: makeTabRouter('actors'),
         chat: makeTabRouter('chat'),
         notes: makeTabRouter('notes'),

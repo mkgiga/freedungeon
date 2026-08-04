@@ -468,6 +468,12 @@ export class CurrentChat {
                 // chat made from a template points at the same rows.
                 images: [...(sourceMeta.assets.images ?? [])],
             },
+            // Presentation carries over too. A Scenario's premise and art are
+            // most of what it *is*, so a chat played from one should look like
+            // the thing you picked rather than an untitled blank.
+            description: sourceMeta.description,
+            avatarUrl: sourceMeta.avatarUrl,
+            bannerUrl: sourceMeta.bannerUrl,
             isTemplate: asTemplate,
             createdAt: now,
             updatedAt: now,

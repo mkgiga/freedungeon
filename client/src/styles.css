@@ -3562,3 +3562,240 @@ menu.left-nav.compact .left-nav-detail {
 @media (prefers-reduced-motion: reduce) {
   .field-attention { animation-duration: 0.01ms; border-color: var(--primary); }
 }
+
+/* ── Scenarios ────────────────────────────────────────────────────────────
+   Reusable adventure presets. Same record as a chat (isTemplate), presented
+   as something you play rather than something you manage. */
+.scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.scenario-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-2);
+  transition: border-color 120ms ease-out;
+}
+
+.scenario-card:hover {
+  border-color: color-mix(in oklch, var(--primary), transparent 40%);
+}
+
+/* The banner is the play button — the largest, most obvious target. */
+.scenario-card-hero {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.scenario-card-banner {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  display: block;
+}
+
+.scenario-card-banner.is-empty {
+  background: linear-gradient(135deg,
+    color-mix(in oklch, var(--primary), transparent 80%),
+    color-mix(in oklch, var(--text), transparent 92%));
+}
+
+.scenario-card-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgb(0 0 0 / 0.35);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.scenario-card-hero:hover .scenario-card-play,
+.scenario-card-hero:focus-visible .scenario-card-play {
+  opacity: 1;
+}
+
+.scenario-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.scenario-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.scenario-card-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.scenario-card-title,
+.scenario-card-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scenario-card-meta {
+  opacity: 0.5;
+}
+
+/* Two lines of premise; the editor holds the full text. */
+.scenario-card-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  opacity: 0.7;
+}
+
+.scenario-card-cast {
+  display: flex;
+  gap: 4px;
+}
+
+.scenario-card-cast-face {
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.scenario-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 420px;
+  margin: 48px auto;
+  text-align: center;
+}
+
+/* Home entry point — the only way to reach Scenarios on a phone. */
+.home-scenarios {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklch, var(--primary), transparent 70%);
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--primary), transparent 92%);
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-scenarios:hover {
+  background: color-mix(in oklch, var(--primary), transparent 85%);
+}
+
+.home-scenarios-icon {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.home-scenarios-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Actor card grid (chat / scenario editor) ─────────────────────────── */
+.chat-detail-cast {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.actor-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 12px;
+}
+
+.actor-card {
+  position: relative;
+}
+
+.actor-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 6px;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.actor-card-body:hover {
+  background: var(--bg-2);
+}
+
+.actor-card-body .image-icon {
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.actor-card-name,
+.actor-card-group {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actor-card-group {
+  opacity: 0.5;
+}
+
+/* Only on hover/focus — the grid is for recognising faces, not for chrome. */
+.actor-card-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 80%);
+  background: var(--bg);
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.actor-card:hover .actor-card-remove,
+.actor-card-remove:focus-visible {
+  opacity: 1;
+}
+
+.actor-card-remove:hover {
+  border-color: var(--color-danger, #f7768e);
+  color: var(--color-danger, #f7768e);
+}

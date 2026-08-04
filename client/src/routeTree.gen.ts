@@ -10,11 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ScenariosIndexRouteImport } from './routes/scenarios/index'
 import { Route as PreferencesIndexRouteImport } from './routes/preferences/index'
 import { Route as NotesIndexRouteImport } from './routes/notes/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as ChatIndexRouteImport } from './routes/chat/index'
 import { Route as ActorsIndexRouteImport } from './routes/actors/index'
+import { Route as ScenariosIdIndexRouteImport } from './routes/scenarios/$id/index'
 import { Route as NotesIdIndexRouteImport } from './routes/notes/$id/index'
 import { Route as ChatIdIndexRouteImport } from './routes/chat/$id/index'
 import { Route as ActorsIdIndexRouteImport } from './routes/actors/$id/index'
@@ -23,6 +25,11 @@ import { Route as PreferencesLlmConfigsIdIndexRouteImport } from './routes/prefe
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScenariosIndexRoute = ScenariosIndexRouteImport.update({
+  id: '/scenarios/',
+  path: '/scenarios/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PreferencesIndexRoute = PreferencesIndexRouteImport.update({
@@ -48,6 +55,11 @@ const ChatIndexRoute = ChatIndexRouteImport.update({
 const ActorsIndexRoute = ActorsIndexRouteImport.update({
   id: '/actors/',
   path: '/actors/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScenariosIdIndexRoute = ScenariosIdIndexRouteImport.update({
+  id: '/scenarios/$id/',
+  path: '/scenarios/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotesIdIndexRoute = NotesIdIndexRouteImport.update({
@@ -79,9 +91,11 @@ export interface FileRoutesByFullPath {
   '/home/': typeof HomeIndexRoute
   '/notes/': typeof NotesIndexRoute
   '/preferences/': typeof PreferencesIndexRoute
+  '/scenarios/': typeof ScenariosIndexRoute
   '/actors/$id/': typeof ActorsIdIndexRoute
   '/chat/$id/': typeof ChatIdIndexRoute
   '/notes/$id/': typeof NotesIdIndexRoute
+  '/scenarios/$id/': typeof ScenariosIdIndexRoute
   '/preferences/llm-configs/$id/': typeof PreferencesLlmConfigsIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -91,9 +105,11 @@ export interface FileRoutesByTo {
   '/home': typeof HomeIndexRoute
   '/notes': typeof NotesIndexRoute
   '/preferences': typeof PreferencesIndexRoute
+  '/scenarios': typeof ScenariosIndexRoute
   '/actors/$id': typeof ActorsIdIndexRoute
   '/chat/$id': typeof ChatIdIndexRoute
   '/notes/$id': typeof NotesIdIndexRoute
+  '/scenarios/$id': typeof ScenariosIdIndexRoute
   '/preferences/llm-configs/$id': typeof PreferencesLlmConfigsIdIndexRoute
 }
 export interface FileRoutesById {
@@ -104,9 +120,11 @@ export interface FileRoutesById {
   '/home/': typeof HomeIndexRoute
   '/notes/': typeof NotesIndexRoute
   '/preferences/': typeof PreferencesIndexRoute
+  '/scenarios/': typeof ScenariosIndexRoute
   '/actors/$id/': typeof ActorsIdIndexRoute
   '/chat/$id/': typeof ChatIdIndexRoute
   '/notes/$id/': typeof NotesIdIndexRoute
+  '/scenarios/$id/': typeof ScenariosIdIndexRoute
   '/preferences/llm-configs/$id/': typeof PreferencesLlmConfigsIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -118,9 +136,11 @@ export interface FileRouteTypes {
     | '/home/'
     | '/notes/'
     | '/preferences/'
+    | '/scenarios/'
     | '/actors/$id/'
     | '/chat/$id/'
     | '/notes/$id/'
+    | '/scenarios/$id/'
     | '/preferences/llm-configs/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -130,9 +150,11 @@ export interface FileRouteTypes {
     | '/home'
     | '/notes'
     | '/preferences'
+    | '/scenarios'
     | '/actors/$id'
     | '/chat/$id'
     | '/notes/$id'
+    | '/scenarios/$id'
     | '/preferences/llm-configs/$id'
   id:
     | '__root__'
@@ -142,9 +164,11 @@ export interface FileRouteTypes {
     | '/home/'
     | '/notes/'
     | '/preferences/'
+    | '/scenarios/'
     | '/actors/$id/'
     | '/chat/$id/'
     | '/notes/$id/'
+    | '/scenarios/$id/'
     | '/preferences/llm-configs/$id/'
   fileRoutesById: FileRoutesById
 }
@@ -155,9 +179,11 @@ export interface RootRouteChildren {
   HomeIndexRoute: typeof HomeIndexRoute
   NotesIndexRoute: typeof NotesIndexRoute
   PreferencesIndexRoute: typeof PreferencesIndexRoute
+  ScenariosIndexRoute: typeof ScenariosIndexRoute
   ActorsIdIndexRoute: typeof ActorsIdIndexRoute
   ChatIdIndexRoute: typeof ChatIdIndexRoute
   NotesIdIndexRoute: typeof NotesIdIndexRoute
+  ScenariosIdIndexRoute: typeof ScenariosIdIndexRoute
   PreferencesLlmConfigsIdIndexRoute: typeof PreferencesLlmConfigsIdIndexRoute
 }
 
@@ -168,6 +194,13 @@ declare module '@tanstack/solid-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scenarios/': {
+      id: '/scenarios/'
+      path: '/scenarios'
+      fullPath: '/scenarios/'
+      preLoaderRoute: typeof ScenariosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/preferences/': {
@@ -203,6 +236,13 @@ declare module '@tanstack/solid-router' {
       path: '/actors'
       fullPath: '/actors/'
       preLoaderRoute: typeof ActorsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scenarios/$id/': {
+      id: '/scenarios/$id/'
+      path: '/scenarios/$id'
+      fullPath: '/scenarios/$id/'
+      preLoaderRoute: typeof ScenariosIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notes/$id/': {
@@ -243,9 +283,11 @@ const rootRouteChildren: RootRouteChildren = {
   HomeIndexRoute: HomeIndexRoute,
   NotesIndexRoute: NotesIndexRoute,
   PreferencesIndexRoute: PreferencesIndexRoute,
+  ScenariosIndexRoute: ScenariosIndexRoute,
   ActorsIdIndexRoute: ActorsIdIndexRoute,
   ChatIdIndexRoute: ChatIdIndexRoute,
   NotesIdIndexRoute: NotesIdIndexRoute,
+  ScenariosIdIndexRoute: ScenariosIdIndexRoute,
   PreferencesLlmConfigsIdIndexRoute: PreferencesLlmConfigsIdIndexRoute,
 }
 export const routeTree = rootRouteImport

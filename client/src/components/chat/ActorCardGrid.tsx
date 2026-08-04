@@ -1,0 +1,58 @@
+import { For, Show } from 'solid-js'
+import { ImageIcon } from '../ImageIcon'
+import { Text } from '../typography/Text'
+import type { Actor } from '@shared/types'
+
+/**
+ * The cast of a chat or Scenario, as portrait cards.
+ *
+ * A sortable table is the right tool for browsing hundreds of actors, which is
+ * what the Actors screen does. Here the set is small and hand-picked, and what
+ * matters is recognising faces at a glance — so this trades sorting and density
+ * for portraits.
+ */
+export function ActorCardGrid(props: {
+    actors: Actor[]
+    /** Called when a card's remove control is used. */
+    onRemove?: (actor: Actor) => void
+    onActorClick?: (actor: Actor) => void
+    emptyLabel?: string
+}) {
+    return (
+        <Show
+            when={props.actors.length > 0}
+            fallback={<Text size="sm" class="opacity-50">{props.emptyLabel ?? 'No actors yet.'}</Text>}
+        >
+            <div class="actor-card-grid">
+                <For each={props.actors}>
+                    {(actor) => (
+                        <div class="actor-card">
+                            <button
+                                type="button"
+                                class="actor-card-body"
+                                onClick={() => props.onActorClick?.(actor)}
+                                title={actor.name}
+                            >
+                                <ImageIcon url={actor.avatarUrl} size={72} />
+                                <Text size="sm" class="actor-card-name">{actor.name}</Text>
+                                <Show when={actor.group}>
+                                    <Text size="sm" class="actor-card-group">{actor.group}</Text>
+                                </Show>
+                            </button>
+                            <Show when={props.onRemove}>
+                                <button
+                                    type="button"
+                                    class="actor-card-remove"
+                                    title={`Remove ${actor.name}`}
+                                    onClick={() => props.onRemove!(actor)}
+                                >
+                                    ×
+                                </button>
+                            </Show>
+                        </div>
+                    )}
+                </For>
+            </div>
+        </Show>
+    )
+}

@@ -1,5 +1,4 @@
 import { createFileRoute, useNavigate } from '@tanstack/solid-router'
-import { nanoid } from 'nanoid'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../../components/TopBar'
@@ -53,7 +52,6 @@ function RouteComponent() {
 function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
   const modal = useModal()
   const navigate = useNavigate()
-  const [tab, setTab] = createSignal<'chats' | 'templates'>('chats')
 
   const openChat = async (chat: Chat) => {
     await trpc.chat.load.mutate({ id: chat.id })
@@ -69,26 +67,12 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
     props.onCreate()
   }
 
-  const createTemplate = () => {
-    // Optimistic-create pattern: generate an id client-side and navigate into
-    // the detail view. The server sees nothing until the user hits Save.
-    const newId = nanoid()
-    navigate({ to: '/chat/$id', params: { id: newId }, search: { new: true, isTemplate: true } })
-  }
-
   const saveAsTemplate = async (chat: Chat) => {
     await trpc.chat.saveAsTemplate.mutate({ sourceChatId: chat.id })
   }
 
-  const useTemplate = async (template: Chat) => {
-    await trpc.chat.useTemplate.mutate({ templateId: template.id })
-    props.onOpen()
-  }
-
-  const filteredChats = () => {
-    const all = Object.values(state.assets.chats ?? {})
-    return all.filter(c => tab() === 'templates' ? c.isTemplate : !c.isTemplate)
-  }
+  // Scenarios (isTemplate) have their own screen; this list is real chats only.
+  const filteredChats = () => Object.values(state.assets.chats ?? {}).filter(c => !c.isTemplate)
 
   const renameChat = (chat: Chat) => {
     const [title, setTitle] = createSignal(chat.title)
@@ -147,10 +131,10 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
   return (
     <>
       <TopBar
-        title={tab() === 'templates' ? 'Templates' : 'Chats'}
+        title="Chats"
         slots={{
           right: (
-            <button onClick={tab() === 'templates' ? createTemplate : createChat}>
+            <button onClick={createChat}>
               <MdFillAdd size={32} />
             </button>
           ),
@@ -159,37 +143,14 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
       <div class="flex-1 overflow-y-auto">
         <ChatList
           chats={filteredChats()}
-          onChatClick={tab() === 'templates' ? editChat : openChat}
-          toolbar={
-            <>
-              <button
-                class="chat-list-tab"
-                classList={{ 'is-active': tab() === 'chats' }}
-                onClick={() => setTab('chats')}
-              >Chats</button>
-              <button
-                class="chat-list-tab"
-                classList={{ 'is-active': tab() === 'templates' }}
-                onClick={() => setTab('templates')}
-              >Templates</button>
-            </>
-          }
-          actions={tab() === 'templates'
-            ? [
-                { label: 'Use Template', callback: useTemplate },
-                { label: 'Edit', callback: editChat },
-                { label: 'Open', callback: openChat },
-                { label: 'Rename', callback: renameChat },
-                { label: 'Delete', danger: true, callback: deleteChat },
-              ]
-            : [
-                { label: 'Open', callback: openChat },
-                { label: 'Edit', callback: editChat },
-                { label: 'Rename', callback: renameChat },
-                { label: 'Save as Template', callback: saveAsTemplate },
-                { label: 'Delete', danger: true, callback: deleteChat },
-              ]
-          }
+          onChatClick={openChat}
+          actions={[
+            { label: 'Open', callback: openChat },
+            { label: 'Edit', callback: editChat },
+            { label: 'Rename', callback: renameChat },
+            { label: 'Save as Scenario', callback: saveAsTemplate },
+            { label: 'Delete', danger: true, callback: deleteChat },
+          ]}
         />
       </div>
     </>
