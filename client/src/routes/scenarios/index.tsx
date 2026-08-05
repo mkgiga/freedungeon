@@ -11,7 +11,7 @@ import { Heading } from '../../components/typography/Heading'
 import { ImageIcon } from '../../components/ImageIcon'
 import { Dropdown } from '../../components/Dropdown'
 import { useModal } from '../../components/Modal'
-import { setActiveTab } from '../../tab-state'
+import { setActiveTab, setChatView } from '../../tab-state'
 import type { Chat } from '@shared/types'
 import { visible } from '@shared/visibility'
 
@@ -35,7 +35,9 @@ function RouteComponent() {
 
     const play = async (scenario: Chat) => {
         await trpc.chat.useTemplate.mutate({ templateId: scenario.id })
-        // useTemplate loads the clone as the current chat; jump to it.
+        // useTemplate loads the clone as the current chat. Switching tabs alone
+        // would land on the recent-chats list, so ask for the conversation too.
+        setChatView('conversation')
         setActiveTab('chat')
     }
 

@@ -19,21 +19,20 @@ import { PlaybackProvider, usePlayback } from '../../components/chat/playback'
 import { ActivityOverlay } from '../../components/ActivityOverlay'
 import { ShowOn } from '../../components/ShowOn'
 import { viewport } from '../../viewport'
+import { chatView, setChatView } from '../../tab-state'
 
 const PAGE_SIZE = 60    // how many messages to load per sentinel-trigger
 const WINDOW_SIZE = 200 // max messages rendered to the DOM at once
-
-type ChatView = 'list' | 'conversation'
 
 export const Route = createFileRoute('/chat/')({
   component: RouteComponent,
 })
 
 function RouteComponent() {
-  const [view, setView] = createSignal<ChatView>('list')
+  const view = chatView
 
-  const goToConversation = () => setView('conversation')
-  const goToList = () => setView('list')
+  const goToConversation = () => setChatView('conversation')
+  const goToList = () => setChatView('list')
 
   // Both views are rendered simultaneously; we hide the inactive one via CSS so
   // their local state (sort, scroll, dropdowns, modals) survives switching.
