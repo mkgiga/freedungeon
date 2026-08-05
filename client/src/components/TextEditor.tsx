@@ -25,7 +25,7 @@ export function TextEditor(props: {
                     <textarea
                         value={props.value()}
                         readOnly={props.readOnly}
-                        class="text-editor-textarea flex-1"
+                        class="text-editor-textarea text-editor-expanded"
                         onInput={(e) => props.onInput(e.currentTarget.value)}
                     />
                 </div>

@@ -1,23 +1,29 @@
 export function generateName({
     input,
-    prefix = 'New',
+    prefix = '',
+    separator = ' ',
     existingNames,
 }: {
     input: string
+    /** Prepended to `input`, e.g. "New" → "New Chat". Omit for no prefix. */
     prefix?: string
+    /** Joins the prefix, the input, and the numeric suffix. */
+    separator?: string
     existingNames: string[]
 }) {
-    const name = prefix.trim() + ' ' + input.trim();
-    
-    if (!existingNames.includes(name)) {
-        return name;
+    const base = prefix.trim()
+        ? prefix.trim() + separator + input.trim()
+        : input.trim();
+
+    if (!existingNames.includes(base)) {
+        return base;
     }
 
     let suffix = 2;
-    
-    while (existingNames.includes(`${name} ${suffix}`)) {
+
+    while (existingNames.includes(`${base}${separator}${suffix}`)) {
         suffix++;
     }
-    
-    return `${name} ${suffix}`;
+
+    return `${base}${separator}${suffix}`;
 }

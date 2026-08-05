@@ -21,6 +21,10 @@
   --text-xl: 24px;
 }
 
+[custom-css] {
+  appearance: none;
+}
+
 body,
 html,
 #app {
@@ -687,11 +691,15 @@ button {
 }
 
 @media (min-width: 768px) {
+  /* Deliberately short of the viewport. At 90vw x 90vh the close and save
+     controls sit in the corners of the screen, far enough out to be missed;
+     pulling the dialog in keeps them inside where the eye already is. The
+     width cap matters more than the height on a wide monitor. */
   .modal-fullscreen {
-    width: 90vw;
-    height: 90vh;
+    width: min(90vw, 1040px);
+    height: 72vh;
     max-width: 90vw;
-    max-height: 90vh;
+    max-height: 72vh;
     border-radius: 12px;
     border: 1px solid color-mix(in oklch, var(--text), transparent 78.25%);
   }
@@ -728,6 +736,47 @@ button {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+/* An expression's image slot. Doubles as the upload target, since a row added
+   from the Expressions list starts without one. */
+.expression-image {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px dashed color-mix(in oklch, var(--text), transparent 70%);
+
+  & img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &:not(:disabled):hover {
+    border-color: var(--primary);
+  }
+
+  /* A real image needs no dashed hint. */
+  &:has(img) {
+    border-style: solid;
+    border-color: transparent;
+  }
+}
+
+/* Cancel/Save rail for an editor hosted in a modal rather than a route. No
+   top border: the content above it already ends in a bordered field, and a
+   second line reads as a seam. */
+.editor-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding-top: 16px;
 }
 
 .modal-confirm-actions {
@@ -2223,7 +2272,33 @@ button {
   border-color: var(--primary);
 }
 
-.modal-fullscreen .text-editor-textarea {
+/* The textarea the expand (⤢) button opens, which sits directly in a flex
+   column. Keyed on the textarea itself rather than on .modal-fullscreen —
+   other editors render inside a fullscreen modal too, and there the inline
+   textarea's parent isn't a flex container, so `flex: 1` did nothing while
+   `min-height: 0` dropped it below its normal size. */
+.text-editor-expanded {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+}
+
+/* An editor whose text is the point of the screen: give it the leftover
+   height instead of leaving it at its minimum with dead space below. */
+.modal-fullscreen .editor-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-fullscreen .editor-fill,
+.modal-fullscreen .editor-fill .text-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.modal-fullscreen .editor-fill .text-editor-textarea {
   flex: 1;
   min-height: 0;
   resize: none;
@@ -2295,6 +2370,61 @@ button {
 
 .dropdown-menu-hidden {
   visibility: hidden;
+}
+
+/* ── Tooltip ── */
+
+.tooltip {
+  position: fixed;
+  z-index: 200;
+  max-width: 280px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-2);
+  border: 1px solid color-mix(in oklch, var(--text), transparent 82%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  /* A tooltip is an aside, never a click target — let events through to
+     whatever it happens to be covering. */
+  pointer-events: none;
+  /* No `both` fill: with it the box holds the keyframes' opacity: 0 until the
+     animation actually runs, so anywhere animations are paused or suppressed
+     the tooltip is present, "visible", and invisible. Resting state has to be
+     the visible one; the fade is decoration on top. */
+  animation: tooltip-in 120ms ease;
+}
+
+/* Grows out of the side it's anchored to. */
+.tooltip-top    { transform-origin: bottom center; }
+.tooltip-bottom { transform-origin: top center; }
+.tooltip-left   { transform-origin: center right; }
+.tooltip-right  { transform-origin: center left; }
+
+/* First frame only, while the box is measured. Not display:none — it has to
+   be laid out to have a size worth measuring. */
+.tooltip-hidden {
+  visibility: hidden;
+  animation: none;
+}
+
+@keyframes tooltip-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.info-tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  opacity: 0.45;
+  transition: opacity 150ms;
+
+  &:hover, &:focus-visible {
+    opacity: 1;
+  }
 }
 
 .dropdown-item {
@@ -3832,6 +3962,10 @@ menu.left-nav.compact .left-nav-detail {
 }
 
 .collab-message {
+  /* Without this the column shrinks each bubble below its content height once
+     the thread outgrows the panel, instead of letting the panel scroll — the
+     text then spills out of its own box and over the next one. */
+  flex-shrink: 0;
   padding: 10px 12px;
   border-radius: 10px;
   background: var(--bg-2);

@@ -6,6 +6,7 @@ import { ModalProvider } from './components/Modal'
 import { DrawerProvider } from './components/Drawer'
 import { BottomSheetProvider } from './components/BottomSheet'
 import { ToastProvider } from './components/Toast'
+import { TooltipProvider } from './components/Tooltip'
 import { BottomNav } from './components/BottomNav'
 import { PatcherOverlay } from './components/PatcherOverlay'
 import { OnboardingOverlay } from './components/OnboardingOverlay'
@@ -55,6 +56,7 @@ export function App() {
                 <DrawerProvider>
                     <BottomSheetProvider>
                         <ToastProvider>
+                          <TooltipProvider>
                             {/* Row wrapper: the side rail sits beside the content,
                                 where the bottom bar sat under it. */}
                             <div class="app-body">
@@ -82,6 +84,7 @@ export function App() {
                                 stay visible. */}
                             <OnboardingOverlay />
                             <PatcherOverlay />
+                          </TooltipProvider>
                         </ToastProvider>
                     </BottomSheetProvider>
                 </DrawerProvider>

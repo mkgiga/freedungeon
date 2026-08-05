@@ -9,6 +9,8 @@ import { Text } from '../typography/Text'
 import { Em } from '../typography/Em'
 import { ImageIcon } from '../ImageIcon'
 import { ActorCardGrid } from './ActorCardGrid'
+import { ActorEditor } from '../ActorEditor'
+import { NoteEditor } from '../NoteEditor'
 import { NoteList } from '../notes'
 import { ActorPicker, NotePicker } from '../chat/AssetPicker'
 import { ImagePicker } from '../chat/ImagePicker'
@@ -109,6 +111,36 @@ export function ChatPresetEditor(props: {
         if (next.has(id)) next.delete(id)
         else next.add(id)
         setDraft('actors', next)
+    }
+
+    // Both open in a modal rather than navigating: this editor's draft is
+    // uncommitted until Save, and leaving for /actors/$id or /notes/$id would
+    // unmount it and throw that draft away.
+    const modalFooter = (save: () => Promise<void>) => (
+        <div class="editor-modal-footer">
+            <button class="modal-btn modal-btn-cancel" onClick={() => modal.close()}>Cancel</button>
+            <button class="modal-btn modal-btn-confirm" onClick={async () => { await save(); modal.close() }}>Save</button>
+        </div>
+    )
+
+    const editActor = (actor: Actor) => {
+        modal.open({
+            title: `Edit ${actor.name}`,
+            fullscreen: true,
+            content: () => (
+                <ActorEditor customId={actor.customId} edit footer={(ctx) => modalFooter(ctx.save)} />
+            ),
+        })
+    }
+
+    const editNote = (note: Note) => {
+        modal.open({
+            title: `Edit ${note.title}`,
+            fullscreen: true,
+            content: () => (
+                <NoteEditor noteId={note.id} edit footer={(ctx) => modalFooter(ctx.save)} />
+            ),
+        })
     }
 
     const toggleNote = (id: string) => {
@@ -328,6 +360,7 @@ export function ChatPresetEditor(props: {
                             <ActorCardGrid
                                 actors={actorItems()}
                                 onRemove={(a) => toggleActor(a.id)}
+                                onActorClick={editActor}
                                 emptyLabel="No characters yet — add some with +"
                             />
                         </div>
@@ -343,6 +376,7 @@ export function ChatPresetEditor(props: {
                                 notes={noteItems()}
                                 showType={false}
                                 hideHeader
+                                onNoteClick={editNote}
                                 actions={[
                                     {
                                         label: 'Remove',

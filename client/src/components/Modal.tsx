@@ -1,4 +1,4 @@
-import { createSignal, createContext, useContext, Show, onMount, onCleanup, type JSXElement } from 'solid-js'
+import { createSignal, createContext, useContext, For, Show, onMount, onCleanup, type JSXElement } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { MdFillClose } from 'solid-icons/md'
 import { Heading } from './typography/Heading'
@@ -34,23 +34,29 @@ export function useModal(): ModalAPI {
 // ── Provider ──
 
 export function ModalProvider(props: { children: JSXElement }) {
-    const [current, setCurrent] = createSignal<ModalConfig | null>(null)
+    // A stack, not a single slot: a modal can open another one (the actor
+    // editor opens Add Expression), and replacing it would unmount the editor
+    // along with its unsaved draft. Every entry stays mounted; only the top one
+    // is reachable, since each overlay covers the whole viewport.
+    const [stack, setStack] = createSignal<ModalConfig[]>([])
+    const top = () => stack()[stack().length - 1]
 
     const close = () => {
-        const modal = current()
-        modal?.onClose?.()
-        setCurrent(null)
+        top()?.onClose?.()
+        setStack(s => s.slice(0, -1))
     }
 
+    const push = (config: ModalConfig) => setStack(s => [...s, config])
+
     const api: ModalAPI = {
-        open: (config) => setCurrent({
+        open: (config) => push({
             closeOnOverlay: true,
             closeOnEscape: true,
             ...config,
         }),
         close,
         confirm: (opts) => {
-            setCurrent({
+            push({
                 title: opts.title ?? 'Confirm',
                 closeOnOverlay: true,
                 closeOnEscape: true,
@@ -68,7 +74,7 @@ export function ModalProvider(props: { children: JSXElement }) {
     }
 
     const handleKeydown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape' && current()?.closeOnEscape) close()
+        if (e.key === 'Escape' && top()?.closeOnEscape) close()
     }
 
     onMount(() => document.addEventListener('keydown', handleKeydown))
@@ -77,7 +83,9 @@ export function ModalProvider(props: { children: JSXElement }) {
     return (
         <ModalContext.Provider value={api}>
             {props.children}
-            <Show when={current()}>
+            {/* For, not Show: entries below the top must stay mounted so their
+                state survives the one above them being opened and closed. */}
+            <For each={stack()}>
                 {(modal) => (
                     <Portal>
                         <div
@@ -88,27 +96,27 @@ export function ModalProvider(props: { children: JSXElement }) {
                                 }
                             }}
                             onMouseUp={(e) => {
-                                if (e.target === e.currentTarget && (e.currentTarget as any).__clickedOverlay && modal().closeOnOverlay) {
+                                if (e.target === e.currentTarget && (e.currentTarget as any).__clickedOverlay && modal.closeOnOverlay) {
                                     close()
                                 }
                                 (e.currentTarget as any).__clickedOverlay = false
                             }}
                         >
-                            <div class={`modal-container ${modal().fullscreen ? 'modal-fullscreen' : ''}`}>
-                                <Show when={modal().title}>
+                            <div class={`modal-container ${modal.fullscreen ? 'modal-fullscreen' : ''}`}>
+                                <Show when={modal.title}>
                                     <div class="modal-header">
-                                        <Heading level={2}>{modal().title}</Heading>
+                                        <Heading level={2}>{modal.title}</Heading>
                                         <button class="modal-close" onClick={close}><MdFillClose size={16} /></button>
                                     </div>
                                 </Show>
                                 <div class="modal-body">
-                                    {modal().content()}
+                                    {modal.content()}
                                 </div>
                             </div>
                         </div>
                     </Portal>
                 )}
-            </Show>
+            </For>
         </ModalContext.Provider>
     )
 }
