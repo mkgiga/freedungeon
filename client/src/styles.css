@@ -3819,37 +3819,6 @@ menu.left-nav.compact .left-nav-detail {
   text-align: center;
 }
 
-/* Home entry point — the only way to reach Scenarios on a phone. */
-.home-scenarios {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 14px 16px;
-  border: 1px solid color-mix(in oklch, var(--primary), transparent 70%);
-  border-radius: 12px;
-  background: color-mix(in oklch, var(--primary), transparent 92%);
-  text-align: left;
-  cursor: pointer;
-}
-
-.home-scenarios:hover {
-  background: color-mix(in oklch, var(--primary), transparent 85%);
-}
-
-.home-scenarios-icon {
-  flex-shrink: 0;
-  color: var(--primary);
-}
-
-.home-scenarios-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-
 /* ── Actor card grid (chat / scenario editor) ─────────────────────────── */
 .chat-detail-cast {
   display: flex;

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/solid-router'
 import { createResource, For, Show } from 'solid-js'
-import { MdFillAuto_stories, MdFillChevron_right } from 'solid-icons/md'
+import { MdFillChevron_right } from 'solid-icons/md'
 import { TopBar } from '../components/TopBar'
 import { Text } from '../components/typography/Text'
 import { Heading } from '../components/typography/Heading'
@@ -13,6 +13,7 @@ export const Route = createFileRoute('/')({ component: RouteComponent })
 type DashboardLink = { label: string; target: Tab }
 
 const ASSET_LINKS: DashboardLink[] = [
+  { label: 'Scenarios', target: 'scenarios' },
   { label: 'Actors', target: 'actors' },
   { label: 'Notes', target: 'notes' },
 ]
@@ -87,20 +88,6 @@ function RouteComponent() {
               )}
             </For>
           </Show>
-        </section>
-
-        {/* Scenarios has no bottom-bar slot, so this is how phone users find
-            it. Given its own card rather than a row in Assets — it's something
-            you play, not something you manage. */}
-        <section class="flex flex-col gap-2">
-          <button type="button" class="home-scenarios" onClick={() => setActiveTab('scenarios')}>
-            <span class="home-scenarios-icon"><MdFillAuto_stories size={28} /></span>
-            <span class="home-scenarios-text">
-              <Heading level={3}>Scenarios</Heading>
-              <Text size="sm" class="opacity-60">Ready-to-play adventures.</Text>
-            </span>
-            <MdFillChevron_right size={20} class="opacity-40" />
-          </button>
         </section>
 
         <section class="flex flex-col gap-2">
