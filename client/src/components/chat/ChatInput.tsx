@@ -65,16 +65,14 @@ export function ChatInput(props: { hidden?: boolean }) {
             content: () => (
                 <div class="flex flex-col gap-3">
                     <Text size="sm" class="opacity-70">
-                        Attached to the next agent turn as a system notice — not framed as
-                        your dialogue. Use to nudge or correct the agent out-of-character;
-                        it will not be spoken or acknowledged in output. Cleared after the
-                        next prompt is sent.
+                        A private note for your next turn. Never spoken or acknowledged.
+                        Cleared once sent.
                     </Text>
                     <textarea
                         class="text-editor-textarea"
                         style={{ "min-height": "12rem" }}
                         autofocus
-                        placeholder="e.g. Stop having Vega apologize after every line. Keep her terse."
+                        placeholder="e.g. Keep Vega terse — no apologising."
                         value={draft()}
                         onInput={(e) => setDraft(e.currentTarget.value)}
                     />

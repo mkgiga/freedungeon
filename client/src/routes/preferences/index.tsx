@@ -168,7 +168,7 @@ function RouteComponent() {
               />
               <span class="flex flex-col">
                 <Text>Debug mode</Text>
-                <Text size="sm" class="opacity-50">Show a button in chats to inspect the exact prompt sent to the provider.</Text>
+                <Text size="sm" class="opacity-50">Adds a button in chats to inspect the exact prompt sent.</Text>
               </span>
             </label>
           </div>
@@ -225,7 +225,7 @@ function RouteComponent() {
               </button>
               <Show when={!installAvailable()}>
                 <Text size="sm" class="opacity-50">
-                  Install isn't available right now. The site must be served over HTTPS and the browser needs a moment to evaluate eligibility — try interacting with the app for a few seconds, then come back. iOS users: use Safari's Share menu → Add to Home Screen.
+                  Not available yet. Needs HTTPS, and the browser takes a moment to qualify the site — come back shortly. On iOS: Safari's Share menu → Add to Home Screen.
                 </Text>
               </Show>
             </div>

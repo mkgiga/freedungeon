@@ -97,7 +97,7 @@ function RouteComponent() {
             <span class="home-scenarios-icon"><MdFillAuto_stories size={28} /></span>
             <span class="home-scenarios-text">
               <Heading level={3}>Scenarios</Heading>
-              <Text size="sm" class="opacity-60">Ready-to-play adventures — a cast, a premise, and you.</Text>
+              <Text size="sm" class="opacity-60">Ready-to-play adventures.</Text>
             </span>
             <MdFillChevron_right size={20} class="opacity-40" />
           </button>

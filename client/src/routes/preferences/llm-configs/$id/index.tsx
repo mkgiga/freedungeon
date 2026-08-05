@@ -209,7 +209,7 @@ function RouteComponent() {
                                 <div class="flex flex-col gap-1">
                                     <Text size="sm" class="opacity-50">API Key</Text>
                                     <Text size="sm" class="opacity-50">
-                                        Not needed — Claude signs in through its own account.
+                                        Not needed — Claude signs in separately.
                                     </Text>
                                 </div>
                             }
@@ -234,7 +234,7 @@ function RouteComponent() {
                 <section class="mb-6">
                     <TextEditor
                         title="System Prompt"
-                        description="Instructions prepended to every chat. Tells the model who it is and how to behave."
+                        description="Prepended to every chat — who the model is and how it behaves."
                         value={() => draft.systemPrompt}
                         onInput={(v) => setDraft('systemPrompt', v)}
                         readOnly={!edit()}
@@ -265,7 +265,7 @@ function RouteComponent() {
 
                 <Show when={isPresetSchema()}>
                     <Text size="sm" class="opacity-50">
-                        This config uses a provider preset schema. Parameter structure cannot be edited, but values can be changed.
+                        Preset schema — values can change, the structure can't.
                     </Text>
                 </Show>
             </div>

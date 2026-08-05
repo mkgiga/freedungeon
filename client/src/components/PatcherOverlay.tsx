@@ -65,8 +65,8 @@ function PatcherRow(props: { dep: DependencyState }) {
 
             <Show when={props.dep.status === 'unauthenticated'}>
                 <Text size="sm">
-                    Downloaded, but no Claude account is connected yet. Signing in here signs you in
-                    to Claude Code generally — an existing login would already have been picked up.
+                    Downloaded, but no Claude account is connected. Signing in here signs you
+                    in to Claude Code generally.
                 </Text>
                 <div class="patcher-actions">
                     <button class="modal-btn modal-btn-confirm" onClick={() => trpc.dependencies.signIn.mutate()}>
@@ -127,7 +127,7 @@ function SignInFlow(props: { dep: DependencyState }) {
             </Show>
 
             <Show when={props.dep.awaitingCode}>
-                <Text size="sm">If the browser showed a code instead of returning here, paste it:</Text>
+                <Text size="sm">Got a code instead? Paste it:</Text>
                 <form
                     class="patcher-code"
                     onSubmit={(e) => {

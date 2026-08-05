@@ -221,7 +221,7 @@ export function ActorEditor(props: {
                 <section class="mb-6">
                     <TextEditor
                         title="Description"
-                        description="General description of the character."
+                        description="Who they are and how they behave."
                         value={() => draft.description}
                         onInput={(v) => setDraft('description', v)}
                         readOnly={!props.edit}
@@ -232,7 +232,7 @@ export function ActorEditor(props: {
                 <section>
                     <Heading level={2} class="mb-1">Expressions</Heading>
                     <Show when={Object.keys(draft.expressions ?? {}).length > 0} fallback={
-                        <Text size="sm" class="opacity-50 mb-3">No expressions added yet.</Text>
+                        <Text size="sm" class="opacity-50 mb-3">No expressions yet.</Text>
                     }>
                         <table class="w-full text-sm">
                             <thead>

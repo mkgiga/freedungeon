@@ -129,7 +129,7 @@ export function ImagePicker(props: {
                             />
                         </label>
                         <label class="flex flex-col gap-1">
-                            <Text size="sm" class="opacity-50">Key <Em type="muted">— how the agent asks for this image</Em></Text>
+                            <Text size="sm" class="opacity-50">Key <Em type="muted">— the agent's name for it</Em></Text>
                             <input
                                 type="text"
                                 value={draft().key}

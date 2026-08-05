@@ -37,7 +37,7 @@ export function openExpressionPicker(opts: {
                     </div>
                     <Text size="sm">Default</Text>
                 </button>
-                <For each={entries} fallback={<Text size="sm" class="opacity-50">No expressions defined for this character.</Text>}>
+                <For each={entries} fallback={<Text size="sm" class="opacity-50">No expressions for this character.</Text>}>
                     {([name, url]) => (
                         <button
                             class={`expression-picker-item ${current === name ? 'is-active' : ''}`}

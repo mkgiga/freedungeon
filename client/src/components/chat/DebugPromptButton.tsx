@@ -27,8 +27,7 @@ function DebugPromptView() {
                 when={lp()}
                 fallback={
                     <Text size="sm" class="opacity-60">
-                        No prompt captured yet — send a message (with debug on) and it will
-                        appear here.
+                        Nothing captured yet — send a message.
                     </Text>
                 }
             >

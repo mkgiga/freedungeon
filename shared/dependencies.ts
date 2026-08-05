@@ -57,11 +57,11 @@ export type DependencyState = {
 export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string }> = {
     claudeCli: {
         label: 'Claude Code',
-        reason: 'Anthropic configs drive the agent through the Claude Code CLI, which is downloaded from Anthropic rather than bundled.',
+        reason: 'Anthropic configs run through the Claude Code CLI, downloaded from Anthropic.',
     },
     rmbgModel: {
         label: 'RMBG-1.4 weights',
-        reason: 'Cutting backgrounds out of generated item icons runs this model locally.',
+        reason: 'Runs locally to cut backgrounds out of item icons.',
     },
 }
 

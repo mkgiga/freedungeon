@@ -168,7 +168,7 @@ export function NoteEditor(props: {
                         <input
                             type="text"
                             value={draft.type}
-                            placeholder="e.g. system, lore, character, worldbuilding"
+                            placeholder="e.g. lore, rules, character"
                             class="w-full bg-transparent rounded p-1 outline-none focus:ring focus:ring-(--primary)"
                             onInput={(e) => setDraft('type', e.currentTarget.value)}
                         />
@@ -180,7 +180,7 @@ export function NoteEditor(props: {
                 <section class="editor-fill mb-6">
                     <TextEditor
                         title="Content"
-                        description="The content of this note. This can be injected into the system prompt."
+                        description="Injected into the system prompt."
                         value={() => draft.content}
                         onInput={(v) => setDraft('content', v)}
                         readOnly={!props.edit}

@@ -361,7 +361,7 @@ export function ChatPresetEditor(props: {
                                 actors={actorItems()}
                                 onRemove={(a) => toggleActor(a.id)}
                                 onActorClick={editActor}
-                                emptyLabel="No characters yet — add some with +"
+                                emptyLabel="None yet — add with +"
                             />
                         </div>
 

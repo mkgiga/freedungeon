@@ -95,8 +95,7 @@ function RouteComponent() {
                         <div class="scenario-empty">
                             <Heading level={3}>No scenarios yet</Heading>
                             <Text size="sm" class="opacity-60">
-                                A scenario is a ready-to-play setup — a cast, some notes, a premise.
-                                Start one with +, or save an existing chat as a scenario.
+                                A cast, some notes, a premise. Start one with +, or save a chat as one.
                             </Text>
                         </div>
                     }

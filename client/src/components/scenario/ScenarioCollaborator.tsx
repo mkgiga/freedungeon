@@ -79,9 +79,7 @@ export function ScenarioCollaborator(props: { scenarioId: string }) {
                             <div class="collab-intro">
                                 <MdFillSmart_toy size={28} class="opacity-40" />
                                 <Text size="sm" class="opacity-60">
-                                    Ask for help shaping this scenario — inventing characters, writing
-                                    their descriptions, drafting notes. It only sees what's in this
-                                    scenario.
+                                    Ask for characters, descriptions, notes. It only sees this scenario.
                                 </Text>
                             </div>
                         }

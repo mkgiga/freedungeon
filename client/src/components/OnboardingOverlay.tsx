@@ -34,7 +34,7 @@ const CHOICES: Record<string, { label: string; hint?: string }> = {
     'gemini-2.5-pro': { label: 'Google Gemini' },
     'openai-compatible': {
         label: 'Custom (OpenAI-compatible)',
-        hint: 'Pick this to connect a local model — llama.cpp, Ollama, LM Studio, KoboldCpp.',
+        hint: 'For local models — Ollama, LM Studio, llama.cpp, KoboldCpp.',
     },
 }
 
