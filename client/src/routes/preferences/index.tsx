@@ -2,14 +2,14 @@ import { createFileRoute, useNavigate } from '@tanstack/solid-router'
 import { TopBar } from '../../components/TopBar'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
-import { createEffect, For, Show } from 'solid-js'
-import { MdFillAdd } from 'solid-icons/md'
+import { createEffect, For, Show, type JSXElement } from 'solid-js'
+import { MdFillAdd, MdFillSmart_toy } from 'solid-icons/md'
 import { Heading } from '../../components/typography/Heading'
 import { Text } from '../../components/typography/Text'
 import { Em } from '../../components/typography/Em'
 import { LLMConfigList } from '../../components/llm-configs'
 import { useModal } from '../../components/Modal'
-import { PlayerCharacterPicker } from '../../components/chat/AssetPicker'
+import { useAssetPickers } from '../../components/chat/AssetPicker'
 import { ImageIcon } from '../../components/ImageIcon'
 import { LLM_PRESETS } from '@shared/llm-presets'
 import { FEATURES, resolveFeatureConfig, type FeatureKey } from '@shared/features'
@@ -21,9 +21,24 @@ export const Route = createFileRoute('/preferences/')({
   component: RouteComponent,
 })
 
+/** Form row that shows the current selection and opens a picker. */
+function PickerButton(props: { onClick: () => void; children: JSXElement }) {
+  return (
+    <button
+      type="button"
+      class="flex items-center gap-3 p-2 rounded-lg bg-(--bg) text-left hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
+      style={{ border: '1px solid color-mix(in oklch, var(--text), transparent 85%)' }}
+      onClick={props.onClick}
+    >
+      {props.children}
+    </button>
+  )
+}
+
 function RouteComponent() {
   const navigate = useNavigate()
   const modal = useModal()
+  const pickers = useAssetPickers()
 
   const llmConfigs = () => Object.values(state.assets.llmConfigs ?? {})
 
@@ -73,19 +88,20 @@ function RouteComponent() {
           <div class="flex flex-col gap-4">
             <label class="flex flex-col gap-1">
               <Text size="sm" class="opacity-50">Active LLM Config</Text>
-              <select
-                class="p-2 rounded-lg bg-(--bg) border border-[color-mix(in_oklch,var(--text),transparent_85%)]"
-                value={state.userPreferences.activeLLMConfigId ?? ''}
-                onChange={(e) => {
-                  const val = e.currentTarget.value || null
-                  trpc.preferences.update.mutate({ activeLLMConfigId: val })
-                }}
-              >
-                <option value="">None</option>
-                <For each={llmConfigs()}>
-                  {(config) => <option value={config.id}>{config.name} ({config.model})</option>}
-                </For>
-              </select>
+              <PickerButton onClick={pickers.openLlmConfig}>
+                {(() => {
+                  const id = state.userPreferences.activeLLMConfigId
+                  const config = id ? state.assets.llmConfigs?.[id] : null
+                  if (!config) return <Text class="opacity-50">None</Text>
+                  return (
+                    <>
+                      <MdFillSmart_toy size={24} class="opacity-60 shrink-0" />
+                      <Text class="truncate">{config.name}</Text>
+                      <Text size="sm" class="opacity-50 truncate">{config.model || config.provider}</Text>
+                    </>
+                  )
+                })()}
+              </PickerButton>
             </label>
 
             {/* Directly under the selector rather than at the foot of the page:
@@ -135,17 +151,7 @@ function RouteComponent() {
 
             <label class="flex flex-col gap-1">
               <Text size="sm" class="opacity-50">Player Character</Text>
-              <button
-                type="button"
-                class="flex items-center gap-3 p-2 rounded-lg bg-(--bg) text-left hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
-                style={{ border: '1px solid color-mix(in oklch, var(--text), transparent 85%)' }}
-                onClick={() => {
-                  modal.open({
-                    title: 'Player Character',
-                    content: () => <PlayerCharacterPicker onPick={() => modal.close()} />,
-                  })
-                }}
-              >
+              <PickerButton onClick={pickers.openPlayerCharacter}>
                 {(() => {
                   const id = state.userPreferences.playerCharacterId
                   const actor = id ? state.assets.actors?.[id] : null
@@ -157,7 +163,7 @@ function RouteComponent() {
                     </>
                   )
                 })()}
-              </button>
+              </PickerButton>
             </label>
 
             <label class="flex items-center gap-3">

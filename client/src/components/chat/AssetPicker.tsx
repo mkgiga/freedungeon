@@ -3,6 +3,7 @@ import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { ActorList } from '../actors'
 import { NoteList } from '../notes'
+import { useModal } from '../Modal'
 import type { Actor, Note } from '@shared/types'
 import { inLibrary } from '@shared/visibility'
 
@@ -204,4 +205,26 @@ export function LlmConfigPicker(props: { onPick?: () => void }) {
             </div>
         </div>
     )
+}
+
+/**
+ * Opens the session pickers in a modal.
+ *
+ * Both the left rail and the Preferences screen let you change the model and
+ * the player character, and both did it by hand-rolling the same modal.open
+ * call — which is how the two drifted into a picker on one side and a <select>
+ * on the other. The title and the close-on-pick wiring live here now.
+ */
+export function useAssetPickers() {
+    const modal = useModal()
+    return {
+        openLlmConfig: () => modal.open({
+            title: 'Model',
+            content: () => <LlmConfigPicker onPick={() => modal.close()} />,
+        }),
+        openPlayerCharacter: () => modal.open({
+            title: 'Player Character',
+            content: () => <PlayerCharacterPicker onPick={() => modal.close()} />,
+        }),
+    }
 }

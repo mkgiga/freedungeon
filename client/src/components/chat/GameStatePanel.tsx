@@ -4,7 +4,7 @@ import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { useModal } from '../Modal'
 import { GameStateActorStatus } from '../GameStateActorStatus'
-import { PlayerCharacterPicker } from './AssetPicker'
+import { useAssetPickers } from './AssetPicker'
 import { pickEmojiForItem } from './inventory/itemEmoji'
 import { resolveItem } from './inventory/resolveItem'
 import { ItemCard } from './inventory/ItemCard'
@@ -34,6 +34,7 @@ import { MdFillChat, MdFillGroups, MdFillKeyboard_arrow_down, MdFillKeyboard_arr
  */
 export function GameStatePanel() {
     const modal = useModal()
+    const pickers = useAssetPickers()
     const playback = usePlayback()
 
     const [mode, setMode] = createSignal<'actors' | 'composer'>('actors')
@@ -138,12 +139,7 @@ export function GameStatePanel() {
             .sort((a, b) => a.label.localeCompare(b.label))
     })
 
-    const openPlayerPicker = () => {
-        modal.open({
-            title: 'Player Character',
-            content: () => <PlayerCharacterPicker onPick={() => modal.close()} />,
-        })
-    }
+    const openPlayerPicker = pickers.openPlayerCharacter
 
     const openActorStatus = (customId: string) => {
         modal.open({

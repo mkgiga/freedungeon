@@ -3,9 +3,8 @@ import { MdFillSmart_toy } from 'solid-icons/md'
 import { state } from '../state'
 import { activeTab, setActiveTab } from '../tab-state'
 import { viewport } from '../viewport'
-import { LlmConfigPicker, PlayerCharacterPicker } from './chat/AssetPicker'
+import { useAssetPickers } from './chat/AssetPicker'
 import { ImageIcon } from './ImageIcon'
-import { useModal } from './Modal'
 import { NAV_ITEMS } from './nav-items'
 import { Text } from './typography/Text'
 
@@ -19,7 +18,7 @@ import { Text } from './typography/Text'
  * `title` carries the name instead.
  */
 export function LeftNav() {
-    const modal = useModal()
+    const pickers = useAssetPickers()
     const showLabels = () => viewport() === 'wide'
 
     const player = () => {
@@ -29,22 +28,6 @@ export function LeftNav() {
     const llmConfig = () => {
         const id = state.userPreferences.activeLLMConfigId
         return id ? state.assets.llmConfigs?.[id] ?? null : null
-    }
-
-    // Same picker the Preferences screen opens, so the two entry points can't
-    // drift in behaviour.
-    const openPlayerPicker = () => {
-        modal.open({
-            title: 'Player Character',
-            content: () => <PlayerCharacterPicker onPick={() => modal.close()} />,
-        })
-    }
-
-    const openModelPicker = () => {
-        modal.open({
-            title: 'Model',
-            content: () => <LlmConfigPicker onPick={() => modal.close()} />,
-        })
     }
 
     return (
@@ -59,7 +42,7 @@ export function LeftNav() {
                         class="left-nav-avatar"
                         classList={{ 'is-empty': !player() }}
                         title={player() ? `Playing as ${player()!.name} — click to change` : 'Choose your character'}
-                        onClick={openPlayerPicker}
+                        onClick={pickers.openPlayerCharacter}
                     >
                         <ImageIcon url={player()?.avatarUrl} size={showLabels() ? 40 : 34} />
                     </button>
@@ -76,7 +59,7 @@ export function LeftNav() {
                         type="button"
                         class="left-nav-detail"
                         title={llmConfig() ? `Model: ${llmConfig()!.name} — click to change` : 'Choose a model'}
-                        onClick={openModelPicker}
+                        onClick={pickers.openLlmConfig}
                     >
                         <span class="left-nav-detail-icon"><MdFillSmart_toy size={20} /></span>
                         <Show when={showLabels()}>
