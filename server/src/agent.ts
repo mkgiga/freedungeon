@@ -17,6 +17,7 @@ import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
 import { isEmbedded } from './embedded';
 import { dependencyPath } from './dependencies';
+import { effectiveConfigSystemPrompt } from './system-prompt';
 import { runScenarioTool } from './scenario-agent';
 import type { ScenarioToolName } from '@shared/scenario-agent/tools';
 import type { ModelMessage } from 'ai';
@@ -639,7 +640,7 @@ export async function dispatchPromptToAgent(args: {
     let expandedSystemPrompt = '';
     let macroFeatures: Record<string, unknown> = {};
     try {
-        const result = parseMacros(llmConfig.systemPrompt ?? '');
+        const result = parseMacros(effectiveConfigSystemPrompt(llmConfig));
         expandedSystemPrompt = result.parsed;
         macroFeatures = result.features;
     } finally {

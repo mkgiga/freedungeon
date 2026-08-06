@@ -52,3 +52,16 @@ export function getDefaultSystemPrompt(): string {
 export function getScenarioAgentPrompt(): string {
     return readPrompt('SCENARIO_AGENT.md')
 }
+
+/**
+ * A config's instructions, falling back to the house prompt when it has none.
+ *
+ * An empty system prompt isn't a considered choice — it's a config someone
+ * cleared, imported, or created before seeding existed. Sending nothing gives a
+ * model that doesn't know the block DSL at all, so the whole turn comes back as
+ * prose the client can't parse. Falling back means a blank field degrades to
+ * "the default" instead of to "broken".
+ */
+export function effectiveConfigSystemPrompt(config: { systemPrompt?: string }): string {
+    return config.systemPrompt?.trim() ? config.systemPrompt : getDefaultSystemPrompt()
+}
