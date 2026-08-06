@@ -3,6 +3,7 @@ import { createMemo, For, Show, type JSXElement } from "solid-js"
 import { MdFillMore_horiz } from "solid-icons/md"
 import { Dropdown } from "./Dropdown"
 import { SortHeader, useSort } from "./ResourceTable"
+import { AddNewRow, type AddNew } from "./AddNew"
 
 export type NoteAction = {
     label: string
@@ -66,6 +67,8 @@ export function NoteList(props: {
     actions?: NoteAction[]
     /** Dims rows this returns true for. See NoteListItem. */
     disabled?: (note: Note) => boolean
+    /** Renders the create affordance as a row. See components/AddNew. */
+    addNew?: AddNew
     onNoteClick?: (note: Note) => void
     isSelected?: (note: Note) => boolean
     showType?: boolean
@@ -78,6 +81,9 @@ export function NoteList(props: {
     const showType = () => props.showType ?? true
 
     const sorted = createMemo(() => sort(props.notes))
+
+    /** emoji + title, plus type and the actions menu when shown. */
+    const columns = () => 2 + (showType() ? 1 : 0) + (props.actions ? 1 : 0)
 
     return (
         <div class="resource-list">
@@ -98,8 +104,18 @@ export function NoteList(props: {
                     </thead>
                 </Show>
                 <tbody>
+                    <Show when={props.addNew && (props.addNew.position ?? 'start') === 'start'}>
+                        <AddNewRow
+                            label={props.addNew!.label}
+                            onClick={props.addNew!.onClick}
+                            leadingClass="resource-table-col-emoji"
+                            columns={columns()}
+                        />
+                    </Show>
                     <For each={sorted()} fallback={
-                        <tr><td colSpan={5} class="resource-table-empty">No notes yet</td></tr>
+                        <Show when={!props.addNew}>
+                            <tr><td colSpan={5} class="resource-table-empty">No notes yet</td></tr>
+                        </Show>
                     }>
                         {(note) => (
                             <NoteListItem
@@ -112,6 +128,14 @@ export function NoteList(props: {
                             />
                         )}
                     </For>
+                    <Show when={props.addNew && props.addNew.position === 'end'}>
+                        <AddNewRow
+                            label={props.addNew!.label}
+                            onClick={props.addNew!.onClick}
+                            leadingClass="resource-table-col-emoji"
+                            columns={columns()}
+                        />
+                    </Show>
                 </tbody>
             </table>
         </div>

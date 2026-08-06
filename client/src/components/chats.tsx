@@ -4,6 +4,7 @@ import { MdFillChat, MdFillMore_horiz } from "solid-icons/md"
 import { Dropdown } from "./Dropdown"
 import { ImageIcon } from "./ImageIcon"
 import { SortHeader, useSort } from "./ResourceTable"
+import { AddNewRow, type AddNew } from "./AddNew"
 
 export type ChatAction = {
     label: string
@@ -78,6 +79,8 @@ export function ChatList(props: {
     chats: Chat[]
     actions?: ChatAction[]
     onChatClick?: (chat: Chat) => void
+    /** Renders the create affordance as a row. See components/AddNew. */
+    addNew?: AddNew
     /** Optional JSX rendered in a consistent toolbar row above the table
      *  (typically search inputs, filter pills, etc.). */
     toolbar?: JSXElement
@@ -85,6 +88,9 @@ export function ChatList(props: {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Chat>('updatedAt', 'desc')
 
     const sorted = createMemo(() => sort(props.chats))
+
+    /** avatar + title + updated, plus the actions menu when shown. */
+    const columns = () => 3 + (props.actions ? 1 : 0)
 
     return (
         <div class="resource-list">
@@ -101,8 +107,18 @@ export function ChatList(props: {
                     </tr>
                 </thead>
                 <tbody>
+                    <Show when={props.addNew && (props.addNew.position ?? 'start') === 'start'}>
+                        <AddNewRow
+                            label={props.addNew!.label}
+                            onClick={props.addNew!.onClick}
+                            leadingClass="resource-table-col-avatar"
+                            columns={columns()}
+                        />
+                    </Show>
                     <For each={sorted()} fallback={
-                        <tr><td colSpan={4} class="resource-table-empty">No chats yet</td></tr>
+                        <Show when={!props.addNew}>
+                            <tr><td colSpan={4} class="resource-table-empty">No chats yet</td></tr>
+                        </Show>
                     }>
                         {(chat) => (
                             <ChatListItem
@@ -112,6 +128,14 @@ export function ChatList(props: {
                             />
                         )}
                     </For>
+                    <Show when={props.addNew && props.addNew.position === 'end'}>
+                        <AddNewRow
+                            label={props.addNew!.label}
+                            onClick={props.addNew!.onClick}
+                            leadingClass="resource-table-col-avatar"
+                            columns={columns()}
+                        />
+                    </Show>
                 </tbody>
             </table>
         </div>

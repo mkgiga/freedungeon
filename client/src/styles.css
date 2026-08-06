@@ -217,8 +217,25 @@ button {
   text-decoration: line-through;
 }
 
+/* Uniform rows.
+   Height used to come from whichever cell happened to hold the tallest thing,
+   so an avatar row (40px portrait + margins = 64px) sat noticeably taller than
+   a text-only one (~48px) and lists read as ragged. Fixing it on the row makes
+   every list the same rhythm regardless of what a given screen puts in its
+   leading column.
+
+   In table layout this is a *minimum*, so it only holds while cell content
+   stays under it — true here: titles are single-line with an ellipsis, and the
+   portrait is 40px. */
+.resource-table-row {
+  height: 56px;
+}
+
 .resource-table-row td {
   padding: 0;
+  /* Centring is the cell's job now, which is why the content and portrait
+     rules below carry horizontal spacing only. */
+  vertical-align: middle;
 }
 
 .resource-table-col-avatar {
@@ -231,7 +248,7 @@ button {
 
 .resource-table-col-avatar .actor-avatar,
 .resource-table-col-avatar .actor-avatar-fallback {
-  margin: 12px 12px 12px 16px;
+  margin: 0 12px 0 16px;
 }
 
 /* Group section header inside ActorList — rendered as a full-span <tr> at the
@@ -332,7 +349,7 @@ button {
 
 .resource-table-cell-content {
   display: block;
-  padding: 12px 16px;
+  padding: 0 16px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1094,6 +1111,10 @@ button {
   box-sizing: border-box;
   padding: 48px 0;
   overscroll-behavior: contain;
+  /* Named container so message chrome can respond to how wide the feed
+     actually is — see .chat-message-actions. inline-size only: the height is
+     driven by the scroll content and must not be contained. */
+  container: chat-feed / inline-size;
 }
 
 /* Indeterminate sweep bar shown at the top of the chat while the LLM generates. */
@@ -1246,6 +1267,33 @@ button {
   opacity: 0;
   transition: opacity 150ms ease;
   z-index: 2;
+}
+
+/* Get the menu off the text on a wide feed, where the 44rem measure leaves
+   gutters either side doing nothing.
+
+   The message box grows and the prose is padded back in, rather than the
+   button being pushed outside with `left: 100%`. It can't leave: .chat-message
+   carries `content-visibility: auto`, which implies paint containment, and
+   that clips descendants to its box for painting *and* hit-testing — the
+   button vanished entirely and wasn't clickable. No overflow rule reaches it,
+   because containment isn't overflow.
+
+   80px of extra box against 96px - 16px of extra padding keeps the measure
+   byte-identical to the narrow case; only the chrome gets the new room.
+
+   Keyed to the feed, not the viewport: opening the 320px side panel narrows
+   this column without the window changing size. */
+@container chat-feed (min-width: 784px) {
+  .chat-message {
+    max-width: calc(44rem + 80px);
+    padding-inline: 48px;
+  }
+
+  .chat-message-actions {
+    top: 2px;
+    right: 8px;
+  }
 }
 
 .chat-message:hover .chat-message-actions,
@@ -3890,6 +3938,63 @@ menu.left-nav.compact .left-nav-detail {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+/* ── Add-new placeholder ─────────────────────────────────────────────────
+   First slot of a grid or list, standing in for a `+` parked in a corner.
+   The boxed form, for grids: dashed and unfilled so it reads as a slot to
+   fill rather than an existing card. Lists don't use it — a box inside a
+   ruled table fights the ruling — so what actually carries the affordance
+   across both shapes is the primary-coloured `+` and label below. */
+.add-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  /* Legible at rest, not just on hover — it's the first thing in the list and
+     the answer to "what is this screen for?", so it has to read before the
+     pointer goes anywhere near it. */
+  border: 1px dashed color-mix(in oklch, var(--text), transparent 48%);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font-size: var(--text-md);
+  opacity: 0.85;
+  cursor: pointer;
+  transition: opacity 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.add-new:hover {
+  opacity: 1;
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary), transparent 93%);
+}
+
+/* Grid variant — stacked like the cards it sits beside. */
+.add-new-card {
+  flex-direction: column;
+  gap: 8px;
+  min-height: 104px;
+  padding: 16px 10px;
+  text-align: center;
+}
+
+/* List variant — an actual row, carrying .resource-table-row so its height and
+   cell metrics are the surrounding items' by construction rather than by
+   matching numbers that can drift — including its separator, which is the
+   plain row rule. The primary-coloured `+` and label carry the meaning; a
+   dashed edge on top of that just broke the list's ruling. */
+.add-new-icon,
+.add-new-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary);
+}
+
+.add-new-icon {
+  justify-content: center;
 }
 
 .actor-card-grid {

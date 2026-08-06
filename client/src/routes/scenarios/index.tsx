@@ -12,6 +12,7 @@ import { ImageIcon } from '../../components/ImageIcon'
 import { Dropdown } from '../../components/Dropdown'
 import { useModal } from '../../components/Modal'
 import { setActiveTab, setChatView } from '../../tab-state'
+import { AddNewCard } from '../../components/AddNew'
 import type { Chat } from '@shared/types'
 import { visible } from '@shared/visibility'
 
@@ -89,18 +90,21 @@ function RouteComponent() {
                 }}
             />
             <div class="flex-1 overflow-y-auto p-4">
-                <Show
-                    when={scenarios().length > 0}
-                    fallback={
-                        <div class="scenario-empty">
-                            <Heading level={3}>No scenarios yet</Heading>
-                            <Text size="sm" class="opacity-60">
-                                A cast, some notes, a premise. Start one with +, or save a chat as one.
-                            </Text>
-                        </div>
-                    }
-                >
+                {/* The explainer sits above the grid rather than replacing it:
+                    the add-new tile is the thing to press, so hiding it behind
+                    an empty state would take the affordance away exactly when
+                    it's the only thing to do. */}
+                <Show when={scenarios().length === 0}>
+                    <div class="scenario-empty">
+                        <Heading level={3}>No scenarios yet</Heading>
+                        <Text size="sm" class="opacity-60">
+                            A cast, some notes, a premise. Start one below, or save a chat as one.
+                        </Text>
+                    </div>
+                </Show>
+                <div>
                     <div class="scenario-grid">
+                        <AddNewCard label="New scenario" onClick={create} />
                         <For each={scenarios()}>
                             {(scenario) => (
                                 <article class="scenario-card">
@@ -147,7 +151,7 @@ function RouteComponent() {
                             )}
                         </For>
                     </div>
-                </Show>
+                </div>
             </div>
         </div>
     )

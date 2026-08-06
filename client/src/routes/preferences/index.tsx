@@ -117,6 +117,7 @@ function RouteComponent() {
               </div>
               <LLMConfigList
                 configs={llmConfigs()}
+                addNew={{ label: 'New LLM config', onClick: addConfig }}
                 onConfigClick={(config) => {
                   navigate({ to: '/preferences/llm-configs/$id', params: { id: String(config.id) }, search: { edit: false } })
                 }}

@@ -18,14 +18,16 @@ function RouteComponent() {
   const navigate = useNavigate()
   const modal = useModal()
 
+  // Shared by the toolbar + and the add-new row, so the two can't diverge.
+  const createActor = () => {
+    navigate({ to: '/actors/$id', params: { id: nanoid() }, search: { edit: true } })
+  }
+
   return (
     <div class="flex flex-col h-full overflow-hidden">
       <TopBar title="Characters" slots={{
         right: (
-          <button onClick={() => {
-            const newId = nanoid()
-            navigate({ to: '/actors/$id', params: { id: newId }, search: { edit: true } })
-          }}>
+          <button onClick={createActor}>
             <MdFillAdd size={32} />
           </button>
         )
@@ -33,6 +35,7 @@ function RouteComponent() {
       <div class="flex-1 overflow-y-auto">
         <ActorList
           actors={inLibrary(Object.values(state.assets.actors ?? {}))}
+          addNew={{ label: 'New character', onClick: createActor }}
           onActorClick={(actor) => {
             navigate({ to: '/actors/$id', params: { id: actor.customId }, search: { edit: true } })
           }}

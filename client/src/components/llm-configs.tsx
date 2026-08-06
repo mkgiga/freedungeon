@@ -3,6 +3,7 @@ import { createMemo, For, Show, type JSXElement } from "solid-js"
 import { MdFillMore_horiz } from "solid-icons/md"
 import { Dropdown } from "./Dropdown"
 import { SortHeader, useSort } from "./ResourceTable"
+import { AddNewRow, type AddNew } from "./AddNew"
 import { Text } from "./typography/Text"
 
 export type LLMConfigAction = {
@@ -46,10 +47,15 @@ export function LLMConfigList(props: {
     configs: LLMConfig[]
     actions?: LLMConfigAction[]
     onConfigClick?: (config: LLMConfig) => void
+    /** Renders the create affordance as a row. See components/AddNew. */
+    addNew?: AddNew
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<LLMConfig>('name')
 
     const sorted = createMemo(() => sort(props.configs))
+
+    /** name + model, plus the actions menu when shown. */
+    const columns = () => 2 + (props.actions ? 1 : 0)
 
     return (
         <table class="resource-table">
@@ -61,8 +67,19 @@ export function LLMConfigList(props: {
                 </tr>
             </thead>
             <tbody>
+                <Show when={props.addNew && (props.addNew.position ?? 'start') === 'start'}>
+                    {/* No leading icon column here — the name is the first cell,
+                        so the `+` sits inline with the label instead. */}
+                    <AddNewRow
+                        label={props.addNew!.label}
+                        onClick={props.addNew!.onClick}
+                        columns={columns()}
+                    />
+                </Show>
                 <For each={sorted()} fallback={
-                    <tr><td colSpan={3} class="resource-table-empty">No configs yet</td></tr>
+                    <Show when={!props.addNew}>
+                        <tr><td colSpan={3} class="resource-table-empty">No configs yet</td></tr>
+                    </Show>
                 }>
                     {(config) => (
                         <LLMConfigListItem
@@ -72,6 +89,13 @@ export function LLMConfigList(props: {
                         />
                     )}
                 </For>
+                <Show when={props.addNew && props.addNew.position === 'end'}>
+                    <AddNewRow
+                        label={props.addNew!.label}
+                        onClick={props.addNew!.onClick}
+                        columns={columns()}
+                    />
+                </Show>
             </tbody>
         </table>
     )

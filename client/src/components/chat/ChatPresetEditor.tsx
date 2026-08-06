@@ -362,7 +362,7 @@ export function ChatPresetEditor(props: {
                                 actors={actorItems()}
                                 onRemove={(a) => toggleActor(a.id)}
                                 onActorClick={editActor}
-                                emptyLabel="None yet — add with +"
+                                addNew={{ label: 'Add characters', onClick: openActorPicker }}
                             />
                         </div>
 

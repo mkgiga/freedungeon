@@ -144,6 +144,7 @@ function ChatListView(props: { onOpen: () => void; onCreate: () => void }) {
       <div class="flex-1 overflow-y-auto">
         <ChatList
           chats={filteredChats()}
+          addNew={{ label: 'New chat', onClick: createChat }}
           onChatClick={openChat}
           actions={[
             { label: 'Open', callback: openChat },
@@ -221,6 +222,12 @@ function ConversationViewBody(props: { onBack: () => void }) {
     if (!pinnedLast) return 0
     return Object.values(state.currentChat.messages ?? {})
       .filter(m => sortByCreatedAt(m, pinnedLast) > 0)
+      // Only what the user could actually have read. Playback holds later
+      // messages back until they tap through the current one, and those aren't
+      // just below the fold — they aren't rendered at all. Counting them meant
+      // the badge raced ahead of the story, telling someone reading at their
+      // own pace that they were falling behind.
+      .filter(m => m.role !== 'assistant' || playback.isMessageRevealed(m.id))
       .length
   })
 
