@@ -792,6 +792,46 @@ button {
   padding-top: 16px;
 }
 
+/* Fork between two ways of doing the same thing — see ChoiceDialog. */
+.choice-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(360px, 80vw);
+}
+
+.choice-dialog-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+
+  &:hover {
+    border-color: var(--primary);
+    background: color-mix(in oklch, var(--primary), transparent 93%);
+  }
+}
+
+.choice-dialog-icon {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--primary);
+}
+
+.choice-dialog-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .modal-confirm-actions {
   display: flex;
   gap: 10px;
@@ -3940,6 +3980,28 @@ menu.left-nav.compact .left-nav-detail {
   gap: 24px;
 }
 
+/* A resource the collaborator just created or edited.
+   Both the card and the row use it, so the tell is the same wherever a
+   resource lives. Ordering is handled separately — the pulse expires, the new
+   position doesn't. */
+.actor-card.is-flashing .actor-card-body,
+.resource-table-row.is-flashing {
+  animation: resource-changed 2.2s ease-out;
+}
+
+@keyframes resource-changed {
+  0%   { background-color: color-mix(in oklch, var(--primary), transparent 55%); }
+  15%  { background-color: color-mix(in oklch, var(--primary), transparent 65%); }
+  100% { background-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .actor-card.is-flashing .actor-card-body,
+  .resource-table-row.is-flashing {
+    animation-duration: 0.01s;
+  }
+}
+
 /* ── Add-new placeholder ─────────────────────────────────────────────────
    First slot of a grid or list, standing in for a `+` parked in a corner.
    The boxed form, for grids: dashed and unfilled so it reads as a slot to
@@ -4119,6 +4181,66 @@ menu.left-nav.compact .left-nav-detail {
   align-self: flex-end;
   max-width: 85%;
   background: color-mix(in oklch, var(--primary), transparent 85%);
+}
+
+/* What the agent did, above what it said. Quieter than the prose — it's
+   evidence, not conversation. */
+.collab-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.collab-tool {
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--text), transparent 94%);
+  font-size: var(--text-sm);
+
+  & summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    cursor: pointer;
+    list-style: none;
+    opacity: 0.75;
+  }
+
+  & summary::-webkit-details-marker { display: none; }
+  &[open] summary { opacity: 1; }
+}
+
+.collab-tool.is-error {
+  background: color-mix(in oklch, var(--color-danger, #f7768e), transparent 88%);
+}
+
+.collab-tool-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.collab-tool-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.collab-tool-body {
+  margin: 0;
+  padding: 6px 8px;
+  max-height: 200px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  opacity: 0.7;
+}
+
+.collab-tool-output {
+  border-top: 1px solid color-mix(in oklch, var(--text), transparent 90%);
 }
 
 .collab-thinking {

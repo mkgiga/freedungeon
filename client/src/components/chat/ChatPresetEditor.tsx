@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal, onMount, untrack } from 'solid-js'
 import { createStore } from 'solid-js/store'
-import { MdFillAdd, MdFillCheck, MdFillSmart_toy, MdFillUpload } from 'solid-icons/md'
+import { MdFillAdd, MdFillCheck, MdFillLibrary_add, MdFillPerson_add, MdFillSmart_toy, MdFillUpload } from 'solid-icons/md'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../TopBar'
@@ -10,6 +10,7 @@ import { Em } from '../typography/Em'
 import { ImageIcon } from '../ImageIcon'
 import { ActorCardGrid } from './ActorCardGrid'
 import { useResourceEditors } from '../ResourceEditors'
+import { ChoiceDialog } from '../ChoiceDialog'
 import { NoteList } from '../notes'
 import { ActorPicker, NotePicker } from '../chat/AssetPicker'
 import { ImagePicker } from '../chat/ImagePicker'
@@ -127,10 +128,71 @@ export function ChatPresetEditor(props: {
     syncMembership('actors', (c) => c.assets.actors)
     syncMembership('notes', (c) => Object.keys(c.assets.notes))
 
+    /**
+     * Which resources changed while you were watching.
+     *
+     * The collaborator edits server state directly, so without a tell the grid
+     * just silently differs — you can't see whether it created a character,
+     * renamed one, or did nothing. Keyed on `updatedAt`, so it catches edits to
+     * an existing card, not only arrivals.
+     *
+     * The order survives the flash: the highlight fades after a couple of
+     * seconds, but a card that jumped to the front stays there for the session.
+     * Sliding back a moment later would be its own distraction.
+     */
+    const FLASH_MS = 2200
+    const [touchedAt, setTouchedAt] = createSignal<Record<string, number>>({})
+    const [flashing, setFlashing] = createSignal<Record<string, true>>({})
+
+    const flash = (id: string) => {
+        setFlashing(f => ({ ...f, [id]: true }))
+        setTimeout(() => setFlashing(({ [id]: _gone, ...rest }) => rest), FLASH_MS)
+    }
+
+    {
+        const lastSeen = new Map<string, number>()
+        // The first pass only records: on open everything is "new", and lighting
+        // the whole grid up says nothing.
+        let primed = false
+        createEffect(() => {
+            const resources = [
+                ...[...draft.actors].map(id => state.assets.actors[id]),
+                ...[...draft.notes].map(id => state.assets.notes[id]),
+            ].filter(Boolean) as { id: string; updatedAt: number }[]
+            // Track updatedAt reactively, decide untracked — the writes below
+            // would otherwise re-trigger this effect.
+            const stamps = resources.map(r => [r.id, r.updatedAt] as const)
+
+            untrack(() => {
+                const now = Date.now()
+                const touched: string[] = []
+                for (const [id, updatedAt] of stamps) {
+                    const prev = lastSeen.get(id)
+                    lastSeen.set(id, updatedAt)
+                    if (primed && (prev === undefined || updatedAt > prev)) touched.push(id)
+                }
+                if (touched.length) {
+                    setTouchedAt(t => ({ ...t, ...Object.fromEntries(touched.map(id => [id, now])) }))
+                    touched.forEach(flash)
+                }
+                primed = true
+            })
+        })
+    }
+
+    const isFlashing = (id: string) => Boolean(flashing()[id])
+
+    /** Most recently changed first; everything else keeps its existing order. */
+    const recentFirst = <T extends { id: string }>(items: T[]): T[] => {
+        const at = touchedAt()
+        if (Object.keys(at).length === 0) return items
+        return [...items].sort((a, b) => (at[b.id] ?? 0) - (at[a.id] ?? 0))
+    }
+
     const actorItems = createMemo<Actor[]>(() =>
-        visible([...draft.actors]
+        recentFirst(visible([...draft.actors]
             .map(id => state.assets.actors[id])
-            .filter((a): a is Actor => Boolean(a)))
+            .filter((a): a is Actor => Boolean(a))))
     )
     const noteItems = createMemo<Note[]>(() =>
         visible([...draft.notes]
@@ -158,13 +220,59 @@ export function ChatPresetEditor(props: {
         setDraft('notes', next)
     }
 
-    const openActorPicker = () => {
+    const openLibraryPicker = () => {
         modal.open({
-            title: 'Add actors',
+            title: 'Import from library',
             content: () => (
                 <ActorPicker
                     selected={() => draft.actors}
                     onToggle={(a) => toggleActor(a.id)}
+                />
+            ),
+        })
+    }
+
+    /**
+     * "Add characters" forked in two.
+     *
+     * It used to go straight to a picker over the global library, which assumes
+     * you have one — a tester with an empty library hit a list of nothing and
+     * had no idea a library was even the thing being shown. Writing a character
+     * is now the first option, and the second names where the other ones come
+     * from.
+     */
+    const openActorPicker = () => {
+        modal.open({
+            title: 'Add characters',
+            content: () => (
+                <ChoiceDialog
+                    choices={[
+                        {
+                            label: 'Create new character',
+                            hint: 'Write one for this scenario.',
+                            icon: <MdFillPerson_add size={24} />,
+                            onClick: () => {
+                                modal.close()
+                                editors.createActor({
+                                    // Global (homeChatId null), unlike the
+                                    // collaborator's creations. Scenario-homing
+                                    // exists to keep the agent's invented
+                                    // bit-parts out of your lists; a character
+                                    // you sat down and wrote is yours, and
+                                    // hiding it from the Actors screen is how
+                                    // people end up not knowing the library
+                                    // exists. Added to the cast either way.
+                                    onCreated: (actor) => toggleActor(actor.id),
+                                })
+                            },
+                        },
+                        {
+                            label: 'Import from library',
+                            hint: 'Reuse a character you already made.',
+                            icon: <MdFillLibrary_add size={24} />,
+                            onClick: () => { modal.close(); openLibraryPicker() },
+                        },
+                    ]}
                 />
             ),
         })
@@ -362,6 +470,7 @@ export function ChatPresetEditor(props: {
                                 actors={actorItems()}
                                 onRemove={(a) => toggleActor(a.id)}
                                 onActorClick={editActor}
+                                isFlashing={(a) => isFlashing(a.id)}
                                 addNew={{ label: 'Add characters', onClick: openActorPicker }}
                             />
                         </div>
@@ -377,6 +486,8 @@ export function ChatPresetEditor(props: {
                                 notes={noteItems()}
                                 showType={false}
                                 hideHeader
+                                isFlashing={(n) => isFlashing(n.id)}
+                                priority={(n) => touchedAt()[n.id] ?? 0}
                                 onNoteClick={editNote}
                                 actions={[
                                     {

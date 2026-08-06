@@ -4,6 +4,7 @@ import { MdFillMore_horiz, MdFillUpload } from 'solid-icons/md'
 
 import { state } from '../state'
 import { trpc } from '../trpc'
+import type { Actor } from '@shared/types'
 import { generateName } from '../utils/names'
 import { createImageDrop, pickImage } from '../utils/imageUpload'
 import { Dropdown } from './Dropdown'
@@ -67,8 +68,13 @@ export function ActorEditor(props: {
     chrome?: (ctx: ActorEditorChrome) => JSXElement
     /** Rendered below the body — where a modal puts its Cancel/Save rail. */
     footer?: (ctx: ActorEditorChrome) => JSXElement
-    /** Called after a successful save with the (possibly renamed) customId. */
-    onSaved?: (customId: string) => void
+    /**
+     * Authors the actor into a Scenario rather than the global library. Only
+     * sent when set, so editing from the Actors screen can't relocate one.
+     */
+    homeChatId?: string | null
+    /** Called after a successful save with the actor the server settled on. */
+    onSaved?: (actor: Actor) => void
 }) {
     const mediaViewer = useMediaViewer()
 
@@ -108,8 +114,9 @@ export function ActorEditor(props: {
             customId: draft.customId,
             group: draft.group,
             expressions: draft.expressions as Record<string, string>,
+            ...(props.homeChatId !== undefined ? { homeChatId: props.homeChatId } : {}),
         })
-        props.onSaved?.(result.customId)
+        props.onSaved?.(result as Actor)
     }
 
     const initials = () => draft.name?.charAt(0)?.toUpperCase() ?? '?'

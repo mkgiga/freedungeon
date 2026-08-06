@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid'
 import { useModal } from './Modal'
 import { ActorEditor } from './ActorEditor'
 import { NoteEditor } from './NoteEditor'
@@ -28,6 +29,30 @@ export function useResourceEditors() {
     )
 
     return {
+        /**
+         * A brand-new character, authored straight into a Scenario.
+         *
+         * The scenario editor's only "add" used to be a picker over the global
+         * library, which silently assumed you already had one — and that the
+         * library existed at all. Creating one has to be reachable from the
+         * same place.
+         */
+        createActor: (opts: { homeChatId?: string | null; onCreated?: (actor: Actor) => void }) => modal.open({
+            title: 'New character',
+            fullscreen: true,
+            content: () => (
+                <ActorEditor
+                    // A fresh id: ActorEditor treats an unknown one as a new
+                    // actor and lets the server mint the real record.
+                    customId={nanoid(12)}
+                    edit
+                    homeChatId={opts.homeChatId}
+                    footer={(ctx) => footer(ctx.save)}
+                    onSaved={(actor) => opts.onCreated?.(actor)}
+                />
+            ),
+        }),
+
         openActor: (actor: Actor) => modal.open({
             title: `Edit ${actor.name}`,
             fullscreen: true,

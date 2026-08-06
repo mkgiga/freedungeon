@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import autoAnimate from '@formkit/auto-animate'
 import { ImageIcon } from '../ImageIcon'
 import { AddNewCard } from '../AddNew'
 import { Text } from '../typography/Text'
@@ -19,6 +20,8 @@ export function ActorCardGrid(props: {
     onActorClick?: (actor: Actor) => void
     /** Renders the add affordance as the first card. See components/AddNew. */
     addNew?: { label: string; onClick: () => void }
+    /** Pulses a card that just changed. Ordering is the caller's job. */
+    isFlashing?: (actor: Actor) => boolean
     emptyLabel?: string
 }) {
     return (
@@ -29,13 +32,15 @@ export function ActorCardGrid(props: {
             when={props.actors.length > 0 || props.addNew}
             fallback={<Text size="sm" class="opacity-50">{props.emptyLabel ?? 'No actors yet.'}</Text>}
         >
-            <div class="actor-card-grid">
+            {/* Same treatment as the party rail: cards slide to their new
+                position instead of teleporting when the order changes. */}
+            <div class="actor-card-grid" ref={(el) => autoAnimate(el)}>
                 <Show when={props.addNew}>
                     {(add) => <AddNewCard label={add().label} onClick={add().onClick} />}
                 </Show>
                 <For each={props.actors}>
                     {(actor) => (
-                        <div class="actor-card">
+                        <div class="actor-card" classList={{ 'is-flashing': props.isFlashing?.(actor) }}>
                             <button
                                 type="button"
                                 class="actor-card-body"

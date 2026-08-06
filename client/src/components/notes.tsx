@@ -20,6 +20,7 @@ function NoteListItem(props: {
     /** Dims the row and strikes the title. Presentation only — changing the
      *  state is an ordinary entry in the actions menu. */
     disabled?: (note: Note) => boolean
+    flashing?: boolean
     onClick?: () => void
     selected?: boolean
     showType?: boolean
@@ -27,7 +28,11 @@ function NoteListItem(props: {
     return (
         <tr
             class="resource-table-row"
-            classList={{ selected: props.selected, 'is-disabled': props.disabled?.(props.note) ?? false }}
+            classList={{
+                selected: props.selected,
+                'is-disabled': props.disabled?.(props.note) ?? false,
+                'is-flashing': props.flashing,
+            }}
             onClick={() => props.onClick?.()}
         >
             <td class="resource-table-col-emoji">
@@ -69,6 +74,10 @@ export function NoteList(props: {
     disabled?: (note: Note) => boolean
     /** Renders the create affordance as a row. See components/AddNew. */
     addNew?: AddNew
+    /** Pulses a row that just changed. */
+    isFlashing?: (note: Note) => boolean
+    /** Higher sorts earlier, after the normal sort. Use a timestamp. */
+    priority?: (note: Note) => number
     onNoteClick?: (note: Note) => void
     isSelected?: (note: Note) => boolean
     showType?: boolean
@@ -80,7 +89,20 @@ export function NoteList(props: {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Note>('title')
     const showType = () => props.showType ?? true
 
-    const sorted = createMemo(() => sort(props.notes))
+    /**
+     * Sorted normally, then floated by `priority`. Done here rather than by the
+     * caller because the sort is this component's own — a pre-ordered list would
+     * just be re-sorted by title.
+     *
+     * Deliberately separate from `isFlashing`: ordering by the flash itself
+     * would slide the row back down the moment the pulse expired.
+     */
+    const sorted = createMemo(() => {
+        const rows = sort(props.notes)
+        const priority = props.priority
+        if (!priority) return rows
+        return [...rows].sort((a, b) => priority(b) - priority(a))
+    })
 
     /** emoji + title, plus type and the actions menu when shown. */
     const columns = () => 2 + (showType() ? 1 : 0) + (props.actions ? 1 : 0)
@@ -122,6 +144,7 @@ export function NoteList(props: {
                                 note={note}
                                 actions={props.actions}
                                 disabled={props.disabled}
+                                flashing={props.isFlashing?.(note)}
                                 onClick={props.onNoteClick ? () => props.onNoteClick!(note) : undefined}
                                 selected={props.isSelected?.(note)}
                                 showType={showType()}

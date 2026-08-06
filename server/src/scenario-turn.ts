@@ -18,7 +18,7 @@ import { generateText, jsonSchema, stepCountIs, tool, type ModelMessage, type To
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { z } from 'zod'
 import { SCENARIO_TOOLS, SCENARIO_AGENT_PROMPT, type ScenarioToolName } from '@shared/scenario-agent/tools'
-import { runScenarioTool } from './scenario-agent'
+import { runScenarioTool, recordingToolCalls, type ScenarioToolCall } from './scenario-agent'
 import { state } from './server'
 import { log } from './logger'
 import type { LLMConfig } from '@shared/types'
@@ -50,6 +50,8 @@ function buildTools(chatId: string): Record<string, Tool> {
 export type ScenarioTurnResult = {
     reply: string
     transcript: ModelMessage[]
+    /** What the agent actually did, in order, for the panel to show. */
+    toolCalls: ScenarioToolCall[]
 }
 
 /**
@@ -62,6 +64,18 @@ export async function runScenarioTurn(args: {
     history: ModelMessage[]
     llmConfig: LLMConfig
 }): Promise<ScenarioTurnResult> {
+    // Wraps both providers: the recorder sits under `runScenarioTool`, which is
+    // the one thing they share.
+    const { value, calls } = await recordingToolCalls(args.chatId, () => runTurnInner(args))
+    return { ...value, toolCalls: calls }
+}
+
+async function runTurnInner(args: {
+    chatId: string
+    userMessage: string
+    history: ModelMessage[]
+    llmConfig: LLMConfig
+}): Promise<Omit<ScenarioTurnResult, 'toolCalls'>> {
     const { chatId, userMessage, history, llmConfig } = args
 
     if (llmConfig.provider === 'anthropic') {
@@ -101,7 +115,7 @@ async function runViaClaude(args: {
     userMessage: string
     history: ModelMessage[]
     llmConfig: LLMConfig
-}): Promise<ScenarioTurnResult> {
+}): Promise<Omit<ScenarioTurnResult, 'toolCalls'>> {
     const { chatId, userMessage, history, llmConfig } = args
     // The subprocess owns the SDK; it builds an MCP server over the same tool
     // registry and calls back into /agent-rpc to execute each one.

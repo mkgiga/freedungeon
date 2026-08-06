@@ -1,10 +1,55 @@
 import { createEffect, createResource, createSignal, For, Show } from 'solid-js'
-import { MdFillSend, MdFillSmart_toy } from 'solid-icons/md'
+import { MdFillBuild, MdFillSend, MdFillSmart_toy } from 'solid-icons/md'
 import { trpc } from '../../trpc'
 import { Text } from '../typography/Text'
 import { Loader } from '../Loader'
 
-type Message = { id: string; role: string; content: string; createdAt: number }
+type ToolCall = { name: string; args: Record<string, unknown>; result?: string; error?: string }
+type Message = { id: string; role: string; content: string; createdAt: number; toolCalls?: ToolCall[] }
+
+/**
+ * What the agent did, inline with what it said.
+ *
+ * Without this the panel reports "done" and the scenario silently differs —
+ * you can't tell a created character from a renamed one, or notice a call that
+ * failed. Collapsed by default: the summary line is the answer most of the
+ * time, and the arguments matter only when something looks wrong.
+ */
+function ToolCallList(props: { calls: ToolCall[] }) {
+    // Most tools take the thing they act on as `name`, `title` or `id`; showing
+    // it turns "create_character" into "create_character  Thrall".
+    const subject = (call: ToolCall) => {
+        for (const key of ['name', 'title', 'id', 'query', 'url']) {
+            const v = call.args?.[key]
+            if (typeof v === 'string' && v) return v
+        }
+        return null
+    }
+
+    return (
+        <div class="collab-tools">
+            <For each={props.calls}>
+                {(call) => (
+                    <details class="collab-tool" classList={{ 'is-error': Boolean(call.error) }}>
+                        <summary>
+                            <MdFillBuild size={13} />
+                            <span class="collab-tool-name">{call.name}</span>
+                            <Show when={subject(call)}>
+                                {(s) => <span class="collab-tool-subject">{s()}</span>}
+                            </Show>
+                        </summary>
+                        <pre class="collab-tool-body">{JSON.stringify(call.args, null, 2)}</pre>
+                        <Show when={call.error ?? call.result}>
+                            {(out) => (
+                                <pre class="collab-tool-body collab-tool-output">{out()}</pre>
+                            )}
+                        </Show>
+                    </details>
+                )}
+            </For>
+        </div>
+    )
+}
 
 /**
  * The Scenario collaborator conversation.
@@ -87,7 +132,12 @@ export function ScenarioCollaborator(props: { scenarioId: string }) {
                         <For each={messages()}>
                             {(message) => (
                                 <div class="collab-message" classList={{ 'is-user': message.role === 'user' }}>
-                                    <Text size="sm">{message.content}</Text>
+                                    <Show when={message.toolCalls?.length}>
+                                        <ToolCallList calls={message.toolCalls!} />
+                                    </Show>
+                                    <Show when={message.content}>
+                                        <Text size="sm">{message.content}</Text>
+                                    </Show>
                                 </div>
                             )}
                         </For>

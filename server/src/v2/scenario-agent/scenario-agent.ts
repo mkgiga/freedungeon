@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { runScenarioTurn, activeLlmConfig } from '../../scenario-turn'
+import type { ScenarioToolCall } from '../../scenario-agent'
 import { SCENARIO_TOOLS } from '@shared/scenario-agent/tools'
 import { state, setState } from '../../server'
 import { nanoid } from 'nanoid'
@@ -18,6 +19,19 @@ import type { ModelMessage } from 'ai'
  * the collaborator's tools don't consult it, so the panel can run alongside a
  * loaded roleplay chat without either disturbing the other.
  */
+/**
+ * The panel's view of a message. Tool calls ride along in `metadata` — the
+ * column already exists, so showing what the agent did survives a reload
+ * without a migration or a second message role.
+ */
+const toPanelMessage = (m: ChatMessage) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    createdAt: m.createdAt,
+    toolCalls: (m.metadata?.toolCalls ?? []) as ScenarioToolCall[],
+})
+
 export const scenarioAgentRouter = router({
     /** What the collaborator can do — for showing the user, not the model. */
     tools: procedure.query(() =>
@@ -65,7 +79,7 @@ export const scenarioAgentRouter = router({
             if (!chat) return []
             return Object.values(chat.messages)
                 .sort((a, b) => a.createdAt - b.createdAt)
-                .map(m => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt }))
+                .map(toPanelMessage)
         }),
 
     send: procedure
@@ -101,12 +115,13 @@ export const scenarioAgentRouter = router({
             const replyMsg: ChatMessage = {
                 id: nanoid(), role: 'assistant', chatId: input.conversationId,
                 content: result.reply, createdAt: Date.now(), updatedAt: Date.now(),
+                ...(result.toolCalls.length ? { metadata: { toolCalls: result.toolCalls } } : {}),
             }
             saveMessage(replyMsg)
 
             return {
                 reply: result.reply,
-                messages: [userMsg, replyMsg].map(m => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt })),
+                messages: [userMsg, replyMsg].map(toPanelMessage),
                 provider: llmConfig.provider,
                 model: llmConfig.model,
             }

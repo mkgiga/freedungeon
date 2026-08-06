@@ -224,7 +224,51 @@ export const WEB_FETCH_UNAVAILABLE =
     + 'Tell the user this, and ask them to paste the relevant text if they need it.'
 
 /** Execute one collaborator tool. Shared by both agent paths. */
+/**
+ * One tool the collaborator ran, for showing the user what it did.
+ *
+ * Recorded here rather than in either provider loop because both bottom out in
+ * `runScenarioTool` — the AI SDK path calls it from `execute`, the Claude path
+ * from the `/agent-rpc` handler — so this is the only place that sees every
+ * call regardless of transport.
+ */
+export type ScenarioToolCall = {
+    name: string
+    args: Record<string, unknown>
+    result?: string
+    error?: string
+}
+
+const recorders = new Map<string, ScenarioToolCall[]>()
+
+/** Collect the calls made while `run` executes, for one scenario's turn. */
+export async function recordingToolCalls<T>(
+    chatId: string,
+    run: () => Promise<T>,
+): Promise<{ value: T; calls: ScenarioToolCall[] }> {
+    const calls: ScenarioToolCall[] = []
+    recorders.set(chatId, calls)
+    try {
+        return { value: await run(), calls }
+    } finally {
+        recorders.delete(chatId)
+    }
+}
+
 export async function runScenarioTool(
+    chatId: string,
+    name: ScenarioToolName,
+    args: Record<string, unknown>,
+): Promise<{ result: string } | { error: string }> {
+    const outcome = await execute(chatId, name, args)
+    const call: ScenarioToolCall = { name, args }
+    if ('error' in outcome) call.error = outcome.error
+    else call.result = outcome.result
+    recorders.get(chatId)?.push(call)
+    return outcome
+}
+
+async function execute(
     chatId: string,
     name: ScenarioToolName,
     args: Record<string, unknown>,
