@@ -103,7 +103,14 @@ export function parseLaunchOptions(argv?: string[]): LaunchOptions {
  */
 export function applyLaunchOptions(opts: LaunchOptions): void {
     if (opts.dataDir) process.env.FREEDUNGEON_DATA_DIR = opts.dataDir
-    if (opts.port !== undefined) process.env.FREEDUNGEON_PORT = String(opts.port)
+    if (opts.port !== undefined) {
+        process.env.FREEDUNGEON_PORT = String(opts.port)
+        // The client derives the socket port from the one it was served on
+        // (port + 1), so moving the HTTP port has to move its partner — or the
+        // app renders perfectly and silently never syncs. An explicit
+        // --ws-port below still wins.
+        process.env.FREEDUNGEON_WS_PORT = String(opts.port + 1)
+    }
     if (opts.wsPort !== undefined) process.env.FREEDUNGEON_WS_PORT = String(opts.wsPort)
     if (opts.host) process.env.FREEDUNGEON_HOST = opts.host
 }

@@ -1,0 +1,21 @@
+[package]
+name = "freedungeon-desktop"
+version = "0.0.1"
+edition = "2021"
+description = "Desktop shell for freedungeon"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+# The backend blob dominates the binary, so squeeze the Rust half and drop
+# symbols — this shell is a launcher, not something anyone profiles.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

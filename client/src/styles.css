@@ -207,7 +207,7 @@ button {
   background-color: color-mix(in oklch, var(--primary), transparent 75%);
 }
 
-/* Rows toggled off via the inline eye toggle (e.g. disabled chat notes). */
+/* Rows switched off — a chat note excluded from the prompt. */
 .resource-table-row.is-disabled .resource-table-cell-content,
 .resource-table-row.is-disabled .resource-table-col-emoji {
   opacity: 0.4;
@@ -215,17 +215,6 @@ button {
 
 .resource-table-row.is-disabled .resource-table-col-name .resource-table-cell-content {
   text-decoration: line-through;
-}
-
-.resource-table-row.is-disabled .note-toggle {
-  opacity: 0.4;
-}
-
-/* .dropdown-trigger forces svg to 32px; keep the eye toggle smaller.
-   Doubled selector to out-rank it — that rule appears later in this file. */
-.dropdown-trigger.note-toggle svg {
-  width: 24px;
-  height: 24px;
 }
 
 .resource-table-row td {
@@ -3392,6 +3381,33 @@ body.item-dragging [data-drop-actor].drop-target-hover {
 /* ── First-run onboarding ─────────────────────────────────────────────────
    Sits below .patcher-overlay (z 100) so a dependency download triggered
    during setup layers above it. */
+/* ── Fade ────────────────────────────────────────────────────────────────
+   Shared show/hide for anything that should appear rather than snap in.
+   `.fade` marks it fadeable, `.is-hidden` is the state — so the element stays
+   mounted and the decision to show it is just a class toggle.
+
+   `visibility` is in the transition, not only opacity: a transparent element
+   still sits in the accessibility tree and can swallow clicks. Hiding delays
+   it until the fade finishes; showing applies it immediately, which is why the
+   two rules carry different transition values rather than one shared one. */
+.fade {
+  transition: opacity 180ms ease, visibility 0s linear 0s;
+}
+
+.fade.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 180ms ease, visibility 0s linear 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade,
+  .fade.is-hidden {
+    transition-duration: 0s;
+  }
+}
+
 .onboarding-overlay {
   position: fixed;
   inset: 0;

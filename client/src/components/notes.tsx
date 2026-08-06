@@ -1,6 +1,6 @@
 import type { Note } from "@shared/types"
 import { createMemo, For, Show, type JSXElement } from "solid-js"
-import { MdFillMore_horiz, MdFillVisibility, MdFillVisibility_off } from "solid-icons/md"
+import { MdFillMore_horiz } from "solid-icons/md"
 import { Dropdown } from "./Dropdown"
 import { SortHeader, useSort } from "./ResourceTable"
 
@@ -13,21 +13,12 @@ export type NoteAction = {
     show?: (note: Note) => boolean
 }
 
-/**
- * Per-row inline on/off eye toggle. Toggled-off rows are dimmed with the
- * title struck through. Clicking anywhere on the row toggles too.
- */
-export type NoteToggle = {
-    checked: (note: Note) => boolean
-    onToggle: (note: Note, next: boolean) => void
-    /** Tooltip on the eye button, e.g. "Include in prompts". */
-    title?: string
-}
-
 function NoteListItem(props: {
     note: Note
     actions?: NoteAction[]
-    toggle?: NoteToggle
+    /** Dims the row and strikes the title. Presentation only — changing the
+     *  state is an ordinary entry in the actions menu. */
+    disabled?: (note: Note) => boolean
     onClick?: () => void
     selected?: boolean
     showType?: boolean
@@ -35,11 +26,8 @@ function NoteListItem(props: {
     return (
         <tr
             class="resource-table-row"
-            classList={{ selected: props.selected, 'is-disabled': props.toggle ? !props.toggle.checked(props.note) : false }}
-            onClick={() => {
-                if (props.toggle) props.toggle.onToggle(props.note, !props.toggle.checked(props.note))
-                else props.onClick?.()
-            }}
+            classList={{ selected: props.selected, 'is-disabled': props.disabled?.(props.note) ?? false }}
+            onClick={() => props.onClick?.()}
         >
             <td class="resource-table-col-emoji">
                 <Show when={props.note.emoji} fallback={<span class="opacity-30">📝</span>}>
@@ -52,19 +40,6 @@ function NoteListItem(props: {
             <Show when={props.showType}>
                 <td>
                     <span class="resource-table-cell-content opacity-50">{props.note.type || '—'}</span>
-                </td>
-            </Show>
-            <Show when={props.toggle}>
-                <td class="resource-table-col-actions" onClick={(e) => e.stopPropagation()}>
-                    <button
-                        class="dropdown-trigger note-toggle"
-                        title={props.toggle!.title}
-                        onClick={() => props.toggle!.onToggle(props.note, !props.toggle!.checked(props.note))}
-                    >
-                        <Show when={props.toggle!.checked(props.note)} fallback={<MdFillVisibility_off size={16} />}>
-                            <MdFillVisibility size={16} />
-                        </Show>
-                    </button>
                 </td>
             </Show>
             <Show when={props.actions && props.actions.length > 0}>
@@ -89,7 +64,8 @@ function NoteListItem(props: {
 export function NoteList(props: {
     notes: Note[]
     actions?: NoteAction[]
-    toggle?: NoteToggle
+    /** Dims rows this returns true for. See NoteListItem. */
+    disabled?: (note: Note) => boolean
     onNoteClick?: (note: Note) => void
     isSelected?: (note: Note) => boolean
     showType?: boolean
@@ -117,7 +93,6 @@ export function NoteList(props: {
                             <Show when={showType()}>
                                 <SortHeader label="Type" active={sortKey() === 'type'} dir={sortDir()} onClick={() => toggleSort('type')} />
                             </Show>
-                            <Show when={props.toggle}><th class="resource-table-col-actions"></th></Show>
                             <Show when={props.actions}><th class="resource-table-col-actions"></th></Show>
                         </tr>
                     </thead>
@@ -130,8 +105,8 @@ export function NoteList(props: {
                             <NoteListItem
                                 note={note}
                                 actions={props.actions}
-                                toggle={props.toggle}
-                                onClick={() => props.onNoteClick?.(note)}
+                                disabled={props.disabled}
+                                onClick={props.onNoteClick ? () => props.onNoteClick!(note) : undefined}
                                 selected={props.isSelected?.(note)}
                                 showType={showType()}
                             />

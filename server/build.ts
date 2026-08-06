@@ -35,6 +35,8 @@ const PROMPTS = path.join(ROOT, 'src', 'prompts')
 const OUT_DIR = path.join(ROOT, 'dist')
 
 const skipClient = process.argv.includes('--skip-client')
+/** The Rust half is slow and rarely changing; skip it while iterating on the server. */
+const skipDesktop = process.argv.includes('--skip-desktop')
 
 // ── Native modules ──────────────────────────────────────────────────────────
 
@@ -218,3 +220,52 @@ if (!result.success) {
     process.exit(1)
 }
 console.log(`› ${path.relative(REPO, outfile)}  ${(fs.statSync(outfile).size / 1e6).toFixed(0)}MB`)
+
+// ── Desktop shell ───────────────────────────────────────────────────────────
+
+if (!skipDesktop) {
+    await buildDesktopShell(outfile)
+}
+
+/**
+ * Build the Tauri shell with the backend baked into it.
+ *
+ * The backend stays a separate process — it's a Bun binary with its own
+ * embedded assets and a `bun:sqlite` dependency, so it can't be hosted inside
+ * the shell — but it's embedded as bytes rather than shipped beside the exe,
+ * so distribution is still one file. The shell writes it out on first run.
+ *
+ * `include_bytes!` needs a literal path at compile time, hence the env var:
+ * `env!()` resolves to a literal, and build.rs re-runs when either changes.
+ */
+async function buildDesktopShell(backend: string) {
+    const crate = path.join(REPO, 'desktop', 'src-tauri')
+    if (!fs.existsSync(crate)) {
+        console.log('› no desktop/ crate, skipping shell')
+        return
+    }
+
+    // Identifies this exact backend build, so an upgraded shell replaces the
+    // copy a previous version extracted instead of reusing it.
+    const stamp = Bun.hash(fs.readFileSync(backend)).toString(16)
+
+    const proc = Bun.spawn(['cargo', 'build', '--release'], {
+        cwd: crate,
+        env: {
+            ...process.env,
+            FREEDUNGEON_BACKEND: backend,
+            FREEDUNGEON_BACKEND_STAMP: stamp,
+        },
+        stdout: 'inherit',
+        stderr: 'inherit',
+    })
+    if (await proc.exited !== 0) {
+        console.error('cargo build failed')
+        process.exit(1)
+    }
+
+    const built = path.join(crate, 'target', 'release', 'freedungeon-desktop.exe')
+    const shipped = path.join(OUT_DIR, 'freedungeon-desktop.exe')
+    fs.copyFileSync(built, shipped)
+    console.log(`› ${path.relative(REPO, shipped)}  ${(fs.statSync(shipped).size / 1e6).toFixed(0)}MB`)
+}

@@ -6,12 +6,21 @@ import { Heading } from '../typography/Heading'
 import { ActorList } from '../actors'
 import { NoteList } from '../notes'
 import { useModal } from '../Modal'
+import { useResourceEditors } from '../ResourceEditors'
 import { ActorPicker, NotePicker } from './AssetPicker'
 import type { Actor, Note } from '@shared/types'
 import { visible } from '@shared/visibility'
 
 export function ChatSidebar() {
     const modal = useModal()
+    const editors = useResourceEditors()
+
+    /** Notes default to on; only an explicit false takes one out of the prompt. */
+    const isNoteEnabled = (note: Note) =>
+        state.currentChat.assets.notes[note.id]?.enabled ?? true
+
+    const setNoteEnabled = (note: Note, enabled: boolean) =>
+        trpc.chat.setNoteEnabled.mutate({ noteId: note.id, enabled })
 
     const chatActors = createMemo<Actor[]>(() => {
         const actorIds = state.currentChat?.assets?.actors ?? []
@@ -77,12 +86,22 @@ export function ChatSidebar() {
                         notes={chatNotes()}
                         showType={false}
                         hideHeader
-                        toggle={{
-                            checked: (note) => state.currentChat.assets.notes[note.id]?.enabled ?? true,
-                            onToggle: (note, next) => trpc.chat.setNoteEnabled.mutate({ noteId: note.id, enabled: next }),
-                            title: 'Include in prompts',
-                        }}
+                        onNoteClick={editors.openNote}
+                        disabled={(note) => !isNoteEnabled(note)}
                         actions={[
+                            // One entry, two labels — `show` picks whichever
+                            // matches the note's current state, so the menu
+                            // reads as the action you're about to take.
+                            {
+                                label: 'Disable',
+                                show: isNoteEnabled,
+                                callback: (note) => setNoteEnabled(note, false),
+                            },
+                            {
+                                label: 'Enable',
+                                show: (note) => !isNoteEnabled(note),
+                                callback: (note) => setNoteEnabled(note, true),
+                            },
                             {
                                 label: 'Remove',
                                 danger: true,

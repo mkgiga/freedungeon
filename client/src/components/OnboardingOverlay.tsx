@@ -1,6 +1,6 @@
 import { createSignal, For, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
-import { state } from '../state'
+import { hydrated, state } from '../state'
 import { trpc } from '../trpc'
 import { LLM_PRESETS } from '@shared/llm-presets'
 import { setPendingConfigEdit } from '../pending-nav'
@@ -15,7 +15,12 @@ import { Em } from './typography/Em'
  * and the place to create one is a screen the user has no reason to visit yet.
  *
  * Shown purely off `userPreferences.onboardingCompletedAt`; see the note on
- * that field for why it isn't inferred from whether configs exist.
+ * that field for why it isn't inferred from whether configs exist. Gated on
+ * `hydrated()` as well, since before the server's first state that field is
+ * absent and absent looks exactly like "never onboarded".
+ *
+ * Always mounted, hidden by the shared `.fade`/`.is-hidden` pair rather than
+ * swapped in — an element can only transition if it's already in the DOM.
  *
  * Mounted alongside PatcherOverlay in app.tsx. The patcher sits above this one,
  * which is what you want: picking Anthropic here kicks off the Claude Code
@@ -42,7 +47,10 @@ export function OnboardingOverlay() {
     const [busy, setBusy] = createSignal(false)
     const [error, setError] = createSignal<string | null>(null)
 
-    const needed = () => !state.userPreferences.onboardingCompletedAt
+    // Gated on hydration: before the server's first state arrives the store
+    // holds defaults, and "no timestamp yet" is indistinguishable from "never
+    // onboarded" — which is what made this flash up on every load.
+    const needed = () => hydrated() && !state.userPreferences.onboardingCompletedAt
 
     const complete = () => trpc.preferences.update.mutate({ onboardingCompletedAt: Date.now() })
 
@@ -94,59 +102,62 @@ export function OnboardingOverlay() {
     }
 
     return (
-        <Show when={needed()}>
-            <Portal>
+        // Mounted from the start and hidden with a class rather than swapped in
+        // by a Show: an element has to already be in the DOM to transition, and
+        // `needed()` only flips once the server's state has arrived.
+        <Portal>
+            <div
+                class="onboarding-overlay fade"
+                classList={{ 'is-hidden': !needed() }}
+                aria-hidden={!needed()}
+                onMouseDown={(e) => { if (e.target === e.currentTarget) refuseDismiss() }}
+            >
                 <div
-                    class="onboarding-overlay"
-                    onMouseDown={(e) => { if (e.target === e.currentTarget) refuseDismiss() }}
+                    class="onboarding-panel"
+                    ref={panel}
+                    onAnimationEnd={() => panel?.classList.remove('is-refusing')}
                 >
-                    <div
-                        class="onboarding-panel"
-                        ref={panel}
-                        onAnimationEnd={() => panel?.classList.remove('is-refusing')}
-                    >
-                        <Heading level={2}>Welcome to freedungeon</Heading>
-                        <Text size="sm" class="onboarding-lede">
-                            Roleplaying with a language model as the dungeon master.
-                        </Text>
+                    <Heading level={2}>Welcome to freedungeon</Heading>
+                    <Text size="sm" class="onboarding-lede">
+                        Roleplaying with a language model as the dungeon master.
+                    </Text>
 
-                        <Text size="sm" class="onboarding-step">
-                            Where should it run? You can change this later.
-                        </Text>
+                    <Text size="sm" class="onboarding-step">
+                        Where should it run? You can change this later.
+                    </Text>
 
-                        <div class="onboarding-presets">
-                            <For each={Object.entries(LLM_PRESETS)}>
-                                {([key, preset]) => (
-                                    <button
-                                        class="onboarding-preset"
-                                        disabled={busy()}
-                                        onClick={() => choose(key)}
-                                    >
-                                        <Text><Em semibold>{CHOICES[key]?.label ?? preset.name}</Em></Text>
-                                        <Show when={CHOICES[key]?.hint}>
-                                            {(hint) => <Text size="sm" class="opacity-50">{hint()}</Text>}
-                                        </Show>
-                                    </button>
-                                )}
-                            </For>
-                        </div>
+                    <div class="onboarding-presets">
+                        <For each={Object.entries(LLM_PRESETS)}>
+                            {([key, preset]) => (
+                                <button
+                                    class="onboarding-preset"
+                                    disabled={busy()}
+                                    onClick={() => choose(key)}
+                                >
+                                    <Text><Em semibold>{CHOICES[key]?.label ?? preset.name}</Em></Text>
+                                    <Show when={CHOICES[key]?.hint}>
+                                        {(hint) => <Text size="sm" class="opacity-50">{hint()}</Text>}
+                                    </Show>
+                                </button>
+                            )}
+                        </For>
+                    </div>
 
-                        <Show when={error()}>
-                            <Text size="sm" class="onboarding-error">{error()}</Text>
-                        </Show>
+                    <Show when={error()}>
+                        <Text size="sm" class="onboarding-error">{error()}</Text>
+                    </Show>
 
-                        {/* Dismisses on one click. Accidental dismissal is still
-                            guarded against by the overlay itself, which has no
-                            click-outside and no Escape handler — so this is a
-                            deliberate press, and doesn't need confirming. */}
-                        <div class="onboarding-actions">
-                            <button class="onboarding-skip" disabled={busy()} onClick={complete}>
-                                Skip for now
-                            </button>
-                        </div>
+                    {/* Dismisses on one click. Accidental dismissal is still
+                        guarded against by the overlay itself, which has no
+                        click-outside and no Escape handler — so this is a
+                        deliberate press, and doesn't need confirming. */}
+                    <div class="onboarding-actions">
+                        <button class="onboarding-skip" disabled={busy()} onClick={complete}>
+                            Skip for now
+                        </button>
                     </div>
                 </div>
-            </Portal>
-        </Show>
+            </div>
+        </Portal>
     )
 }
