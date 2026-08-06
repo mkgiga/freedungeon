@@ -87,7 +87,7 @@ function RouteComponent() {
 
           <div class="flex flex-col gap-4">
             <label class="flex flex-col gap-1">
-              <Text size="sm" class="opacity-50">Active LLM Config</Text>
+              <Text size="sm" class="opacity-50">Selected LLM Config</Text>
               <PickerButton onClick={pickers.openLlmConfig}>
                 {(() => {
                   const id = state.userPreferences.activeLLMConfigId
@@ -189,7 +189,7 @@ function RouteComponent() {
               {(spec) => {
                 const cfg = () => resolveFeatureConfig(spec.key as FeatureKey, state.userPreferences.features?.[spec.key])
                 return (
-                  <div class="flex flex-col gap-3 p-3 rounded-lg border border-[color-mix(in_oklch,var(--text),transparent_85%)]">
+                  <div class="flex flex-col gap-3 p-3 rounded-lg">
                     <label class="flex items-center gap-3">
                       <input
                         type="checkbox"
