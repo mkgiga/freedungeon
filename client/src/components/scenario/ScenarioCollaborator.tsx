@@ -1,8 +1,10 @@
 import { createEffect, createResource, createSignal, For, Show } from 'solid-js'
-import { MdFillBuild, MdFillSend, MdFillSmart_toy } from 'solid-icons/md'
+import { MdFillBuild, MdFillSend, MdFillSettings, MdFillSmart_toy } from 'solid-icons/md'
 import { trpc } from '../../trpc'
 import { Text } from '../typography/Text'
+import { Em } from '../typography/Em'
 import { Loader } from '../Loader'
+import { useScenarioAgentSettings } from './ScenarioAgentSettings'
 
 type ToolCall = { name: string; args: Record<string, unknown>; result?: string; error?: string }
 type Message = { id: string; role: string; content: string; createdAt: number; toolCalls?: ToolCall[] }
@@ -59,7 +61,13 @@ function ToolCallList(props: { calls: ToolCall[] }) {
  * its own chat row (`kind: 'collaborator'`), so it persists across reloads and
  * never appears in the recent-chats list.
  */
-export function ScenarioCollaborator(props: { scenarioId: string }) {
+export function ScenarioCollaborator(props: {
+    scenarioId: string
+    /** The docked panel has no chrome of its own; the phone screen has a TopBar
+     *  above it already, so it asks for this to stay off. */
+    showHeader?: boolean
+}) {
+    const openSettings = useScenarioAgentSettings()
     const [conversationId, setConversationId] = createSignal<string | null>(null)
     const [messages, setMessages] = createSignal<Message[]>([])
     const [draft, setDraft] = createSignal('')
@@ -116,6 +124,14 @@ export function ScenarioCollaborator(props: { scenarioId: string }) {
 
     return (
         <div class="collab">
+            <Show when={props.showHeader}>
+                <header class="collab-header">
+                    <Text size="sm"><Em semibold>Collaborator</Em></Text>
+                    <button class="collab-settings" onClick={openSettings} title="Collaborator settings">
+                        <MdFillSettings size={18} />
+                    </button>
+                </header>
+            </Show>
             <div class="collab-messages" ref={scroller}>
                 <Show when={!conversation.loading} fallback={<div class="collab-loading"><Loader size={20} /></div>}>
                     <Show

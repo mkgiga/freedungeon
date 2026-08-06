@@ -570,7 +570,7 @@ export function ChatPresetEditor(props: {
             <Show when={props.isTemplate && wide()}>
                 <aside class="chat-side-panel" classList={{ open: collabOpen() }} aria-hidden={!collabOpen()}>
                     <div class="chat-side-panel-inner">
-                        <ScenarioCollaborator scenarioId={props.id} />
+                        <ScenarioCollaborator scenarioId={props.id} showHeader />
                     </div>
                 </aside>
             </Show>

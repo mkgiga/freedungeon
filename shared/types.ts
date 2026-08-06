@@ -385,6 +385,17 @@ export type UserPreferences = {
      *  Stores only what the user changed; registry defaults are merged on read
      *  via resolveFeatureConfig. */
     features?: Record<string, { enabled: boolean; values: Record<string, unknown> }>;
+    /**
+     * Settings for the Scenario collaborator, grouped rather than flattened —
+     * they belong to one agent, they're edited from that agent's own panel, and
+     * keeping them out of the top level stops the Preferences screen and this
+     * from competing over the same namespace.
+     */
+    scenarioAgent?: {
+        /** Overrides prompts/SCENARIO_AGENT.md. Absent means "use the shipped
+         *  default", so an untouched install keeps tracking edits to that file. */
+        systemPrompt?: string;
+    };
     [key: string]: any;
 };
 

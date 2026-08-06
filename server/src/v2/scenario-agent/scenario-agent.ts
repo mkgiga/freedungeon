@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import { runScenarioTurn, activeLlmConfig } from '../../scenario-turn'
+import { getScenarioAgentPrompt } from '../../system-prompt'
 import type { ScenarioToolCall } from '../../scenario-agent'
 import { SCENARIO_TOOLS } from '@shared/scenario-agent/tools'
 import { state, setState } from '../../server'
@@ -37,6 +38,13 @@ export const scenarioAgentRouter = router({
     tools: procedure.query(() =>
         Object.values(SCENARIO_TOOLS).map(t => ({ name: t.name, description: t.description })),
     ),
+
+    /**
+     * The shipped instructions, so the settings dialog can show what the agent
+     * is running on before the user has overridden anything — and offer a way
+     * back to it afterwards.
+     */
+    defaultSystemPrompt: procedure.query(() => getScenarioAgentPrompt()),
 
     /**
      * The collaborator conversation for a Scenario, created on first use.

@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from '@tanstack/solid-router'
-import { MdFillView_sidebar } from 'solid-icons/md'
+import { MdFillSettings, MdFillView_sidebar } from 'solid-icons/md'
 import { TopBar } from '../../../components/TopBar'
 import { ScenarioCollaborator } from '../../../components/scenario/ScenarioCollaborator'
 import { ScenarioAssetsPanel } from '../../../components/scenario/ScenarioAssetsPanel'
+import { useScenarioAgentSettings } from '../../../components/scenario/ScenarioAgentSettings'
 import { useDrawer } from '../../../components/Drawer'
 
 export const Route = createFileRoute('/scenarios/$id/collaborate')({
@@ -23,6 +24,7 @@ function CollaborateRoute() {
     const params = Route.useParams()
     const navigate = useNavigate()
     const drawer = useDrawer()
+    const openSettings = useScenarioAgentSettings()
 
     const scenarioId = () => params().id
 
@@ -41,9 +43,14 @@ function CollaborateRoute() {
                 })}
                 slots={{
                     right: (
-                        <button onClick={openAssets} title="Cast & notes">
-                            <MdFillView_sidebar size={26} />
-                        </button>
+                        <>
+                            <button onClick={openSettings} title="Collaborator settings">
+                                <MdFillSettings size={24} />
+                            </button>
+                            <button onClick={openAssets} title="Cast & notes">
+                                <MdFillView_sidebar size={26} />
+                            </button>
+                        </>
                     ),
                 }}
             />

@@ -26,6 +26,18 @@ import type { LLMConfig } from '@shared/types'
 
 const MAX_STEPS = 24
 
+/**
+ * The user's instructions if they've written any, otherwise the shipped file.
+ *
+ * Absent rather than seeded-on-first-run deliberately: an untouched install
+ * keeps following SCENARIO_AGENT.md, so improvements to it reach everyone who
+ * never opened the settings dialog.
+ */
+export function effectiveSystemPrompt(): string {
+    const override = state.userPreferences.scenarioAgent?.systemPrompt
+    return override?.trim() ? override : getScenarioAgentPrompt()
+}
+
 function normalizeBaseURL(endpoint: string): string {
     // Same treatment the roleplay loop applies: the AI SDK wants the /v1 root,
     // users paste the full chat-completions path.
@@ -97,7 +109,7 @@ async function runTurnInner(args: {
     const messages: ModelMessage[] = [...history, { role: 'user', content: userMessage }]
     const result = await generateText({
         model: provider.chatModel(llmConfig.model),
-        system: getScenarioAgentPrompt(),
+        system: effectiveSystemPrompt(),
         messages,
         tools: buildTools(chatId),
         stopWhen: stepCountIs(MAX_STEPS),
@@ -126,7 +138,7 @@ async function runViaClaude(args: {
         body: JSON.stringify({
             chatId,
             userMessage,
-            systemPrompt: getScenarioAgentPrompt(),
+            systemPrompt: effectiveSystemPrompt(),
             model: llmConfig.model || 'claude-sonnet-4-6',
             // Transcript is replayed as plain text: the collaborator's history is
             // short and toolless between turns, so there's no session to resume.

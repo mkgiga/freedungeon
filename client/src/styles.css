@@ -4142,6 +4142,72 @@ menu.left-nav.compact .left-nav-detail {
   min-height: 0;
 }
 
+/* Only rendered in the docked panel — the phone screen has a TopBar already. */
+.collab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 10px 8px 10px 14px;
+  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+.collab-settings {
+  display: flex;
+  padding: 6px;
+  border-radius: 6px;
+  opacity: 0.5;
+  transition: opacity 150ms, background-color 150ms;
+
+  &:hover {
+    opacity: 1;
+    background-color: var(--bg-2);
+  }
+}
+
+/* Editor + rail, filling the dialog. */
+.scenario-agent-settings {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 4px;
+}
+
+.scenario-agent-settings .text-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.scenario-agent-settings .text-editor-textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+}
+
+.scenario-agent-default {
+  flex-shrink: 0;
+
+  & summary {
+    cursor: pointer;
+    padding: 6px 0;
+  }
+
+  & pre {
+    max-height: 30dvh;
+    overflow: auto;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--bg-2);
+    font-size: var(--text-sm);
+    white-space: pre-wrap;
+    opacity: 0.7;
+  }
+}
+
 .collab-messages {
   flex: 1;
   min-height: 0;
