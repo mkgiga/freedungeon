@@ -40,7 +40,10 @@ export function GameStatePanel() {
     const pickers = useAssetPickers()
     const playback = usePlayback()
 
-    const [mode, setMode] = createSignal<'actors' | 'composer'>('actors')
+    // Opens on the composer: writing is what you came to do, and the scene is
+    // already visible in the feed above. Starting on the actor rail meant every
+    // session began with a step that only got you back to the text box.
+    const [mode, setMode] = createSignal<'actors' | 'composer'>('composer')
     const [inventoryOpen, setInventoryOpen] = createSignal(false)
 
     // A menu the agent just offered is unusable while the composer is hidden, so
