@@ -116,9 +116,11 @@ function buildAssetBlob(natives: Native[]): Uint8Array {
     if (clientFiles.length === 0) {
         throw new Error(`No client build at ${DIST}. Run without --skip-client.`)
     }
-    // .macro templates plus RP_PROMPT.md, which seeds every new LLM config's
-    // system prompt (see src/system-prompt.ts).
-    const promptFiles = fs.readdirSync(PROMPTS).filter(f => f.endsWith('.macro') || f === 'RP_PROMPT.md')
+    // .macro templates plus every .md prompt (RP_PROMPT, SCENARIO_AGENT, …).
+    // Matched by extension rather than by name: a prompt added later would
+    // otherwise work in dev, be silently absent from the binary, and leave the
+    // agent it belongs to running with no instructions at all.
+    const promptFiles = fs.readdirSync(PROMPTS).filter(f => f.endsWith('.macro') || f.endsWith('.md'))
 
     const entries: BlobEntry[] = [
         ...clientFiles.map(f => ({

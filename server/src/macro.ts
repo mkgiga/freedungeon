@@ -259,7 +259,7 @@ export function loadMacroFiles() {
     if (embedded) {
         const decoder = new TextDecoder()
         for (const [file, bytes] of embedded) {
-            // The blob also carries RP_PROMPT.md, which isn't a macro template.
+            // The blob also carries the .md prompts, which aren't templates.
             if (!file.endsWith('.macro')) continue
             const name = path.basename(file, '.macro')
             registry.set(name, { kind: 'template', body: decoder.decode(bytes) })

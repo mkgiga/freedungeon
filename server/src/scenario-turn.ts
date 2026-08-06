@@ -17,7 +17,8 @@
 import { generateText, jsonSchema, stepCountIs, tool, type ModelMessage, type Tool } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { z } from 'zod'
-import { SCENARIO_TOOLS, SCENARIO_AGENT_PROMPT, type ScenarioToolName } from '@shared/scenario-agent/tools'
+import { SCENARIO_TOOLS, type ScenarioToolName } from '@shared/scenario-agent/tools'
+import { getScenarioAgentPrompt } from './system-prompt'
 import { runScenarioTool, recordingToolCalls, type ScenarioToolCall } from './scenario-agent'
 import { state } from './server'
 import { log } from './logger'
@@ -96,7 +97,7 @@ async function runTurnInner(args: {
     const messages: ModelMessage[] = [...history, { role: 'user', content: userMessage }]
     const result = await generateText({
         model: provider.chatModel(llmConfig.model),
-        system: SCENARIO_AGENT_PROMPT,
+        system: getScenarioAgentPrompt(),
         messages,
         tools: buildTools(chatId),
         stopWhen: stepCountIs(MAX_STEPS),
@@ -125,7 +126,7 @@ async function runViaClaude(args: {
         body: JSON.stringify({
             chatId,
             userMessage,
-            systemPrompt: SCENARIO_AGENT_PROMPT,
+            systemPrompt: getScenarioAgentPrompt(),
             model: llmConfig.model || 'claude-sonnet-4-6',
             // Transcript is replayed as plain text: the collaborator's history is
             // short and toolless between turns, so there's no session to resume.
