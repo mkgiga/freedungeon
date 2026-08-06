@@ -1720,6 +1720,49 @@ button {
 
 /* The composer face of the bottom band: textarea on top, action row along the
    bottom edge. */
+/* Occupies the composer's slot while blocks are unread, so the row doesn't
+   collapse and the advance control lands where the send button was. */
+.continue-bar {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px dashed color-mix(in oklch, var(--primary), transparent 60%);
+  background: color-mix(in oklch, var(--primary), transparent 93%);
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in oklch, var(--primary), transparent 88%);
+  }
+}
+
+.continue-bar-caret {
+  color: var(--primary);
+  animation: continue-bar-nudge 1.2s ease-in-out infinite;
+}
+
+@keyframes continue-bar-nudge {
+  0%, 100% { transform: translateY(-1px); opacity: 0.55; }
+  50%      { transform: translateY(2px);  opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .continue-bar-caret { animation: none; opacity: 1; }
+}
+
+.continue-bar-key {
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 75%);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  opacity: 0.5;
+}
+
 .chat-composer {
   flex: 1;
   min-width: 0;

@@ -1,4 +1,13 @@
-# TODO
+## Q&A Issues
+
+- [ ] No image drag and drop exists for image inputs like the actor avatar container or expression image containers.
+- [ ] The pluses to create new shit is all the way to the right - it's in the user's peripheral vision on desktop. This is a discoverability issue.
+- [ ] Saving an actor should take you back to the actor list screen instead of just making the page not editable.
+- [ ] When the collaborator agent calls tools - they don't reflect in the scenario editor's UI.
+- [ ] Inline ID references `<@actor_reference>` do not render appropriately in `speech` and `text` blocks.
+- [x] We need to block prompting until the user has seen the last event in the UI - hide the textbox input too and replace it with a container the user can tap to progress  buffered `speech`/`text` blocks. During testing, a user prompted because they weren't aware there were still unread events (The blinking play icon triangle is not enough to communicate this). Space bar to skip/go to next dialogue on desktop too maybe?
+
+## IDEAS
 
 - 1. [ ] Let the roleplaying agent decide the absolute width/height of a `webview` container so that it can render content that actually fits in the chat instead of showing a thin, overflow-y scroll container. The max size of an iframe should also be exposed as a getter tool and when they call it, the server should use the client-side size of the message history container to derive the max size - this means that the server needs to know the size of the client's device (multiple devices can render the same chat in real time so there needs to be an intelligent strategy for caching this - probably storing the socket id of the socket where the prompt came from and using it to ask for that client's device viewport size - actually, with this strategy, we dont have to poll or cache the size itself - it's better just have the tool call ask the client about its viewport dimensions when the agent calls the tool directly, especially since it'll be as up-to-date as possible should the user have resized their window (there must be a minimum to clamp to for both width and height in case the user minimizes or makes their browser window incredibly tiny, like 350x350 or something)
 

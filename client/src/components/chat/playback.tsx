@@ -35,6 +35,10 @@ type PlaybackApi = {
     /** Whether playback has reached (started) this assistant message yet.
      *  Future, not-yet-played messages return false so the UI can hide them. */
     isMessageRevealed: (id: string) => boolean
+    /** True while blocks are still waiting to be read. The composer swaps
+     *  itself for a tap-to-continue bar on this, so a prompt can't be sent
+     *  into events the user hasn't seen. */
+    hasUnread: () => boolean
 }
 
 const PlaybackContext = createContext<PlaybackApi | null>(null)
@@ -339,6 +343,13 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         return playingMessageId() === messageId && cursor() - 1 === blockIndex
     }
 
+    /**
+     * Playback being active IS the unread condition: `playNextUnseen` runs the
+     * moment a message finishes, so an idle player with unseen messages never
+     * survives a tick. No separate queue to track.
+     */
+    const hasUnread = () => playingMessageId() !== null
+
     const api: PlaybackApi = {
         playingMessageId,
         cursor,
@@ -350,6 +361,7 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         isActiveScrolling,
         tap,
         isMessageRevealed,
+        hasUnread,
     }
 
     return (

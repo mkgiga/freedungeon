@@ -3,6 +3,7 @@ import autoAnimate from '@formkit/auto-animate'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { useModal } from '../Modal'
+import { useToast } from '../Toast'
 import { GameStateActorStatus } from '../GameStateActorStatus'
 import { useAssetPickers } from './AssetPicker'
 import { pickEmojiForItem } from './inventory/itemEmoji'
@@ -12,6 +13,7 @@ import { usePlayback } from './playback'
 import { serializeBlocks } from './blocks'
 import { startItemDrag } from './itemDrag'
 import { ChatInput, createPendingChoicePrompt } from './ChatInput'
+import { ContinueBar } from './ContinueBar'
 import { MdFillChat, MdFillGroups, MdFillKeyboard_arrow_down, MdFillKeyboard_arrow_up, MdFillPerson, MdFillBackpack } from 'solid-icons/md'
 
 /**
@@ -34,6 +36,7 @@ import { MdFillChat, MdFillGroups, MdFillKeyboard_arrow_down, MdFillKeyboard_arr
  */
 export function GameStatePanel() {
     const modal = useModal()
+    const toast = useToast()
     const pickers = useAssetPickers()
     const playback = usePlayback()
 
@@ -186,7 +189,13 @@ export function GameStatePanel() {
     // user turn; the agent adjudicates it via the use_item tool.
     const sendTryUse = (item: string, actorId: string) => {
         if (state.isGenerating) return
-        playback.skipAll()
+        // Second prompt path — hiding the composer wouldn't cover it, and it
+        // used to skipAll(), discarding unread blocks on a drag the user may
+        // not have meant as "I'm done reading".
+        if (playback.hasUnread()) {
+            toast.info('Finish the scene first.')
+            return
+        }
         trpc.chat.prompt.mutate({
             message: serializeBlocks([{ type: 'tryUse', what: `item:${item}`, on: `actor:${actorId}` }]),
         })
@@ -312,7 +321,12 @@ export function GameStatePanel() {
                     </For>
                 </div>
 
-                <ChatInput hidden={mode() !== 'composer'} />
+                {/* Kept mounted while unread so a half-typed message survives
+                    the scene finishing. */}
+                <ChatInput hidden={mode() !== 'composer' || playback.hasUnread()} />
+                <Show when={mode() === 'composer' && playback.hasUnread()}>
+                    <ContinueBar />
+                </Show>
 
                 <button
                     class="chat-status-toggle"
