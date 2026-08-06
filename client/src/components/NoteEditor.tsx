@@ -42,6 +42,11 @@ export function NoteEditor(props: {
     chrome?: (ctx: NoteEditorChrome) => JSXElement
     /** Rendered below the body — where a modal puts its Cancel/Save rail. */
     footer?: (ctx: NoteEditorChrome) => JSXElement
+    /**
+     * Authors the note into a Scenario rather than the global library. Only
+     * sent when set, so editing from the Notes screen can't relocate one.
+     */
+    homeChatId?: string | null
     onSaved?: (id: string) => void
 }) {
     const modal = useModal()
@@ -76,6 +81,7 @@ export function NoteEditor(props: {
             type: draft.type,
             content: draft.content,
             emoji: draft.emoji,
+            ...(props.homeChatId !== undefined ? { homeChatId: props.homeChatId } : {}),
         })
         props.onSaved?.(result.id)
     }

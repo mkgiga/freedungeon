@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal, onMount, untrack } from 'solid-js'
 import { createStore } from 'solid-js/store'
-import { MdFillAdd, MdFillCheck, MdFillLibrary_add, MdFillPerson_add, MdFillSmart_toy, MdFillUpload } from 'solid-icons/md'
+import { MdFillAdd, MdFillCheck, MdFillLibrary_add, MdFillNote_add, MdFillPerson_add, MdFillSmart_toy, MdFillUpload } from 'solid-icons/md'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../TopBar'
@@ -254,14 +254,12 @@ export function ChatPresetEditor(props: {
                             onClick: () => {
                                 modal.close()
                                 editors.createActor({
-                                    // Global (homeChatId null), unlike the
-                                    // collaborator's creations. Scenario-homing
-                                    // exists to keep the agent's invented
-                                    // bit-parts out of your lists; a character
-                                    // you sat down and wrote is yours, and
-                                    // hiding it from the Actors screen is how
-                                    // people end up not knowing the library
-                                    // exists. Added to the cast either way.
+                                    // Authored into this scenario, so it stays
+                                    // out of the global library — same as the
+                                    // collaborator's create_character. A cast
+                                    // written for one story shouldn't turn up
+                                    // in every other one's picker.
+                                    homeChatId: props.id,
                                     onCreated: (actor) => toggleActor(actor.id),
                                 })
                             },
@@ -302,13 +300,44 @@ export function ChatPresetEditor(props: {
         })
     }
 
-    const openNotePicker = () => {
+    const openNoteLibraryPicker = () => {
         modal.open({
-            title: 'Add notes',
+            title: 'Import from library',
             content: () => (
                 <NotePicker
                     selected={() => draft.notes}
                     onToggle={(n) => toggleNote(n.id)}
+                />
+            ),
+        })
+    }
+
+    /** Same fork as characters — writing one has to be reachable from here. */
+    const openNotePicker = () => {
+        modal.open({
+            title: 'Add notes',
+            content: () => (
+                <ChoiceDialog
+                    choices={[
+                        {
+                            label: 'Create new note',
+                            hint: 'Write one for this scenario.',
+                            icon: <MdFillNote_add size={24} />,
+                            onClick: () => {
+                                modal.close()
+                                editors.createNote({
+                                    homeChatId: props.id,
+                                    onCreated: (id) => toggleNote(id),
+                                })
+                            },
+                        },
+                        {
+                            label: 'Import from library',
+                            hint: 'Reuse a note you already wrote.',
+                            icon: <MdFillLibrary_add size={24} />,
+                            onClick: () => { modal.close(); openNoteLibraryPicker() },
+                        },
+                    ]}
                 />
             ),
         })

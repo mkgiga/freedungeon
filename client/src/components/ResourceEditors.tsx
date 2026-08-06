@@ -53,6 +53,21 @@ export function useResourceEditors() {
             ),
         }),
 
+        /** A brand-new note. Same reasoning as createActor. */
+        createNote: (opts: { homeChatId?: string | null; onCreated?: (id: string) => void }) => modal.open({
+            title: 'New note',
+            fullscreen: true,
+            content: () => (
+                <NoteEditor
+                    noteId={nanoid()}
+                    edit
+                    homeChatId={opts.homeChatId}
+                    footer={(ctx) => footer(ctx.save)}
+                    onSaved={(id) => opts.onCreated?.(id)}
+                />
+            ),
+        }),
+
         openActor: (actor: Actor) => modal.open({
             title: `Edit ${actor.name}`,
             fullscreen: true,
