@@ -103,10 +103,20 @@ fn spawn_backend(exe: &Path, base: u16) -> std::io::Result<Child> {
     cmd.env("FREEDUNGEON_PORT", base.to_string())
         .env("FREEDUNGEON_WS_PORT", (base + 1).to_string())
         .env("AGENT_PORT", (base + 2).to_string())
-        // Loopback, not 0.0.0.0. The default binds every interface, which is
-        // what raises the Windows Firewall "allow public networks?" prompt on
-        // first launch — alarming, and pointless for a local app.
-        .env("FREEDUNGEON_HOST", "127.0.0.1");
+        // Every interface, so a phone or tablet on the same network can open
+        // the same session — the client already derives its host and socket
+        // port from wherever the page was served, so LAN just works.
+        //
+        // The cost is Windows Firewall's "allow on public networks?" prompt on
+        // first launch. Exposure is still bounded: the server 403s any request
+        // whose source isn't a private-range address (see initHttp).
+        //
+        // Overridable — set FREEDUNGEON_HOST=127.0.0.1 before launching to keep
+        // it loopback-only and avoid the prompt entirely.
+        .env(
+            "FREEDUNGEON_HOST",
+            std::env::var("FREEDUNGEON_HOST").unwrap_or_else(|_| "0.0.0.0".into()),
+        );
 
     #[cfg(windows)]
     {
