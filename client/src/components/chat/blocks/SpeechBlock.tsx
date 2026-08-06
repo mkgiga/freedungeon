@@ -5,6 +5,7 @@ import { ImageIcon } from '../../ImageIcon'
 import { useModal } from '../../Modal'
 import { openExpressionPicker } from '../ExpressionPicker'
 import { EditableText } from '../EditableText'
+import { resolveMentions } from '../mentions'
 import { usePlayback } from '../playback'
 
 export function SpeechBlock(props: {
@@ -52,7 +53,10 @@ export function SpeechBlock(props: {
         })
     }
 
-    const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : props.block.dialogue.length)
+    // Playback types out the same resolved string, so reveal counts line up.
+    const shown = createMemo(() => resolveMentions(props.block.dialogue))
+
+    const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : shown().length)
     const isScrolling = () => props.isActive && playback.isActiveScrolling()
 
     // Item drag-and-drop target: the portrait accepts drops only while its
@@ -87,17 +91,18 @@ export function SpeechBlock(props: {
                     <EditableText
                         class="chat-block-dialogue"
                         initial={props.block.dialogue}
+                        display={shown()}
                         onCommit={(dialogue) => props.onUpdate({ ...props.block, dialogue })}
                     />
                 }
             >
                 <div class="chat-block-dialogue chat-block-dialogue-locked">
-                    {props.block.dialogue.slice(0, revealedCount())}
+                    {shown().slice(0, revealedCount())}
                     {/* Pending dialogue rendered with `visibility: hidden` so it
                      * contributes to layout (line wrapping + total height) without
                      * being painted. The block sits at its final size from char 0. */}
                     <span class="chat-block-dialogue-pending">
-                        {props.block.dialogue.slice(revealedCount())}
+                        {shown().slice(revealedCount())}
                     </span>
                     <Show when={!isScrolling()}>
                         <span class="chat-block-tap-indicator">▶</span>

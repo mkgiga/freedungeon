@@ -5,6 +5,7 @@ import { MdFillMore_horiz, MdFillUpload } from 'solid-icons/md'
 import { state } from '../state'
 import { trpc } from '../trpc'
 import { generateName } from '../utils/names'
+import { createImageDrop, pickImage } from '../utils/imageUpload'
 import { Dropdown } from './Dropdown'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
@@ -12,6 +13,35 @@ import { Em } from './typography/Em'
 import { TextEditor } from './TextEditor'
 import { ImageIcon } from './ImageIcon'
 import { useMediaViewer } from './MediaViewer'
+
+/**
+ * One expression's image slot: click to pick, or drop a file on it. Its own
+ * component because each row needs its own drop-hover state.
+ */
+function ExpressionImage(props: {
+    name: string
+    url: string
+    edit: boolean
+    onPick: () => void
+    onDrop: (url: string) => void
+}) {
+    const drop = createImageDrop((url) => props.onDrop(url), () => props.edit)
+    return (
+        <button
+            type="button"
+            class="expression-image"
+            classList={{ 'is-drop-target': drop.over() }}
+            disabled={!props.edit}
+            title={props.edit ? 'Change image' : undefined}
+            onClick={props.onPick}
+            {...drop.handlers}
+        >
+            <Show when={props.url} fallback={<MdFillUpload size={16} class="opacity-40" />}>
+                <img src={props.url} alt={props.name} />
+            </Show>
+        </button>
+    )
+}
 
 /** What the chrome needs to drive the editor it sits above. */
 export type ActorEditorChrome = {
@@ -97,22 +127,6 @@ export function ActorEditor(props: {
         setDraft('expressions', rebuilt)
     }
 
-    /** Prompt for a file and upload it. Resolves to the stored URL, or null. */
-    const pickImage = () => new Promise<string | null>((resolve) => {
-        const input = document.createElement('input')
-        input.type = 'file'
-        input.accept = 'image/*'
-        input.onchange = async () => {
-            const file = input.files?.[0]
-            if (!file) return resolve(null)
-            const formData = new FormData()
-            formData.append('file', file)
-            const res = await fetch('/uploads', { method: 'POST', body: formData })
-            resolve(res.ok ? (await res.json()).url : null)
-        }
-        input.click()
-    })
-
     // Adds the row straight away rather than gating it behind a dialog: the
     // name is editable in place and the image slot is one click, so a form that
     // demands both up front is a detour. The image starts empty and shows an
@@ -131,6 +145,11 @@ export function ActorEditor(props: {
         if (url) setDraft('expressions', name, url)
     }
 
+    const avatarDrop = createImageDrop(
+        (url) => setDraft('avatarUrl', url),
+        () => props.edit,
+    )
+
     return (
         <div class="flex flex-col h-full overflow-hidden">
             {props.chrome?.({ get name() { return draft.name }, editing: props.edit, save })}
@@ -140,26 +159,12 @@ export function ActorEditor(props: {
                 <section class="flex items-start gap-4 mb-6">
                     <div
                         class="relative block cursor-pointer"
-                        onClick={() => {
+                        classList={{ 'is-drop-target': avatarDrop.over() }}
+                        {...avatarDrop.handlers}
+                        onClick={async () => {
                             if (props.edit) {
-                                const input = document.createElement('input')
-                                input.type = 'file'
-                                input.accept = 'image/*'
-                                input.onchange = async () => {
-                                    const file = input.files?.[0]
-                                    if (!file) return
-                                    const formData = new FormData()
-                                    formData.append('file', file)
-                                    const res = await fetch('/uploads', {
-                                        method: 'POST',
-                                        body: formData,
-                                    })
-                                    if (res.ok) {
-                                        const { url } = await res.json()
-                                        setDraft('avatarUrl', url)
-                                    }
-                                }
-                                input.click()
+                                const url = await pickImage()
+                                if (url) setDraft('avatarUrl', url)
                             } else if (draft.avatarUrl) {
                                 mediaViewer.open({ url: draft.avatarUrl, title: draft.name })
                             }
@@ -247,20 +252,13 @@ export function ActorEditor(props: {
                                     {([name, url]) => (
                                         <tr class="border-b border-[color-mix(in_oklch,var(--text),transparent_90%)]">
                                             <td class="py-2">
-                                                <button
-                                                    type="button"
-                                                    class="expression-image"
-                                                    disabled={!props.edit}
-                                                    title={props.edit ? 'Change image' : undefined}
-                                                    onClick={() => setExpressionImage(name)}
-                                                >
-                                                    <Show
-                                                        when={url}
-                                                        fallback={<MdFillUpload size={16} class="opacity-40" />}
-                                                    >
-                                                        <img src={url as string} alt={name} />
-                                                    </Show>
-                                                </button>
+                                                <ExpressionImage
+                                                    name={name}
+                                                    url={url as string}
+                                                    edit={props.edit}
+                                                    onPick={() => setExpressionImage(name)}
+                                                    onDrop={(u) => setDraft('expressions', name, u)}
+                                                />
                                             </td>
                                             <td class="py-2">
                                                 <Show when={props.edit} fallback={<span>{name}</span>}>

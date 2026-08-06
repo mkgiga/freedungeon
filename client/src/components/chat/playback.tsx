@@ -3,6 +3,7 @@ import type { ChatMessage, GameStateContext } from '@shared/types'
 import { applyBlockToCtx, runTurn } from '@shared/game-state'
 import { parseBlocks, isBlockingBlock, type Block } from '@shared/blocks'
 import { state } from '../../state'
+import { resolveMentions } from './mentions'
 
 type PlaybackApi = {
     /** Id of the message currently being played one block at a time, or null. */
@@ -173,10 +174,12 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         }
 
         // Configure per-blocking-type behavior for the new active block.
+        // Resolved, not raw: the blocks render mentions as names, and the
+        // typewriter's count indexes into whatever is on screen.
         if (lastRevealed?.type === 'text') {
-            startTypewriter(lastRevealed.content)
+            startTypewriter(resolveMentions(lastRevealed.content))
         } else if (lastRevealed?.type === 'speech') {
-            startTypewriter(lastRevealed.dialogue)
+            startTypewriter(resolveMentions(lastRevealed.dialogue))
         } else if (lastRevealed?.type === 'pause') {
             stopTypewriter()
             const ms = Math.max(0, lastRevealed.seconds * 1000)

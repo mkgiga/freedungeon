@@ -767,6 +767,13 @@ button {
   }
 }
 
+/* Anything accepting a dropped image, while one is over it. */
+.is-drop-target {
+  outline: 2px dashed var(--primary);
+  outline-offset: 2px;
+  border-color: var(--primary) !important;
+}
+
 /* Cancel/Save rail for an editor hosted in a modal rather than a route. No
    top border: the content above it already ends in a bordered field, and a
    second line reads as a seam. */

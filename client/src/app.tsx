@@ -13,6 +13,7 @@ import { OnboardingOverlay } from './components/OnboardingOverlay'
 import { LeftNav } from './components/LeftNav'
 import { ShowOn } from './components/ShowOn'
 import { activeTab, setActiveTab, type Tab } from './tab-state'
+import { guardStrayImageDrops } from './utils/imageUpload'
 
 const TAB_INITIAL: Record<Tab, string> = {
     home: '/',
@@ -39,6 +40,10 @@ declare module '@tanstack/solid-router' {
 }
 
 const TABS: Tab[] = ['home', 'scenarios', 'actors', 'chat', 'notes', 'preferences']
+
+// A file dropped anywhere unhandled makes the browser open it, discarding the
+// page — including an unsaved editor. Registered once, app-wide.
+guardStrayImageDrops()
 
 export function App() {
     const routers: Record<Tab, ReturnType<typeof makeTabRouter>> = {

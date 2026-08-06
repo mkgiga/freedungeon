@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onMount } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onMount, untrack } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import { MdFillAdd, MdFillCheck, MdFillSmart_toy, MdFillUpload } from 'solid-icons/md'
 import { state } from '../../state'
@@ -16,7 +16,8 @@ import { ActorPicker, NotePicker } from '../chat/AssetPicker'
 import { ImagePicker } from '../chat/ImagePicker'
 import { useModal } from '../Modal'
 import { generateName } from '../../utils/names'
-import type { Actor, ImageAsset, Note } from '@shared/types'
+import { createImageDrop, pickImage } from '../../utils/imageUpload'
+import type { Actor, Chat, ImageAsset, Note } from '@shared/types'
 import { viewport } from '../../viewport'
 import { ScenarioCollaborator } from '../scenario/ScenarioCollaborator'
 import { visible } from '@shared/visibility'
@@ -94,6 +95,37 @@ export function ChatPresetEditor(props: {
             isTemplate: c.isTemplate,
         })
     })
+
+    /**
+     * Fold the collaborator's changes into the draft while it's open.
+     *
+     * The agent writes cast and note membership straight to server state, but
+     * this editor holds an uncommitted draft, so nothing showed up until you
+     * reopened the screen. Overwriting from the server would fix that and throw
+     * away whatever you'd toggled meanwhile, so apply the server's *delta*
+     * instead — the agent's additions land, your pending edits survive.
+     *
+     * Only membership is synced. The agent has no tool that touches the title,
+     * description, or images, so those stay yours until Save.
+     */
+    const syncMembership = (key: 'actors' | 'notes', readServer: (c: Chat) => string[]) => {
+        let last = new Set(untrack(() => { const c = serverChat(); return c ? readServer(c) : [] }))
+        createEffect(() => {
+            const c = serverChat()
+            if (!c) return
+            const next = new Set(readServer(c))
+            untrack(() => {
+                const merged = new Set(draft[key])
+                for (const id of next) if (!last.has(id)) merged.add(id)
+                for (const id of last) if (!next.has(id)) merged.delete(id)
+                last = next
+                setDraft(key, merged)
+            })
+        })
+    }
+
+    syncMembership('actors', (c) => c.assets.actors)
+    syncMembership('notes', (c) => Object.keys(c.assets.notes))
 
     const actorItems = createMemo<Actor[]>(() =>
         visible([...draft.actors]
@@ -198,23 +230,13 @@ export function ChatPresetEditor(props: {
         })
     }
 
-    const pickAndUpload = (onUploaded: (url: string) => void) => {
-        const input = document.createElement('input')
-        input.type = 'file'
-        input.accept = 'image/*'
-        input.onchange = async () => {
-            const file = input.files?.[0]
-            if (!file) return
-            const formData = new FormData()
-            formData.append('file', file)
-            const res = await fetch('/uploads', { method: 'POST', body: formData })
-            if (res.ok) {
-                const { url } = await res.json()
-                onUploaded(url)
-            }
-        }
-        input.click()
+    const pickAndUpload = async (onUploaded: (url: string) => void) => {
+        const url = await pickImage()
+        if (url) onUploaded(url)
     }
+
+    const bannerDrop = createImageDrop((url) => setDraft('bannerUrl', url))
+    const avatarDrop = createImageDrop((url) => setDraft('avatarUrl', url))
 
     const cancel = () => props.onDone()
 
@@ -282,9 +304,10 @@ export function ChatPresetEditor(props: {
                 {/* Banner + avatar — click to upload */}
                 <div
                     class="chat-detail-banner"
-                    classList={{ 'is-empty': !draft.bannerUrl }}
+                    classList={{ 'is-empty': !draft.bannerUrl, 'is-drop-target': bannerDrop.over() }}
                     onClick={() => pickAndUpload((url) => setDraft('bannerUrl', url))}
                     title="Click to change banner"
+                    {...bannerDrop.handlers}
                 >
                     <Show when={draft.bannerUrl} fallback={
                         <div class="chat-detail-banner-empty">
@@ -300,11 +323,13 @@ export function ChatPresetEditor(props: {
                     </Show>
                     <div
                         class="chat-detail-avatar"
+                        classList={{ 'is-drop-target': avatarDrop.over() }}
                         onClick={(e) => {
                             e.stopPropagation()
                             pickAndUpload((url) => setDraft('avatarUrl', url))
                         }}
                         title="Click to change avatar"
+                        {...avatarDrop.handlers}
                     >
                         <ImageIcon
                             url={draft.avatarUrl || undefined}

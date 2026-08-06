@@ -37,13 +37,10 @@ function RouteComponent() {
           }}
         />
       )}
-      // Saving drops out of edit mode, and onto the id the server settled on —
-      // customId is editable, so it may not be the one in the URL.
-      onSaved={(customId) => {
-        if (search().edit) {
-          navigate({ to: '/actors/$id', params: { id: customId }, search: { edit: false }, replace: true })
-        }
-      }}
+      // Back to the list rather than into a read-only view of what you just
+      // wrote: saving is the end of the task, and staying on the page reads as
+      // "nothing happened" — the only visible change is fields greying out.
+      onSaved={() => navigate({ to: '/actors' })}
     />
   )
 }

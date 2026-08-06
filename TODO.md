@@ -1,10 +1,10 @@
 ## Q&A Issues
 
-- [ ] No image drag and drop exists for image inputs like the actor avatar container or expression image containers.
+- [x] No image drag and drop exists for image inputs like the actor avatar container or expression image containers.
 - [ ] The pluses to create new shit is all the way to the right - it's in the user's peripheral vision on desktop. This is a discoverability issue.
-- [ ] Saving an actor should take you back to the actor list screen instead of just making the page not editable.
-- [ ] When the collaborator agent calls tools - they don't reflect in the scenario editor's UI.
-- [ ] Inline ID references `<@actor_reference>` do not render appropriately in `speech` and `text` blocks.
+- [x] Saving an actor should take you back to the actor list screen instead of just making the page not editable.
+- [x] When the collaborator agent calls tools - they don't reflect in the scenario editor's UI.
+- [x] Inline ID references `<@actor_reference>` do not render appropriately in `speech` and `text` blocks.
 - [x] We need to block prompting until the user has seen the last event in the UI - hide the textbox input too and replace it with a container the user can tap to progress  buffered `speech`/`text` blocks. During testing, a user prompted because they weren't aware there were still unread events (The blinking play icon triangle is not enough to communicate this). Space bar to skip/go to next dialogue on desktop too maybe?
 
 ## IDEAS

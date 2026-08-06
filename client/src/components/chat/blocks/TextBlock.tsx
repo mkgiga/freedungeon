@@ -1,6 +1,7 @@
-import { Show } from 'solid-js'
+import { createMemo, Show } from 'solid-js'
 import type { TextBlock as TextBlockType } from '../blocks'
 import { EditableText } from '../EditableText'
+import { resolveMentions } from '../mentions'
 import { usePlayback } from '../playback'
 
 export function TextBlock(props: {
@@ -16,7 +17,10 @@ export function TextBlock(props: {
 }) {
     const playback = usePlayback()
 
-    const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : props.block.content.length)
+    // Playback types out the same resolved string, so reveal counts line up.
+    const shown = createMemo(() => resolveMentions(props.block.content))
+
+    const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : shown().length)
     const isScrolling = () => props.isActive && playback.isActiveScrolling()
 
     return (
@@ -27,18 +31,19 @@ export function TextBlock(props: {
                     <EditableText
                         class="chat-block-text-content"
                         initial={props.block.content}
+                        display={shown()}
                         onCommit={(content) => props.onUpdate({ ...props.block, content })}
                     />
                 }
             >
                 <div class="chat-block-text-content chat-block-text-locked">
-                    {props.block.content.slice(0, revealedCount())}
+                    {shown().slice(0, revealedCount())}
                     {/* Pending text is rendered with `visibility: hidden` so it
                      * still contributes to layout — the block sits at its
                      * final wrapped size from character 0 and the surrounding
                      * message height doesn't grow as the typewriter reveals. */}
                     <span class="chat-block-text-pending">
-                        {props.block.content.slice(revealedCount())}
+                        {shown().slice(revealedCount())}
                     </span>
                     <Show when={!isScrolling()}>
                         <span class="chat-block-tap-indicator">▶</span>

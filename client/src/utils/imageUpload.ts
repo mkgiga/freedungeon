@@ -1,0 +1,86 @@
+import { createSignal } from 'solid-js'
+
+/** POST a file to /uploads. Resolves to the stored URL, or null on failure. */
+export async function uploadImage(file: File): Promise<string | null> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch('/uploads', { method: 'POST', body: formData })
+    return res.ok ? ((await res.json()).url as string) : null
+}
+
+/** Prompt for a file and upload it. Resolves to the stored URL, or null. */
+export function pickImage(): Promise<string | null> {
+    return new Promise((resolve) => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = 'image/*'
+        input.onchange = async () => {
+            const file = input.files?.[0]
+            resolve(file ? await uploadImage(file) : null)
+        }
+        input.click()
+    })
+}
+
+const imageOf = (transfer: DataTransfer | null) =>
+    Array.from(transfer?.files ?? []).find(f => f.type.startsWith('image/')) ?? null
+
+const carriesImage = (transfer: DataTransfer | null) =>
+    Array.from(transfer?.items ?? []).some(i => i.kind === 'file' && i.type.startsWith('image/'))
+
+/**
+ * Makes an element accept an image dropped from the desktop.
+ *
+ * Returns handlers to spread and an `over` signal for the hover state. Only
+ * reacts to drags actually carrying an image, so dragging text or one of the
+ * app's own items across an avatar doesn't light it up.
+ */
+export function createImageDrop(onUrl: (url: string) => void, enabled?: () => boolean) {
+    const [over, setOver] = createSignal(false)
+    const active = () => enabled?.() ?? true
+
+    return {
+        over,
+        handlers: {
+            onDragOver: (e: DragEvent) => {
+                if (!active() || !carriesImage(e.dataTransfer)) return
+                // Required on every dragover, not just dragenter, or the drop
+                // never fires and the browser navigates to the file instead.
+                e.preventDefault()
+                setOver(true)
+            },
+            onDragLeave: (e: DragEvent) => {
+                // dragleave also fires when crossing into a child, which would
+                // flicker the highlight off mid-hover.
+                const to = e.relatedTarget as Node | null
+                if (to && (e.currentTarget as HTMLElement).contains(to)) return
+                setOver(false)
+            },
+            onDrop: async (e: DragEvent) => {
+                if (!active()) return
+                e.preventDefault()
+                setOver(false)
+                const file = imageOf(e.dataTransfer)
+                if (!file) return
+                const url = await uploadImage(file)
+                if (url) onUrl(url)
+            },
+        },
+    }
+}
+
+/**
+ * Stop a near-miss from navigating away.
+ *
+ * Dropping a file anywhere the page doesn't handle makes the browser open it,
+ * discarding whatever was on screen — including an unsaved editor. Now that
+ * things invite dragging, that misfire is easy to hit.
+ */
+export function guardStrayImageDrops() {
+    const swallow = (e: DragEvent) => {
+        if (!carriesImage(e.dataTransfer)) return
+        e.preventDefault()
+    }
+    document.addEventListener('dragover', swallow)
+    document.addEventListener('drop', swallow)
+}
