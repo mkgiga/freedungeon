@@ -1,6 +1,6 @@
 import { tool, createSdkMcpServer, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { COMMANDS } from '@shared/game-state/commands';
+import { COMMANDS, commandSchema, type CommandName } from '@shared/game-state/commands';
 import { QUERIES } from '@shared/game-state/queries';
 import { rpcExec, rpcQuery } from './rpc';
 import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProducedMessageId } from './bridge-state';
@@ -16,9 +16,9 @@ import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProd
  * registered under `game_state`. We pass that pattern to `allowedTools` so
  * the model can call them without permission prompts.
  */
-export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableSceneImages = false) {
+export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableSceneImages = false, enableItemIcons = false) {
     const writeTools = commandEntries(enableSceneImages).map(([key, spec]) => {
-        const shape = unwrapToShape(spec.schema);
+        const shape = unwrapToShape(commandSchema(key as CommandName, { itemIcons: enableItemIcons }));
         return tool(
             spec.name,
             spec.description,

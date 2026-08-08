@@ -15,7 +15,7 @@
 import { generateText, hasToolCall, jsonSchema, stepCountIs, tool, type ModelMessage, type Tool } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { z } from 'zod'
-import { COMMANDS, type CommandName } from '@shared/game-state/commands'
+import { COMMANDS, commandSchema, type CommandName } from '@shared/game-state/commands'
 import { QUERIES, type QueryName } from '@shared/game-state/queries'
 import type { LLMConfig } from '@shared/types'
 import { execCommand, runQuery } from './agent'
@@ -91,7 +91,12 @@ class ToolFailure extends Error {
  * Claude MCP server uses — so a tool call produces one Block + one ChatMessage
  * and returns the effect/result text the model sees next step.
  */
-export function buildAiSdkTools(chatId: string, enableChoicePrompts: boolean, enableSceneImages = false): Record<string, Tool> {
+export function buildAiSdkTools(
+    chatId: string,
+    enableChoicePrompts: boolean,
+    enableSceneImages = false,
+    enableItemIcons = false,
+): Record<string, Tool> {
     const tools: Record<string, Tool> = {}
 
     for (const [key, spec] of Object.entries(COMMANDS)) {
@@ -99,7 +104,9 @@ export function buildAiSdkTools(chatId: string, enableChoicePrompts: boolean, en
         if (key === 'generate_image' && !enableSceneImages) continue // gated on the imageGen sub-toggle
         tools[spec.name] = tool({
             description: spec.description,
-            inputSchema: jsonSchema(z.toJSONSchema(spec.schema)),
+            inputSchema: jsonSchema(z.toJSONSchema(
+                commandSchema(key as CommandName, { itemIcons: enableItemIcons }),
+            )),
             execute: async (args) => {
                 const r = await execCommand(chatId, key as CommandName, args as Record<string, unknown>)
                 if ('error' in r) throw new ToolFailure(r.error ?? 'unknown error')
@@ -150,6 +157,7 @@ export type AiSdkTurnArgs = {
     transcript: ModelMessage[]
     enableChoicePrompts: boolean
     enableSceneImages: boolean
+    enableItemIcons: boolean
     signal: AbortSignal
 }
 
@@ -160,7 +168,7 @@ export type AiSdkTurnArgs = {
  * with full memory of its atomic tool calls + results.
  */
 export async function runAiSdkTurn(args: AiSdkTurnArgs): Promise<{ transcript: ModelMessage[] }> {
-    const tools = buildAiSdkTools(args.chatId, args.enableChoicePrompts, args.enableSceneImages)
+    const tools = buildAiSdkTools(args.chatId, args.enableChoicePrompts, args.enableSceneImages, args.enableItemIcons)
     const messages: ModelMessage[] = [...args.transcript, { role: 'user', content: args.userContent }]
 
     const result = await generateText({

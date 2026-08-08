@@ -331,3 +331,24 @@ export const COMMANDS = {
 } as const;
 
 export type CommandName = keyof typeof COMMANDS;
+
+/** Optional features that change what a command accepts. */
+export type CommandFeatures = { itemIcons?: boolean };
+
+/**
+ * The arg schema to expose for a command, given which features are on.
+ *
+ * `visualDescription` is only ever read when item icons are being generated —
+ * it's the prompt handed to the image model. With that feature off, exposing it
+ * asks for a paragraph per item that nothing renders, so it's dropped.
+ *
+ * Lives here rather than in each tool builder for the reason the registry
+ * exists at all: the MCP server and the AI-SDK loop must not be able to
+ * disagree about the arg shape.
+ */
+export function commandSchema(key: CommandName, features: CommandFeatures): z.ZodTypeAny {
+    if (key === 'define_item' && !features.itemIcons) {
+        return COMMANDS.define_item.schema.omit({ visualDescription: true });
+    }
+    return COMMANDS[key].schema;
+}

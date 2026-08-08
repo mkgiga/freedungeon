@@ -18,6 +18,7 @@ export type PromptArgs = {
     model: string;
     enableChoicePrompts?: boolean;
     enableSceneImages?: boolean;
+    enableItemIcons?: boolean;
     /** Absolute path to the Claude CLI, resolved by the server per turn. */
     claudeCliPath?: string | null;
 };
@@ -44,7 +45,7 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
     currentAbort = abort;
 
     const enableSceneImages = args.enableSceneImages ?? false;
-    const mcpServer = buildGameStateMcpServer(args.enableChoicePrompts ?? false, enableSceneImages);
+    const mcpServer = buildGameStateMcpServer(args.enableChoicePrompts ?? false, enableSceneImages, args.enableItemIcons ?? false);
 
     let capturedSessionId: string | null = args.resumeSessionId;
     let caughtError: { name?: string; message: string } | null = null;

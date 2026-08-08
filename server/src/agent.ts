@@ -584,6 +584,7 @@ async function runAiTurn(args: {
     transcript: ModelMessage[];
     enableChoicePrompts: boolean;
     enableSceneImages: boolean;
+    enableItemIcons: boolean;
 }) {
     const controller = new AbortController();
     inFlightAiTurns.set(args.chatId, controller);
@@ -596,6 +597,7 @@ async function runAiTurn(args: {
             transcript: args.transcript,
             enableChoicePrompts: args.enableChoicePrompts,
             enableSceneImages: args.enableSceneImages,
+            enableItemIcons: args.enableItemIcons,
             signal: controller.signal,
         });
         await saveAiTranscript(args.chatId, transcript);
@@ -661,6 +663,10 @@ export async function dispatchPromptToAgent(args: {
     // is on, so the agent is never told about a capability the exec path would
     // then refuse.
     const enableSceneImages = sceneImagesEnabled();
+    // Same lockstep for define_item's visualDescription: it is only ever read
+    // to prompt the icon image model, so with icons off the field is dropped
+    // rather than asking for a paragraph nothing renders.
+    const enableItemIcons = itemIconsEnabled();
 
     // Provider → loop. Anthropic uses the Claude Agent SDK subprocess; OpenAI-v1
     // (openai/custom) uses the in-process AI SDK loop. Each keeps private memory
@@ -770,6 +776,7 @@ export async function dispatchPromptToAgent(args: {
                     model: llmConfig.model || 'claude-sonnet-4-6',
                     enableChoicePrompts,
                     enableSceneImages,
+                    enableItemIcons,
                     // Resolved per turn rather than read from the environment
                     // the agent was spawned with. A CLI downloaded (or
                     // installed) after startup would otherwise never reach a
@@ -810,6 +817,7 @@ export async function dispatchPromptToAgent(args: {
             transcript,
             enableChoicePrompts,
             enableSceneImages,
+            enableItemIcons,
         });
         log.server.info(`AI SDK turn complete for chat ${args.chatId}`);
     }
