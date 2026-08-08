@@ -70,7 +70,7 @@ export const COMMANDS = {
 
     speech: defineCommand({
         name: 'speech',
-        description: 'Dialogue from an actor. Three uses: a predefined actor\'s id (via list_chat_actors); a made-up id for a new recurring speaker (auto-added to the active scene); or just a `name` for a one-off ad-hoc speaker like a guard or passerby (not tracked). Id-based speakers are auto-added to the active scene if absent.',
+        description: 'Dialogue from an actor. Pass an `actorId` — a predefined one from list_chat_actors, or a made-up one for a new recurring speaker; either is added to the active scene if absent. Pass only a `name` for a one-off speaker, who is not tracked.',
         schema: speechSchema,
         toBlock: (args) => args.actorId
             ? {
@@ -91,7 +91,7 @@ export const COMMANDS = {
         name: 'pause',
         description: 'Insert a timed pause between blocks (int or float seconds). Use sparingly for dramatic effect.',
         schema: z.object({
-            seconds: z.number().min(0).max(10).describe('Pause length in seconds.'),
+            seconds: z.number().min(0).max(10),
         }),
         toBlock: (args) => ({ type: 'pause', seconds: args.seconds }),
     }),
@@ -117,10 +117,10 @@ export const COMMANDS = {
     // image later can't retroactively break a beat that already happened.
     show_image: defineCommand({
         name: 'show_image',
-        description: 'Display one of this chat\'s attached images inline in the story. `key` must be one listed by list_images — never invent one. Use when a curated visual fits the moment: arriving somewhere it depicts, a character it portrays, a prop or map coming into play.',
+        description: 'Display one of this chat\'s attached images inline in the story. `key` must be one listed by list_images — never invent one.',
         schema: z.object({
             key: z.string().describe('Image key from list_images.'),
-            caption: z.string().optional().describe('Optional text shown under the image, for any purpose.'),
+            caption: z.string().optional().describe('Optional text shown under the image.'),
         }),
         toBlock: (args) => ({
             type: 'image',
@@ -136,11 +136,11 @@ export const COMMANDS = {
     // /uploads URL — toBlock must stay pure and synchronous.
     generate_image: defineCommand({
         name: 'generate_image',
-        description: 'Generate and display an image inline in the story. Use for brief visual exposition — establishing a location the party has just arrived at, revealing something whose look matters more than a description would carry. One image per beat at most; this blocks the turn while it renders, so reach for it when the visual does work that prose would not.',
+        description: 'Generate and display an image inline in the story, for visual exposition prose would not carry. One image per beat at most; this blocks the turn while it renders.',
         schema: z.object({
-            description: z.string().describe('In-depth description of the image to generate, written for an image model: subject and action, setting, framing and camera angle, lighting, mood, colour. Concrete visual nouns, not story context — the model has no idea who these characters are.'),
+            description: z.string().describe('The image to generate, for an image model. Concrete visual nouns, not story context — it has no idea who these characters are.'),
             aspect: z.enum(['square', 'landscape', 'portrait']).describe('Shape of the image. "landscape" for establishing shots and vistas, "portrait" for a figure or a tall space, "square" when neither dominates.'),
-            caption: z.string().optional().describe('Optional text shown under the image, for any purpose — a caption, a place name and date, a line of narration to read alongside it. Omit for a bare image.'),
+            caption: z.string().optional().describe('Optional text shown under the image.'),
         }),
         toBlock: (args) => ({
             type: 'image',
@@ -155,7 +155,7 @@ export const COMMANDS = {
         name: 'webview',
         description: 'Render a sandboxed HTML iframe inline. Use for diagrams, notes, mini-UIs.',
         schema: z.object({
-            html: z.string().describe('HTML body fragment.'),
+            html: z.string(),
             css: z.string().optional(),
             script: z.string().optional(),
         }),
@@ -221,12 +221,12 @@ export const COMMANDS = {
     // when the image-generation feature is on — the agent never supplies it.
     define_item: defineCommand({
         name: 'define_item',
-        description: 'Define an item type before it can be given to the party. `key` is a stable snake_case identifier used by give_item/take_item/use_item; `label` is what the player sees. Calling this again with the same key updates the definition. Define an item once, then reference it by key from then on.',
+        description: 'Define an item type before it can be given to the party. Calling this again with the same key updates the definition.',
         schema: z.object({
-            key: z.string().regex(/^[a-z][a-z0-9_]*$/, 'Use snake_case (lowercase + underscores).').describe('Stable identifier, e.g. "rusted_key". Referenced by give_item.'),
-            label: z.string().describe('Player-facing display name, e.g. "Rusted Key".'),
-            description: z.string().describe('Short blurb shown to the player on the item card — a sentence or two, in the voice of the story.'),
-            visualDescription: z.string().describe('In-depth description of how the item looks, written for an image model and never shown to the player. Be exhaustive and concrete in plain prose: form and proportions, material and finish, colour, wear and damage, ornament and markings, and anything held, attached or leaking. Describe only the object itself against no background, and do not mention the story, its owner, or how it is used.'),
+            key: z.string().regex(/^[a-z][a-z0-9_]*$/, 'Use snake_case (lowercase + underscores).').describe('Stable snake_case identifier. Referenced by give_item.'),
+            label: z.string().describe('Player-facing display name.'),
+            description: z.string().describe('Short blurb shown to the player on the item card, in the voice of the story.'),
+            visualDescription: z.string().describe('How the item looks, for an image model — the object alone, no background, no story context. Never shown to the player.'),
         }),
         toBlock: (args) => ({
             type: 'defineItem',
@@ -264,11 +264,11 @@ export const COMMANDS = {
 
     use_item: defineCommand({
         name: 'use_item',
-        description: 'Consume item(s) from the party inventory, used on a target actor. Call this to resolve a tryUse(...) attempt from the user. Errors without side effects if the item is missing, the quantity falls short, or the target is not in the active scene — on error, narrate the failure instead. On success only the consumption is recorded; apply what the item actually does via follow-up tools (heal, damage, set_flag, ...) and narrate the outcome.',
+        description: 'Consume item(s) from the party inventory, used on a target actor. Call this to resolve a tryUse(...) attempt from the user. Errors without side effects if the item is missing, the quantity falls short, or the target is not in the active scene — on error, narrate the failure instead. On success only the consumption is recorded; apply what the item actually does via follow-up tools and narrate the outcome.',
         schema: z.object({
             item: z.string().describe('Item definition key, exactly as listed in the inventory.'),
             target: z.string().describe('Id of the actor the item is used on.'),
-            qty: z.number().int().positive().default(1).describe('How many to consume. Defaults to 1.'),
+            qty: z.number().int().positive().default(1),
         }),
         toBlock: (args) => ({ type: 'useItem', item: args.item, target: args.target, qty: args.qty }),
         validate: (args, ctx) => {
@@ -291,7 +291,7 @@ export const COMMANDS = {
 
     set_flag: defineCommand({
         name: 'set_flag',
-        description: 'Set a named flag in the scratchpad. Use for narrative conditions ("dragon_defeated"), chapter markers ("current_chapter"), or anything not modeled by HP/inventory/actors. Value can be string, number, or boolean.',
+        description: 'Set a named flag in the scratchpad — anything not modelled by HP, inventory or actors. Value can be string, number, or boolean.',
         schema: z.object({
             key: z.string().regex(/^[a-z][a-z0-9_]*$/, 'Use snake_case (lowercase + underscores).'),
             value: z.union([z.string(), z.number(), z.boolean()]),
@@ -311,7 +311,7 @@ export const COMMANDS = {
         name: 'set_location',
         description: 'Update the short description of where the focus actor currently is. Use sparingly — only when the scene actually moves.',
         schema: z.object({
-            description: z.string().describe('Short phrase like "the throne room" or "outside the inn".'),
+            description: z.string().describe('Short phrase naming where the focus actor is.'),
         }),
         toBlock: (args) => ({ type: 'setLocation', description: args.description }),
         destructive: true,

@@ -89,7 +89,7 @@ export const SCENARIO_TOOLS = {
         schema: z.object({
             name: z.string().describe('Display name'),
             description: z.string().optional().describe('Who they are, in prose — personality, history, how they speak'),
-            group: z.string().optional().describe('Optional grouping label, e.g. "party" or "villains"'),
+            group: z.string().optional().describe('Optional grouping label'),
         }),
         run: async (args, deps) => {
             const created = await deps.createCharacter(args)
@@ -146,7 +146,7 @@ export const SCENARIO_TOOLS = {
         description: 'Create a note belonging to this scenario — lore, rules, a premise. It does not appear in the user\'s global note library.',
         schema: z.object({
             title: z.string(),
-            type: z.string().optional().describe('Free-form category, e.g. "lore" or "rules"'),
+            type: z.string().optional().describe('Free-form category'),
             content: z.string().optional(),
         }),
         run: async (args, deps) => {
