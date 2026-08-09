@@ -1,11 +1,12 @@
 import { For, Show } from 'solid-js'
-import { MdFillSettings, MdFillSmart_toy } from 'solid-icons/md'
+import { MdFillHelp, MdFillSettings, MdFillSmart_toy } from 'solid-icons/md'
 import { state } from '../state'
 import { activeTab, setActiveTab } from '../tab-state'
 import { viewport } from '../viewport'
 import { useAssetPickers } from './chat/AssetPicker'
 import { useLlmConfigs } from './LlmConfigsDialog'
 import { usePreferences } from './PreferencesDialog'
+import { useHelp } from './HelpDialog'
 import { ImageIcon } from './ImageIcon'
 import { NAV_ITEMS } from './nav-items'
 import { Text } from './typography/Text'
@@ -23,6 +24,7 @@ export function LeftNav() {
     const pickers = useAssetPickers()
     const configs = useLlmConfigs()
     const preferences = usePreferences()
+    const help = useHelp()
     const showLabels = () => viewport() === 'wide'
 
     const player = () => {
@@ -104,6 +106,18 @@ export function LeftNav() {
                 <MdFillSettings size={26} />
                 <Show when={showLabels()}>
                     <Text>Preferences</Text>
+                </Show>
+            </button>
+
+            <button
+                type="button"
+                class="left-nav-preferences"
+                title="Help"
+                onClick={() => help.open()}
+            >
+                <MdFillHelp size={26} />
+                <Show when={showLabels()}>
+                    <Text>Help</Text>
                 </Show>
             </button>
         </menu>

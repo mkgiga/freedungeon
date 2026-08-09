@@ -175,7 +175,7 @@ export function PreferencesDialog() {
 
                         <SettingsToggle
                             label="Debug mode"
-                            hint="Adds a button in chats to inspect the exact prompt sent."
+                            hint="Adds a button in chats to see exactly what was sent to the model."
                             checked={state.userPreferences.debug ?? false}
                             onChange={(debug) => trpc.preferences.update.mutate({ debug })}
                         />

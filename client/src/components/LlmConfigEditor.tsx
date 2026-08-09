@@ -172,7 +172,7 @@ export function LlmConfigEditor(props: {
             <SettingsGroup>
                 <TextEditor
                     title="System Prompt"
-                    description="Prepended to every chat. Leave empty to use the built-in one."
+                    description="Sets how the dungeon master behaves in every chat. Leave empty for the built-in one."
                     value={() => draft.systemPrompt}
                     onInput={(v) => setDraft('systemPrompt', v)}
                 />

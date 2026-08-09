@@ -57,7 +57,7 @@ export type DependencyState = {
 export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string }> = {
     claudeCli: {
         label: 'Claude Code',
-        reason: 'Anthropic models run through the Claude Code CLI, downloaded from Anthropic.',
+        reason: 'Anthropic models run through Claude Code, downloaded from Anthropic.',
     },
     rmbgModel: {
         label: 'RMBG-1.4 weights',

@@ -27,7 +27,7 @@ export const FEATURES: Record<string, FeatureSpec> = {
     choicePrompts: {
         key: 'choicePrompts',
         name: 'Multiple-choice prompts',
-        description: 'The agent can end a turn with suggested actions. You can still type your own.',
+        description: 'The dungeon master can end a turn with suggested actions. You can still type your own.',
         schema: [],
         defaults: {},
     },
@@ -35,7 +35,7 @@ export const FEATURES: Record<string, FeatureSpec> = {
     imageGen: {
         key: 'imageGen',
         name: 'Image generation',
-        description: 'Image generation via Stable Diffusion WebUI Forge. Needs Forge running with --api.',
+        description: 'Needs Stable Diffusion WebUI Forge running with --api.',
         schema: [
             {
                 path: ['endpoint'],
@@ -47,7 +47,7 @@ export const FEATURES: Record<string, FeatureSpec> = {
             {
                 path: ['generateItemIcons'],
                 label: 'Generate item icons',
-                description: 'An icon for every item the agent defines. Slower turns.',
+                description: 'An icon for every item the dungeon master creates. Slower turns.',
                 default: false,
                 control: { type: 'toggle' },
             },
@@ -61,7 +61,7 @@ export const FEATURES: Record<string, FeatureSpec> = {
             {
                 path: ['generateImages'],
                 label: 'Generate scene images',
-                description: 'Lets the agent illustrate places and moments. Slower turns.',
+                description: 'Lets the dungeon master illustrate places and moments. Slower turns.',
                 default: false,
                 control: { type: 'toggle' },
             },

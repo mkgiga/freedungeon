@@ -186,7 +186,7 @@ export function NoteEditor(props: {
                 <section class="editor-fill mb-6">
                     <TextEditor
                         title="Content"
-                        description="Injected into the system prompt."
+                        description="Extra context the dungeon master always sees."
                         value={() => draft.content}
                         onInput={(v) => setDraft('content', v)}
                         readOnly={!props.edit}

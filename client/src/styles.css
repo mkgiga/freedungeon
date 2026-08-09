@@ -1276,6 +1276,167 @@ button {
   padding: 20px 24px;
 }
 
+/* ── Rendered documentation ──
+
+   The markdown renderer emits plain tags, so the app's type scale is applied
+   by selector here rather than by mapping every token to a component. Same
+   variables the Heading/Text components use, so a doc page and a settings pane
+   are visibly the same typeface at the same sizes. */
+
+.doc-content {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 8px 28px 40px 28px;
+  /* Prose is unreadable at full dialog width; this is ~75 characters. */
+  max-width: 68ch;
+  line-height: 1.6;
+
+  & h1 {
+    font-size: var(--text-xl);
+    font-weight: 700;
+    margin: 20px 0 12px;
+  }
+
+  & h2 {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    margin: 30px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 90%);
+  }
+
+  & h3 {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin: 22px 0 6px;
+  }
+
+  & h4 {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+    margin: 18px 0 6px;
+  }
+
+  & p {
+    margin: 0 0 12px;
+    opacity: 0.85;
+  }
+
+  & ul,
+  & ol {
+    margin: 0 0 12px;
+    padding-left: 22px;
+    opacity: 0.85;
+  }
+
+  & ul { list-style: disc; }
+  & ol { list-style: decimal; }
+
+  & li {
+    margin-bottom: 6px;
+  }
+
+  /* A fenced block nested in a list item shouldn't inherit the bullet's
+     spacing — the docs use this shape for every example. */
+  & li > pre {
+    margin: 8px 0;
+  }
+
+  & a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover { filter: brightness(1.15); }
+  }
+
+  & code {
+    /* Matches the .text-mono utility the rest of the app uses. */
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: color-mix(in oklch, var(--text), transparent 90%);
+  }
+
+  & pre {
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: var(--bg-2);
+    border: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+    overflow-x: auto;
+
+    /* The block already has the background; the inline pill would double it. */
+    & code {
+      padding: 0;
+      background: none;
+      font-size: var(--text-sm);
+      line-height: 1.5;
+    }
+  }
+
+  & blockquote {
+    margin: 0 0 12px;
+    padding-left: 14px;
+    border-left: 3px solid color-mix(in oklch, var(--primary), transparent 60%);
+    opacity: 0.75;
+  }
+
+  & table {
+    width: 100%;
+    margin-bottom: 14px;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  & th,
+  & td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 90%);
+  }
+
+  & th { font-weight: 600; opacity: 0.7; }
+
+  & hr {
+    margin: 24px 0;
+    border: none;
+    border-top: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+  }
+
+  & img { max-width: 100%; border-radius: 8px; }
+}
+
+.doc-version {
+  padding: 10px 16px;
+  opacity: 0.4;
+}
+
+/* A term in the UI that links to the passage explaining it. Dotted rather than
+   solid so it reads as a gloss on the word, not a navigation link out of the
+   form you're filling in. */
+.doc-link {
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in oklch, var(--primary), transparent 40%);
+  transition: color 150ms ease;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--primary);
+  }
+}
+
 /* Scrolling fields above a fixed action rail. */
 .editor-pane {
   display: flex;

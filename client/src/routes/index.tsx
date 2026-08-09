@@ -7,6 +7,7 @@ import { Heading } from '../components/typography/Heading'
 import { Loader } from '../components/Loader'
 import { setActiveTab, type Tab } from '../tab-state'
 import { usePreferences } from '../components/PreferencesDialog'
+import { useHelp } from '../components/HelpDialog'
 import { trpc } from '../trpc'
 
 export const Route = createFileRoute('/')({ component: RouteComponent })
@@ -42,9 +43,13 @@ function DashboardList(props: { links: DashboardLink[] }) {
 function RouteComponent() {
   const [news] = createResource(() => trpc.news.list.query())
   const preferences = usePreferences()
+  const help = useHelp()
 
   const assetLinks = ASSET_TABS.map(t => ({ label: t.label, onClick: () => setActiveTab(t.target) }))
-  const settingsLinks = [{ label: 'Preferences', onClick: preferences.open }]
+  const settingsLinks = [
+    { label: 'Preferences', onClick: preferences.open },
+    { label: 'Help', onClick: () => help.open() },
+  ]
 
   return (
     <div class="flex flex-col h-full overflow-hidden">

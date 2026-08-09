@@ -10,15 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ScenariosIndexRouteImport } from './routes/scenarios/index'
-import { Route as NotesIndexRouteImport } from './routes/notes/index'
-import { Route as HomeIndexRouteImport } from './routes/home/index'
-import { Route as ChatIndexRouteImport } from './routes/chat/index'
 import { Route as ActorsIndexRouteImport } from './routes/actors/index'
-import { Route as ScenariosIdIndexRouteImport } from './routes/scenarios/$id/index'
-import { Route as NotesIdIndexRouteImport } from './routes/notes/$id/index'
-import { Route as ChatIdIndexRouteImport } from './routes/chat/$id/index'
+import { Route as ChatIndexRouteImport } from './routes/chat/index'
+import { Route as HomeIndexRouteImport } from './routes/home/index'
+import { Route as NotesIndexRouteImport } from './routes/notes/index'
+import { Route as ScenariosIndexRouteImport } from './routes/scenarios/index'
 import { Route as ActorsIdIndexRouteImport } from './routes/actors/$id/index'
+import { Route as ChatIdIndexRouteImport } from './routes/chat/$id/index'
+import { Route as NotesIdIndexRouteImport } from './routes/notes/$id/index'
+import { Route as ScenariosIdIndexRouteImport } from './routes/scenarios/$id/index'
 import { Route as ScenariosIdCollaborateRouteImport } from './routes/scenarios/$id/collaborate'
 
 const IndexRoute = IndexRouteImport.update({
@@ -26,19 +26,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ScenariosIndexRoute = ScenariosIndexRouteImport.update({
-  id: '/scenarios/',
-  path: '/scenarios/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotesIndexRoute = NotesIndexRouteImport.update({
-  id: '/notes/',
-  path: '/notes/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HomeIndexRoute = HomeIndexRouteImport.update({
-  id: '/home/',
-  path: '/home/',
+const ActorsIndexRoute = ActorsIndexRouteImport.update({
+  id: '/actors/',
+  path: '/actors/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
@@ -46,19 +36,24 @@ const ChatIndexRoute = ChatIndexRouteImport.update({
   path: '/chat/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ActorsIndexRoute = ActorsIndexRouteImport.update({
-  id: '/actors/',
-  path: '/actors/',
+const HomeIndexRoute = HomeIndexRouteImport.update({
+  id: '/home/',
+  path: '/home/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ScenariosIdIndexRoute = ScenariosIdIndexRouteImport.update({
-  id: '/scenarios/$id/',
-  path: '/scenarios/$id/',
+const NotesIndexRoute = NotesIndexRouteImport.update({
+  id: '/notes/',
+  path: '/notes/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const NotesIdIndexRoute = NotesIdIndexRouteImport.update({
-  id: '/notes/$id/',
-  path: '/notes/$id/',
+const ScenariosIndexRoute = ScenariosIndexRouteImport.update({
+  id: '/scenarios/',
+  path: '/scenarios/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActorsIdIndexRoute = ActorsIdIndexRouteImport.update({
+  id: '/actors/$id/',
+  path: '/actors/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatIdIndexRoute = ChatIdIndexRouteImport.update({
@@ -66,9 +61,14 @@ const ChatIdIndexRoute = ChatIdIndexRouteImport.update({
   path: '/chat/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ActorsIdIndexRoute = ActorsIdIndexRouteImport.update({
-  id: '/actors/$id/',
-  path: '/actors/$id/',
+const NotesIdIndexRoute = NotesIdIndexRouteImport.update({
+  id: '/notes/$id/',
+  path: '/notes/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScenariosIdIndexRoute = ScenariosIdIndexRouteImport.update({
+  id: '/scenarios/$id/',
+  path: '/scenarios/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScenariosIdCollaborateRoute = ScenariosIdCollaborateRouteImport.update({
@@ -182,25 +182,11 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/scenarios/': {
-      id: '/scenarios/'
-      path: '/scenarios'
-      fullPath: '/scenarios/'
-      preLoaderRoute: typeof ScenariosIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notes/': {
-      id: '/notes/'
-      path: '/notes'
-      fullPath: '/notes/'
-      preLoaderRoute: typeof NotesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/home/': {
-      id: '/home/'
-      path: '/home'
-      fullPath: '/home/'
-      preLoaderRoute: typeof HomeIndexRouteImport
+    '/actors/': {
+      id: '/actors/'
+      path: '/actors'
+      fullPath: '/actors/'
+      preLoaderRoute: typeof ActorsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat/': {
@@ -210,25 +196,32 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/actors/': {
-      id: '/actors/'
-      path: '/actors'
-      fullPath: '/actors/'
-      preLoaderRoute: typeof ActorsIndexRouteImport
+    '/home/': {
+      id: '/home/'
+      path: '/home'
+      fullPath: '/home/'
+      preLoaderRoute: typeof HomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/scenarios/$id/': {
-      id: '/scenarios/$id/'
-      path: '/scenarios/$id'
-      fullPath: '/scenarios/$id/'
-      preLoaderRoute: typeof ScenariosIdIndexRouteImport
+    '/notes/': {
+      id: '/notes/'
+      path: '/notes'
+      fullPath: '/notes/'
+      preLoaderRoute: typeof NotesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/notes/$id/': {
-      id: '/notes/$id/'
-      path: '/notes/$id'
-      fullPath: '/notes/$id/'
-      preLoaderRoute: typeof NotesIdIndexRouteImport
+    '/scenarios/': {
+      id: '/scenarios/'
+      path: '/scenarios'
+      fullPath: '/scenarios/'
+      preLoaderRoute: typeof ScenariosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/actors/$id/': {
+      id: '/actors/$id/'
+      path: '/actors/$id'
+      fullPath: '/actors/$id/'
+      preLoaderRoute: typeof ActorsIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat/$id/': {
@@ -238,11 +231,18 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof ChatIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/actors/$id/': {
-      id: '/actors/$id/'
-      path: '/actors/$id'
-      fullPath: '/actors/$id/'
-      preLoaderRoute: typeof ActorsIdIndexRouteImport
+    '/notes/$id/': {
+      id: '/notes/$id/'
+      path: '/notes/$id'
+      fullPath: '/notes/$id/'
+      preLoaderRoute: typeof NotesIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scenarios/$id/': {
+      id: '/scenarios/$id/'
+      path: '/scenarios/$id'
+      fullPath: '/scenarios/$id/'
+      preLoaderRoute: typeof ScenariosIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/scenarios/$id/collaborate': {
