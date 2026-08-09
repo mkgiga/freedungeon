@@ -1044,6 +1044,34 @@ button {
   padding-left: 28px;
 }
 
+/* A blocking condition stated where it applies, above the fields it invalidates
+   — the config is unusable until it's resolved, so it outranks everything under
+   it rather than sitting in a row you'd scroll past. */
+.settings-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklch, oklch(70% 0.15 80), transparent 70%);
+  background: color-mix(in oklch, oklch(70% 0.15 80), transparent 92%);
+}
+
+.settings-notice-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: oklch(70% 0.15 80);
+}
+
+.settings-notice-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
 .settings-actions {
   display: flex;
   align-items: center;

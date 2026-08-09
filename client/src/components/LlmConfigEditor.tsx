@@ -1,6 +1,6 @@
 import { createEffect, Show } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
-import { MdFillAdd } from 'solid-icons/md'
+import { MdFillAdd, MdFillWarning } from 'solid-icons/md'
 import { state } from '../state'
 import { trpc } from '../trpc'
 import { Text } from './typography/Text'
@@ -105,6 +105,10 @@ export function LlmConfigEditor(props: {
 
     return (
         <>
+            <Show when={draft.provider === 'anthropic'}>
+                <ClaudeAuthNotice />
+            </Show>
+
             <SettingsGroup title="Connection">
                 <SettingsField label="Name">
                     <SettingsInput value={draft.name} onInput={(v) => setDraft('name', v)} />
@@ -144,15 +148,9 @@ export function LlmConfigEditor(props: {
 
                 {/* Anthropic configs drive the Claude Code CLI, which
                     authenticates with its own stored sign-in — a key here would
-                    never be sent anywhere. */}
-                <Show
-                    when={draft.provider !== 'anthropic'}
-                    fallback={
-                        <SettingsField label="API Key" hint="Not needed — Claude signs in separately.">
-                            <></>
-                        </SettingsField>
-                    }
-                >
+                    never be sent anywhere, so the field is simply absent. The
+                    notice above is what stands in for it. */}
+                <Show when={draft.provider !== 'anthropic'}>
                     <SettingsField label="API Key">
                         <SettingsInput
                             type="password"
@@ -210,6 +208,78 @@ export function LlmConfigEditor(props: {
                 <button type="button" class="modal-btn modal-btn-confirm" onClick={save}>Save</button>
             </SettingsActions>
         </>
+    )
+}
+
+/**
+ * Anthropic's readiness, at the top of the config it affects.
+ *
+ * The Agent SDK has no programmatic auth of its own — it spawns the Claude Code
+ * CLI and inherits whatever credentials that CLI has stored. So there is no key
+ * to type here, and "is this config usable?" is answered by the CLI's own login
+ * state, which the server already derives (`claude auth status --json`) and
+ * publishes as `dependencies.claudeCli`.
+ *
+ * The button only *starts* the flow. Everything after that — the OAuth URL, the
+ * paste-a-code fallback, cancelling — is PatcherOverlay's, which covers the
+ * screen for any dependency in a blocking state. Duplicating it here would mean
+ * two sign-in UIs racing the same subprocess.
+ */
+function ClaudeAuthNotice() {
+    const dep = () => state.dependencies?.claudeCli
+
+    // 'satisfied' is the only state with nothing to say. Absent means the server
+    // hasn't reported yet, and claiming a problem before we know of one would be
+    // worse than staying quiet.
+    const problem = () => {
+        const status = dep()?.status
+        if (!status || status === 'satisfied') return null
+        switch (status) {
+            case 'unauthenticated':
+                return {
+                    message: 'No Claude account is connected, so this config can\'t run yet.',
+                    action: 'Sign in to Claude',
+                    run: () => trpc.dependencies.signIn.mutate(),
+                }
+            case 'downloading':
+            case 'authenticating':
+                return { message: 'Setting up Claude Code…', action: null, run: null }
+            case 'failed':
+                return {
+                    message: dep()?.error ?? 'Claude Code could not be downloaded.',
+                    action: 'Retry',
+                    run: () => trpc.dependencies.ensure.mutate({ key: 'claudeCli' }),
+                }
+            default:
+                // 'missing' and 'corrupt' both resolve the same way: fetch it.
+                // Once the bytes are there the server re-derives status, which
+                // lands on 'unauthenticated' and the patcher offers sign-in.
+                return {
+                    message: 'Claude Code isn\'t installed yet. Anthropic configs run through it.',
+                    action: 'Download Claude Code',
+                    run: () => trpc.dependencies.ensure.mutate({ key: 'claudeCli' }),
+                }
+        }
+    }
+
+    return (
+        <Show when={problem()}>
+            {(p) => (
+                <div class="settings-notice">
+                    <MdFillWarning size={20} class="settings-notice-icon" />
+                    <div class="settings-notice-body">
+                        <Text size="sm">{p().message}</Text>
+                        <Show when={p().action}>
+                            {(label) => (
+                                <button type="button" class="settings-inline-btn" onClick={() => p().run?.()}>
+                                    {label()}
+                                </button>
+                            )}
+                        </Show>
+                    </div>
+                </div>
+            )}
+        </Show>
     )
 }
 
