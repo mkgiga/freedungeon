@@ -396,6 +396,16 @@ export type UserPreferences = {
          *  default", so an untouched install keeps tracking edits to that file. */
         systemPrompt?: string;
     };
+    /** Presentation-only settings, grouped by the surface they affect. Nothing
+     *  here reaches the agent or the server's turn logic. */
+    interface?: {
+        chat?: {
+            /** Play narration and dialogue straight through: no typewriter, no
+             *  tap to continue. `pause` beats still run — they release
+             *  themselves, so they never wait on the user. */
+            autoSkip?: boolean;
+        };
+    };
     [key: string]: any;
 };
 

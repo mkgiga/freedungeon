@@ -181,6 +181,31 @@ function RouteComponent() {
           </div>
         </section>
 
+        {/* Interface */}
+        <section class="mb-8">
+          <Heading level={2} class="mb-4">Interface</Heading>
+
+          <Heading level={3} class="mb-3">Chat</Heading>
+          <div class="flex flex-col gap-4">
+            <label class="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={state.userPreferences.interface?.chat?.autoSkip ?? false}
+                onChange={(e) => trpc.preferences.update.mutate({
+                  interface: {
+                    ...state.userPreferences.interface,
+                    chat: { ...state.userPreferences.interface?.chat, autoSkip: e.currentTarget.checked },
+                  },
+                })}
+              />
+              <span class="flex flex-col">
+                <Text>Auto-skip text</Text>
+                <Text size="sm" class="opacity-50">Narration and dialogue play straight through. Timed pauses still run.</Text>
+              </span>
+            </label>
+          </div>
+        </section>
+
         {/* Features */}
         <section class="mb-8">
           <Heading level={2} class="mb-4">Optional Features</Heading>

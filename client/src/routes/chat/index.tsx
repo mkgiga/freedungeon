@@ -248,12 +248,20 @@ function ConversationViewBody(props: { onBack: () => void }) {
 
   let scrollEl: HTMLDivElement | undefined
 
+  /**
+   * Park the scroll at the live end. The 1-pixel buffer keeps scrollTop off the
+   * exact maximum: iOS Safari treats an at-extreme scroller as unable to
+   * consume touch and routes the gesture to an ancestor, but the root is
+   * position:fixed so the gesture is discarded.
+   */
+  const scrollToBottom = () => {
+    if (!scrollEl) return
+    scrollEl.scrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight - 1)
+  }
+
   // In follow-latest mode, keep the scroll parked at the bottom whenever the
   // visible message list changes — covers initial chat open (render starts at
   // scrollTop=0 otherwise) and streaming new messages.
-  // The 1-pixel buffer keeps scrollTop off the exact maximum: iOS Safari treats
-  // an at-extreme scroller as unable to consume touch and routes the gesture to
-  // an ancestor, but the root is position:fixed so the gesture is discarded.
   // While a message is mid-playback we skip the pin entirely. Each playing
   // message reserves its full final height upfront (visibility:hidden tail of
   // future blocks in ChatMessage), so pinning to the bottom would land the
@@ -264,10 +272,20 @@ function ConversationViewBody(props: { onBack: () => void }) {
   createEffect(() => {
     if (pinnedIds() !== null) return
     visibleMessages() // subscribe to changes
+    // Subscribed to, but deliberately re-read inside the microtask below.
+    // Subscribing makes playback going *idle* a trigger in its own right: a
+    // `pause` is the only point where playback falls behind the message
+    // stream, and anything that lands during one would otherwise never be
+    // pinned — arrivals are the only other trigger, and a turn that ends
+    // shortly after a pause has none left to fire.
+    // The value from this scope is not trustworthy: effect order against the
+    // playback provider's own effect isn't guaranteed, so at this moment
+    // `playingMessageId` may still be the pre-arrival null. The microtask runs
+    // after both have settled.
+    playback.playingMessageId()
     queueMicrotask(() => {
-      if (!scrollEl) return
       if (playback.playingMessageId() !== null) return
-      scrollEl.scrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight - 1)
+      scrollToBottom()
     })
   })
 
@@ -308,12 +326,19 @@ function ConversationViewBody(props: { onBack: () => void }) {
     setPinnedIds(ids)
   }
 
-  const unpinToLatest = () => {
+  /**
+   * Re-arm follow mode and jump to the live end. Every input that means "take
+   * me back to now" should route here rather than touching `pinnedIds` and the
+   * scroll separately — the two drifting apart is what leaves someone parked in
+   * a frozen window that no longer matches where they're looking.
+   *
+   * The bottom sentinel is the one re-arm that doesn't belong here: it fires
+   * because the user scrolled to the end themselves, and forcing a scroll on
+   * top of their own gesture would fight momentum scrolling.
+   */
+  const followLatest = () => {
     setPinnedIds(null)
-    queueMicrotask(() => {
-      if (!scrollEl) return
-      scrollEl.scrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight - 1)
-    })
+    queueMicrotask(scrollToBottom)
   }
 
   const loadMoreHistory = () => {
@@ -454,7 +479,7 @@ function ConversationViewBody(props: { onBack: () => void }) {
           <Show when={pinnedIds() !== null && unreadCount() > 0}>
             <button
               class="chat-jump-to-latest"
-              onClick={unpinToLatest}
+              onClick={followLatest}
             >
               {unreadCount()} new — jump to latest
             </button>

@@ -184,6 +184,11 @@ export function ChatInput(props: { hidden?: boolean }) {
     const handleSend = async () => {
         const text = message().trim()
         if (!text) return
+        // The send button is a Stop button while generating, but Ctrl+Enter
+        // still reaches here — and with auto-skip on, the composer is live
+        // throughout a turn instead of being replaced by the continue bar.
+        // `chat.prompt` rejects a concurrent turn server-side; don't call it.
+        if (state.isGenerating) return
         await withRehydrationConfirm('Send anyway', () => sendNow(text))
     }
 

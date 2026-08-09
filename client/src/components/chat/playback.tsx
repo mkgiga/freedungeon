@@ -122,6 +122,15 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         activeRevealedCount() < activeTypewriterText().length
     )
 
+    /**
+     * Auto-skip demotes `text` and `speech` to pass-through events: revealed
+     * whole, never typed out, never waiting for a tap. `pause` still holds,
+     * because it's authored timing that releases itself on a timer — under
+     * auto-skip nothing in the queue is waiting on the user.
+     */
+    const autoSkip = () => state.userPreferences.interface?.chat?.autoSkip ?? false
+    const holdsPlayback = (b: Block) => (autoSkip() ? b.type === 'pause' : isBlockingBlock(b))
+
     const getPlayingBlocks = (): Block[] | null => {
         const id = untrack(playingMessageId)
         if (id === null) return null
@@ -156,7 +165,7 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         while (c < blocks.length) {
             lastRevealed = blocks[c]
             c++
-            if (lastRevealed && isBlockingBlock(lastRevealed)) { revealedBlocking = true; break }
+            if (lastRevealed && holdsPlayback(lastRevealed)) { revealedBlocking = true; break }
         }
         setCursor(c)
 
@@ -350,8 +359,13 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
      * Playback being active IS the unread condition: `playNextUnseen` runs the
      * moment a message finishes, so an idle player with unseen messages never
      * survives a tick. No separate queue to track.
+     *
+     * Under auto-skip nothing ever waits on the user, so there is nothing to
+     * report unread — the only thing that still holds is a `pause`, and
+     * swapping the composer for a tap-to-continue bar for the length of one
+     * would be a flicker asking for input that isn't wanted.
      */
-    const hasUnread = () => playingMessageId() !== null
+    const hasUnread = () => playingMessageId() !== null && !autoSkip()
 
     const api: PlaybackApi = {
         playingMessageId,
