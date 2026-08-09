@@ -204,6 +204,37 @@ const rawMb = natives.reduce((s, n) => s + fs.statSync(n.src).size, 0) / 1e6
 console.log(`› assets.blob ${(blob.length / 1e6).toFixed(1)}MB (from ~${rawMb.toFixed(0)}MB natives + client)`)
 
 const outfile = path.join(OUT_DIR, 'freedungeon.exe')
+
+/**
+ * Bun compiles to a temp file in `process.cwd()` and moves it onto `outfile`
+ * last. A move that fails leaves that temp behind — a full 129MB per failed
+ * build, named `.<hex>-00000000.bun-build` — and since `bun run build` runs
+ * from server/, they pile up there rather than in dist/.
+ *
+ * Nearly every such failure is the same one: Windows keeps a running image
+ * locked, so rebuilding while freedungeon.exe is open fails with EPERM after
+ * the entire two-minute compile has already finished. Unlinking the target
+ * first turns that into an instant, legible error, and leaves nothing to sweep.
+ */
+function checkOutfileWritable() {
+    for (const dir of new Set([process.cwd(), OUT_DIR])) {
+        for (const name of fs.readdirSync(dir)) {
+            if (name.endsWith('.bun-build')) fs.rmSync(path.join(dir, name), { force: true })
+        }
+    }
+    if (!fs.existsSync(outfile)) return
+    // Opening for write, rather than deleting it: a running image reports EBUSY
+    // here just as reliably, and the old binary still stands if the compile
+    // below fails for some unrelated reason.
+    try {
+        fs.closeSync(fs.openSync(outfile, 'r+'))
+    } catch {
+        console.error(`✗ ${path.relative(REPO, outfile)} is in use — close the running freedungeon and try again.`)
+        process.exit(1)
+    }
+}
+checkOutfileWritable()
+
 const result = await Bun.build({
     entrypoints: [path.join(ROOT, 'src', 'entry.ts')],
     target: 'bun',
