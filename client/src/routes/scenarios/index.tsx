@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/solid-router'
 import { createMemo, For, Show } from 'solid-js'
 import { nanoid } from 'nanoid'
-import { MdFillAdd, MdFillMore_horiz, MdFillPlay_arrow } from 'solid-icons/md'
+import { MdFillAdd, MdFillEdit, MdFillMore_horiz, MdFillPlay_arrow } from 'solid-icons/md'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../../components/TopBar'
@@ -14,7 +14,6 @@ import { useModal } from '../../components/Modal'
 import { setActiveTab, setChatView } from '../../tab-state'
 import { AddNewCard } from '../../components/AddNew'
 import type { Chat } from '@shared/types'
-import { visible } from '@shared/visibility'
 
 export const Route = createFileRoute('/scenarios/')({ component: RouteComponent })
 
@@ -71,12 +70,6 @@ function RouteComponent() {
         })
     }
 
-    const castOf = (scenario: Chat) =>
-        visible(scenario.assets.actors
-            .map(id => state.assets.actors?.[id])
-            .filter((a): a is NonNullable<typeof a> => Boolean(a)))
-            .slice(0, 5)
-
     return (
         <div class="flex flex-col h-full overflow-hidden">
             <TopBar
@@ -116,36 +109,52 @@ function RouteComponent() {
                                     </button>
 
                                     <div class="scenario-card-body">
+                                        {/* Title gets the whole row now. The ⋯ used
+                                            to sit here and squeeze it into an
+                                            ellipsis; it belongs with the other
+                                            actions, not competing with the name. */}
                                         <div class="scenario-card-heading">
                                             <ImageIcon url={scenario.avatarUrl || undefined} size={36} />
-                                            <div class="scenario-card-titles">
-                                                <Text class="scenario-card-title">{scenario.title}</Text>
-                                                <Text size="sm" class="scenario-card-meta">
-                                                    {scenario.assets.actors.length} {scenario.assets.actors.length === 1 ? 'character' : 'characters'}
-                                                </Text>
-                                            </div>
-                                            <Dropdown
-                                                trigger={<MdFillMore_horiz size={20} />}
-                                                items={[
-                                                    { label: 'Play', onClick: () => play(scenario) },
-                                                    { label: 'Edit', onClick: () => edit(scenario) },
-                                                    { label: 'Duplicate', onClick: () => duplicate(scenario) },
-                                                    { label: 'Delete', danger: true, onClick: () => remove(scenario) },
-                                                ]}
-                                            />
+                                            <Text class="scenario-card-title">{scenario.title}</Text>
                                         </div>
 
                                         <Show when={scenario.description}>
                                             <Text size="sm" class="scenario-card-description">{scenario.description}</Text>
                                         </Show>
 
-                                        <Show when={castOf(scenario).length > 0}>
-                                            <div class="scenario-card-cast">
-                                                <For each={castOf(scenario)}>
-                                                    {(actor) => <ImageIcon url={actor!.avatarUrl} size={26} class="scenario-card-cast-face" />}
-                                                </For>
-                                            </div>
-                                        </Show>
+                                        {/* Both things people come here to do, named
+                                            and side by side. Playing was previously
+                                            only discoverable by hovering the banner,
+                                            and editing only by opening the menu —
+                                            which is what made clicking a card a
+                                            coin flip. */}
+                                        <div class="scenario-card-actions">
+                                            <button
+                                                type="button"
+                                                class="scenario-card-action"
+                                                onClick={() => play(scenario)}
+                                                title={`Play ${scenario.title}`}
+                                            >
+                                                <MdFillPlay_arrow size={18} />
+                                                <Text size="sm">Play</Text>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="scenario-card-action"
+                                                onClick={() => edit(scenario)}
+                                                title={`Edit ${scenario.title}`}
+                                            >
+                                                <MdFillEdit size={16} />
+                                                <Text size="sm">Edit</Text>
+                                            </button>
+                                            <Dropdown
+                                                trigger={<MdFillMore_horiz size={20} />}
+                                                items={[
+                                                    { label: 'Duplicate', onClick: () => duplicate(scenario) },
+                                                    { label: 'Delete', danger: true, onClick: () => remove(scenario) },
+                                                ]}
+                                            />
+                                        </div>
                                     </div>
                                 </article>
                             )}
