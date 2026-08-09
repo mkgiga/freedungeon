@@ -108,6 +108,20 @@ export type ActorGameState = {
     hp: number;
 }
 
+/**
+ * A way out of the problem a notification reports, offered alongside it.
+ *
+ * `kind` is a closed set the client maps to a handler rather than anything the
+ * server can describe directly — a notification crosses a socket, so it can
+ * carry data but never behaviour. Deliberately no payload: each kind resolves
+ * its own target from client state, so the server can't hand over a stale id.
+ */
+export type NotificationAction = {
+    label: string;
+    /** Opens the models library on the config currently in use. */
+    kind: 'openLlmConfig';
+}
+
 export type AppNotification = {
     id: string;
     title: string;
@@ -120,6 +134,8 @@ export type AppNotification = {
     push: boolean;
     textColor: string;
     createdAt: number;
+    /** Fix-it affordance rendered inside the toast. */
+    action?: NotificationAction;
 }
 
 /** Name <-> URL */

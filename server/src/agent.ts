@@ -16,7 +16,9 @@ import { runTurn, setCurrentTurnResult } from './game-state';
 import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
 import { isEmbedded } from './embedded';
-import { dependencyPath } from './dependencies';
+import { dependencyPath, verifyDependency } from './dependencies';
+import { ActionableError } from './notifications';
+import { DEPENDENCIES } from '@shared/dependencies';
 import { effectiveConfigSystemPrompt } from './system-prompt';
 import { runScenarioTool } from './scenario-agent';
 import type { ScenarioToolName } from '@shared/scenario-agent/tools';
@@ -676,6 +678,25 @@ export async function dispatchPromptToAgent(args: {
         llmConfig.provider === 'anthropic' ? 'claude'
             : (llmConfig.provider === 'openai' || llmConfig.provider === 'custom') ? 'ai-sdk'
                 : (() => { throw new Error(`Provider "${llmConfig.provider}" isn't supported by the agent loop yet — use an Anthropic config or an OpenAI-v1-compatible (openai/custom) endpoint.`); })();
+
+    // The Claude loop can't start without a signed-in CLI, and left alone it
+    // reports the wrong problem: `dependencyPath` yields null for an
+    // unauthenticated CLI exactly as it does for an absent one, so the SDK
+    // fails with "Native CLI binary not found" and sends the user looking for a
+    // missing file. Check the real condition and carry the fix with the error.
+    // Costs nothing extra — dependencyPath() below runs the same check, and
+    // checkClaudeAuth caches for 10s.
+    if (currentLoop === 'claude') {
+        const claudeStatus = await verifyDependency('claudeCli').catch(() => 'missing' as const);
+        if (claudeStatus !== 'satisfied') {
+            throw new ActionableError(
+                claudeStatus === 'unauthenticated'
+                    ? 'No Claude account is connected, so this model can\'t run.'
+                    : `${DEPENDENCIES.claudeCli.label} isn't ready — Anthropic configs run through it.`,
+                { label: 'Fix this', kind: 'openLlmConfig' },
+            );
+        }
+    }
 
     const chatRow = await db.selectFrom('chats')
         .select(['agent_session_id', 'last_agent_loop', 'last_agent_flags_snapshot'])

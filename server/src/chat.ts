@@ -5,7 +5,7 @@ import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
 import { runTurn, createInitialContext } from "./game-state";
 import { dispatchPromptToAgent, forkAgentSession, forkAgentSessionForChat, invalidateAgentSession, resetFlagsSnapshotToCurrent } from "./agent";
-import { notification } from "./notifications";
+import { ActionableError, notification } from "./notifications";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -150,6 +150,9 @@ export class CurrentChat {
                 show: true,
                 toast: true,
                 push: false,
+                // Carried from wherever the failure was actually diagnosed, so
+                // this catch doesn't have to recognise causes by their message.
+                action: err instanceof ActionableError ? err.action : undefined,
             });
         } finally {
             // Always clear isGenerating so the UI's Send button

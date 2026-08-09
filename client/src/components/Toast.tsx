@@ -1,6 +1,8 @@
-import { createSignal, createContext, useContext, For, onMount, type JSXElement } from 'solid-js'
+import { createSignal, createContext, useContext, For, onMount, Show, type JSXElement } from 'solid-js'
 import { Portal } from 'solid-js/web'
-import { onNotification } from '../state'
+import { onNotification, state } from '../state'
+import { useLlmConfigs } from './LlmConfigsDialog'
+import type { NotificationAction } from '@shared/types'
 
 // ── Types ──
 
@@ -13,6 +15,7 @@ type ToastConfig = {
     duration?: number
     backgroundColor?: string
     textColor?: string
+    action?: NotificationAction
 }
 
 type ToastEntry = ToastConfig & {
@@ -45,6 +48,24 @@ let nextId = 0
 
 export function ToastProvider(props: { children: JSXElement }) {
     const [toasts, setToasts] = createSignal<ToastEntry[]>([])
+    const configs = useLlmConfigs()
+
+    /**
+     * Run a notification's fix-it action. The target is resolved here rather
+     * than sent with the notification: by the time anyone clicks, the active
+     * config may not be the one that was active when the turn failed, and
+     * opening the config they're no longer using would be worse than useless.
+     *
+     * Opening the library on that config mounts its editor fresh, at the top of
+     * the pane — which is where ClaudeAuthNotice and its Sign in button are.
+     */
+    const runAction = (action: NotificationAction) => {
+        switch (action.kind) {
+            case 'openLlmConfig':
+                configs.open(state.userPreferences.activeLLMConfigId ?? undefined)
+                return
+        }
+    }
 
     const dismiss = (id: string) => {
         setToasts((prev) => prev.map((t) => t.id === id ? { ...t, exiting: true } : t))
@@ -75,6 +96,11 @@ export function ToastProvider(props: { children: JSXElement }) {
                     message: notification.content,
                     backgroundColor: notification.backgroundColor || undefined,
                     textColor: notification.textColor || undefined,
+                    action: notification.action,
+                    // An offer to fix something has to outlast the glance that
+                    // notices it: four seconds isn't long enough to read the
+                    // message and decide to act. Dismissed by clicking instead.
+                    duration: notification.action ? 0 : undefined,
                 })
             }
         })
@@ -105,6 +131,25 @@ export function ToastProvider(props: { children: JSXElement }) {
                             >
                                 {toast.title && <div class="toast-title">{toast.title}</div>}
                                 <div class="toast-message">{toast.message}</div>
+                                <Show when={toast.action}>
+                                    {(action) => (
+                                        // The toast as a whole dismisses on click, so
+                                        // the action has to stop the event or it would
+                                        // fire and immediately be dismissed by its own
+                                        // bubble — losing the toast either way.
+                                        <button
+                                            type="button"
+                                            class="toast-action"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                runAction(action())
+                                                dismiss(toast.id)
+                                            }}
+                                        >
+                                            {action().label}
+                                        </button>
+                                    )}
+                                </Show>
                             </div>
                         )}
                     </For>
