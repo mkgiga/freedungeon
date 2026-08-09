@@ -12,13 +12,13 @@ Freedungeon is a roleplaying frontend where AI is the dungeon master. It is insp
 
 ## Documentation
 - [Overview](overview.md)
-- [Install](documentation/install.md)
-- [Configuration](documentation/configuration.md)
+- [Install](docs/install.md)
+- [Configuration](docs/configuration.md)
 - Concepts
-  * [Actors](documentation/actors.md)
-  * [Notes](documentation/notes.md)
-  * [Chats](documentation/chats.md)
-  * [Macros](documentation/macros.md)
+  * [Actors](docs/actors.md)
+  * [Notes](docs/notes.md)
+  * [Chats](docs/chats.md)
+  * [Macros](docs/macros.md)
 - [Contributing](#for-contributors)
   * [Guidelines](#guidelines)
 - [License](#license)
