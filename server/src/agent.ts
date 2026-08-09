@@ -363,7 +363,6 @@ export function runQuery(chatId: string, query: QueryName, args: Record<string, 
             name: a.name,
             description: a.description,
             expressions: Object.keys(a.expressions),
-            group: a.group,
         }));
 
     const notes = visible(

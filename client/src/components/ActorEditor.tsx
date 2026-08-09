@@ -87,7 +87,6 @@ export function ActorEditor(props: {
         name: string
         description: string
         avatarUrl: string
-        group?: string
         expressions: Record<string, string>
         createdAt: number
         updatedAt: number
@@ -98,7 +97,6 @@ export function ActorEditor(props: {
             name: 'New Actor',
             description: '',
             avatarUrl: '',
-            group: undefined,
             expressions: {} as Record<string, string>,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -112,7 +110,6 @@ export function ActorEditor(props: {
             description: draft.description,
             avatarUrl: draft.avatarUrl,
             customId: draft.customId,
-            group: draft.group,
             expressions: draft.expressions as Record<string, string>,
             ...(props.homeChatId !== undefined ? { homeChatId: props.homeChatId } : {}),
         })
@@ -211,18 +208,6 @@ export function ActorEditor(props: {
                                     value={draft.customId}
                                     class="font-mono text-sm bg-transparent border-b border-(--primary) outline-none opacity-70 focus:opacity-100"
                                     onInput={(e) => setDraft('customId', e.currentTarget.value)}
-                                />
-                            </Show>
-                        </Text>
-                        <Text size="sm" class="opacity-50 flex items-center gap-1">
-                            Group
-                            <Show when={props.edit} fallback={<Text size="sm" class="opacity-70">{draft.group ?? '—'}</Text>}>
-                                <input
-                                    type="text"
-                                    value={draft.group ?? ''}
-                                    placeholder="e.g. Party, Enemies, NPCs"
-                                    class="text-sm bg-transparent border-b border-(--primary) outline-none opacity-70 focus:opacity-100"
-                                    onInput={(e) => setDraft('group', e.currentTarget.value || undefined)}
                                 />
                             </Show>
                         </Text>

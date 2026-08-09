@@ -20,7 +20,6 @@ export interface DB {
         name: Generated<string>;
         description: Generated<string>;
         avatar_url: string;
-        group: string | null;
         home_chat_id: string | null;
         deleted_at: number | null;
         created_at: Generated<number>;
@@ -407,7 +406,6 @@ export function hydrateActor(row: ActorRow, expressions: ExpressionRow[]): Actor
         name: row.name,
         description: row.description,
         avatarUrl: row.avatar_url,
-        group: row.group ?? undefined,
         homeChatId: row.home_chat_id ?? null,
         deletedAt: row.deleted_at ?? null,
         createdAt: row.created_at,
@@ -534,7 +532,6 @@ export function dehydrateActor(actor: Actor): Omit<Selectable<DB['actors']>, 'id
         name: actor.name,
         description: actor.description,
         avatar_url: actor.avatarUrl,
-        group: actor.group ?? null,
         home_chat_id: actor.homeChatId ?? null,
         deleted_at: actor.deletedAt ?? null,
         created_at: actor.createdAt,

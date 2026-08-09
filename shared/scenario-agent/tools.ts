@@ -21,10 +21,10 @@ import { z } from 'zod'
 export type ScenarioAgentDeps = {
     /** The Scenario being edited. */
     chatId: string
-    listCharacters: () => Array<{ id: string; name: string; description: string; group?: string }>
-    getCharacter: (id: string) => { id: string; name: string; description: string; group?: string; expressions: string[] } | null
-    createCharacter: (input: { name: string; description?: string; group?: string }) => Promise<{ id: string; name: string }>
-    updateCharacter: (input: { id: string; name?: string; description?: string; group?: string }) => Promise<{ id: string; name: string }>
+    listCharacters: () => Array<{ id: string; name: string; description: string }>
+    getCharacter: (id: string) => { id: string; name: string; description: string; expressions: string[] } | null
+    createCharacter: (input: { name: string; description?: string }) => Promise<{ id: string; name: string }>
+    updateCharacter: (input: { id: string; name?: string; description?: string }) => Promise<{ id: string; name: string }>
     removeCharacter: (id: string) => Promise<void>
 
     listNotes: () => Array<{ id: string; title: string; type: string }>
@@ -89,7 +89,6 @@ export const SCENARIO_TOOLS = {
         schema: z.object({
             name: z.string().describe('Display name'),
             description: z.string().optional().describe('Who they are, in prose — personality, history, how they speak'),
-            group: z.string().optional().describe('Optional grouping label'),
         }),
         run: async (args, deps) => {
             const created = await deps.createCharacter(args)
@@ -104,7 +103,6 @@ export const SCENARIO_TOOLS = {
             id: z.string(),
             name: z.string().optional(),
             description: z.string().optional(),
-            group: z.string().optional(),
         }),
         destructive: true,
         run: async (args, deps) => {

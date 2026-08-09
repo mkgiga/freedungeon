@@ -149,12 +149,6 @@ export type Actor = {
     avatarUrl: string;
     expressions: ActorExpressions;
     /**
-     * Optional user-authored category label. Used to bucket actors in the
-     * character list and as additional search text in pickers. Compared
-     * case-insensitively when grouping.
-     */
-    group?: string;
-    /**
      * The Scenario this was authored for, or null for the global library.
      *
      * Purely a *listing* rule: the global library is "things with no home".

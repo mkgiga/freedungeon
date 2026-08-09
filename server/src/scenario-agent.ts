@@ -71,7 +71,7 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
         chatId,
 
         listCharacters: () => scenarioActors(chatId).map(a => ({
-            id: a.id, name: a.name, description: a.description, group: a.group,
+            id: a.id, name: a.name, description: a.description,
         })),
 
         getCharacter: (id) => {
@@ -80,12 +80,11 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
                 id: found.id,
                 name: found.name,
                 description: found.description,
-                group: found.group,
                 expressions: Object.keys(found.expressions ?? {}),
             } : null
         },
 
-        createCharacter: async ({ name, description, group }) => {
+        createCharacter: async ({ name, description }) => {
             const id = nanoid()
             const now = Date.now()
             const actor: Actor = {
@@ -95,7 +94,6 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
                 description: description ?? '',
                 avatarUrl: '',
                 expressions: {},
-                group: group?.trim() ? group.trim().toLowerCase() : undefined,
                 // Authored for this Scenario: stays out of the global library.
                 homeChatId: chatId,
                 deletedAt: null,
@@ -115,7 +113,6 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
                 ...existing,
                 ...(patch.name !== undefined ? { name: patch.name } : {}),
                 ...(patch.description !== undefined ? { description: patch.description } : {}),
-                ...(patch.group !== undefined ? { group: patch.group?.trim().toLowerCase() || undefined } : {}),
                 updatedAt: Date.now(),
             }
             setState('assets', 'actors', id, next)
@@ -186,7 +183,7 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
             const match = (...fields: (string | undefined)[]) =>
                 !q || fields.some(f => f?.toLowerCase().includes(q))
             const actors = inLibrary(Object.values(state.assets.actors))
-                .filter(a => match(a.name, a.description, a.group))
+                .filter(a => match(a.name, a.description))
                 .map(a => ({ id: a.id, kind: 'character' as const, name: a.name }))
             const notes = inLibrary(Object.values(state.assets.notes))
                 .filter(n => match(n.title, n.type, n.content))

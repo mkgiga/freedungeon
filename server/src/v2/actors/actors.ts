@@ -27,18 +27,12 @@ export const actorsRouter = router({
             description: z.string().optional().default(''),
             avatarUrl: z.string().optional().default(''),
             customId: z.string().optional(),
-            group: z.string().optional(),
             expressions: z.record(z.string(), z.string()).optional().default({}),
             /** Author this actor into a Scenario instead of the global library. */
             homeChatId: z.string().nullish(),
         }))
         .mutation(({ input }) => {
             const now = Date.now()
-            // Trim whitespace and lowercase so group membership is case-insensitive
-            // by construction — the section header's CSS `text-transform: uppercase`
-            // renders "party" and "PARTY" identically. Empty → undefined so blank
-            // form submissions don't leave ghost empty-string groups in state/DB.
-            const group = input.group?.trim() ? input.group.trim().toLowerCase() : undefined
 
             if (input.id !== undefined && state.assets.actors[input.id]) {
                 const id = input.id
@@ -49,7 +43,6 @@ export const actorsRouter = router({
                     description: input.description,
                     avatarUrl: input.avatarUrl,
                     customId: input.customId ?? existing!.customId,
-                    group,
                     expressions: input.expressions,
                     // Only when explicitly supplied — an edit from the Actors
                     // screen omits it and must not relocate the actor.
@@ -66,7 +59,6 @@ export const actorsRouter = router({
                 name: input.name,
                 description: input.description,
                 avatarUrl: input.avatarUrl,
-                group,
                 expressions: input.expressions,
                 homeChatId: input.homeChatId ?? null,
                 createdAt: now,

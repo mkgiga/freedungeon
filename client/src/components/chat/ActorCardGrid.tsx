@@ -49,9 +49,6 @@ export function ActorCardGrid(props: {
                             >
                                 <ImageIcon url={actor.avatarUrl} size={72} />
                                 <Text size="sm" class="actor-card-name">{actor.name}</Text>
-                                <Show when={actor.group}>
-                                    <Text size="sm" class="actor-card-group">{actor.group}</Text>
-                                </Show>
                             </button>
                             <Show when={props.onRemove}>
                                 <button

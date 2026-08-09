@@ -26,7 +26,6 @@ export type QueryDeps = {
         name: string;
         description: string;
         expressions: string[];
-        group?: string;
     }>;
     /** Notes attached to this chat (enabled ones only — disabled notes excluded). */
     notes: Array<{
