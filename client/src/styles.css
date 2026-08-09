@@ -869,6 +869,422 @@ button {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* ── Settings primitives ──
+
+   Three levels of type and nothing else competing: a section heading, a group
+   title, a row label. Hints are always the same muted small text wherever they
+   appear, so "explanation" reads as one thing rather than as a different weight
+   per call site. */
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-group + .settings-group {
+  margin-top: 22px;
+}
+
+.settings-group-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.settings-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* The row's own name. Deliberately not the same weight as a section heading —
+   that equivalence is what made the old screen unreadable. */
+.settings-label {
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.settings-hint {
+  opacity: 0.5;
+  line-height: 1.45;
+}
+
+.settings-input,
+.settings-picker {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--bg);
+  color: inherit;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.settings-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in oklch, var(--text), transparent 94%);
+  }
+}
+
+.settings-picker-icon {
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.settings-icon-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  border-radius: 8px;
+  opacity: 0.55;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  transition: opacity 150ms ease, background-color 150ms ease;
+
+  &:hover {
+    opacity: 1;
+    background: color-mix(in oklch, var(--text), transparent 94%);
+  }
+}
+
+.settings-inline-btn {
+  align-self: flex-start;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  transition: background-color 150ms ease, opacity 150ms ease;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--text), transparent 94%);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+/* The whole row is the target — a 13px checkbox is a poor one. */
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px;
+  margin: -8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+
+  &:hover {
+    background: color-mix(in oklch, var(--text), transparent 95%);
+  }
+
+  &.is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.settings-toggle-input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.settings-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-toggle-label {
+  font-weight: 500;
+}
+
+.settings-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Indented to the toggle's label, so the form reads as belonging to the switch
+   that revealed it. */
+.settings-feature-body {
+  padding-left: 28px;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.settings-actions-spacer {
+  flex: 1;
+}
+
+/* ── Preferences dialog ──
+
+   A table of contents beside one scrolling column, not a router: settings are
+   short and worth skimming end to end, so every section is always rendered and
+   the rail only jumps. A phone drops the rail and loses nothing. */
+
+.prefs-dialog,
+.rail-dialog {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* These dialogs run their own edge-to-edge layout, so the body's padding would
+   only inset the rail's divider from the dialog border. */
+.modal-body:has(> .prefs-dialog),
+.modal-body:has(> .rail-dialog) {
+  padding: 0;
+}
+
+.prefs-nav {
+  flex-shrink: 0;
+  width: 176px;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  overflow-y: auto;
+  border-right: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+.prefs-nav-item {
+  padding: 9px 20px;
+  text-align: left;
+  font-size: var(--text-sm);
+  opacity: 0.55;
+  border-left: 2px solid transparent;
+  transition: opacity 150ms ease, border-color 150ms ease, background-color 150ms ease;
+
+  &:hover {
+    opacity: 0.9;
+    background: color-mix(in oklch, var(--text), transparent 95%);
+  }
+
+  &.active {
+    opacity: 1;
+    font-weight: 600;
+    border-left-color: var(--primary);
+  }
+}
+
+.prefs-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 4px 24px 40px 24px;
+  /* Makes this the offsetParent of the sections, so the jump-nav can read
+     `section.offsetTop` as a scroll position directly instead of subtracting
+     two offsets that are only comparable while nothing above is positioned. */
+  position: relative;
+}
+
+.prefs-section {
+  /* The old screen let every control run the full window width, so a label on
+     the left and a value 1400px away were nominally one row. */
+  max-width: 620px;
+  padding-top: 24px;
+}
+
+.prefs-section-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 90%);
+}
+
+/* ── List-and-detail dialog (models) ── */
+
+.rail-dialog-rail {
+  flex-shrink: 0;
+  width: 248px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+.rail-dialog-items {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.rail-dialog-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  text-align: left;
+  border-left: 2px solid transparent;
+  transition: background-color 150ms ease, border-color 150ms ease;
+
+  &:hover {
+    background: color-mix(in oklch, var(--text), transparent 95%);
+  }
+
+  &.active {
+    background: color-mix(in oklch, var(--primary), transparent 92%);
+    border-left-color: var(--primary);
+  }
+}
+
+.rail-dialog-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.rail-dialog-item-label {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-dialog-item-sublabel {
+  opacity: 0.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-dialog-item-badge {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+/* Switch to this model without opening it. Always rendered rather than revealed
+   on hover — this dialog is also the model picker, and on a touch screen a
+   hover-only control is one that doesn't exist. */
+.rail-dialog-item-use {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--primary);
+  border: 1px solid color-mix(in oklch, var(--primary), transparent 65%);
+  opacity: 0.75;
+  cursor: pointer;
+  transition: opacity 150ms ease, background-color 150ms ease;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+    background: color-mix(in oklch, var(--primary), transparent 85%);
+  }
+}
+
+.rail-dialog-item-chevron {
+  flex-shrink: 0;
+  opacity: 0.35;
+}
+
+.rail-dialog-rail-footer {
+  flex-shrink: 0;
+  border-top: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+.rail-dialog-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 16px;
+  color: var(--primary);
+  transition: background-color 150ms ease;
+
+  &:hover {
+    background: color-mix(in oklch, var(--primary), transparent 92%);
+  }
+}
+
+.rail-dialog-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.rail-dialog-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
+}
+
+.rail-dialog-pane-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px 32px 24px;
+  max-width: 620px;
+}
+
+/* One column on a phone: the rail becomes the whole dialog until something is
+   picked, and the pane replaces it. */
+@media (max-width: 767px) {
+  .prefs-nav {
+    display: none;
+  }
+
+  .rail-dialog-rail {
+    width: 100%;
+    border-right: none;
+  }
+
+  .rail-dialog-item {
+    padding: 14px 16px;
+  }
+}
+
 /* ── Drawer ── */
 
 .drawer-overlay {

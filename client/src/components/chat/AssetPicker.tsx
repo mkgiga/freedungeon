@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For } from 'solid-js'
+import { createMemo, createSignal } from 'solid-js'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { ActorList } from '../actors'
@@ -156,72 +156,20 @@ export function NotePicker(props: {
 }
 
 /**
- * Switch the active LLM config. Mirrors PlayerCharacterPicker: same shape, same
- * "none" escape hatch, so the two feel like one idea.
- */
-export function LlmConfigPicker(props: { onPick?: () => void }) {
-    const [query, setQuery] = createSignal('')
-    const currentId = () => state.userPreferences.activeLLMConfigId
-
-    const items = createMemo(() => {
-        const q = query().toLowerCase().trim()
-        return Object.values(state.assets.llmConfigs ?? {})
-            .filter(c => !q
-                || c.name.toLowerCase().includes(q)
-                || c.model.toLowerCase().includes(q)
-                || c.provider.toLowerCase().includes(q))
-    })
-
-    const pick = async (id: string | null) => {
-        await trpc.preferences.update.mutate({ activeLLMConfigId: id })
-        props.onPick?.()
-    }
-
-    return (
-        <div class="flex flex-col gap-3 min-h-0 min-w-0 h-full w-full max-w-[520px]">
-            <SearchInput placeholder="Search models…" value={query()} onInput={setQuery} />
-            <div class="overflow-y-auto flex-1 min-w-0 flex flex-col gap-2">
-                <button
-                    type="button"
-                    onClick={() => pick(null)}
-                    class="text-left px-4 py-3 rounded-lg border border-[color-mix(in_oklch,var(--text),transparent_85%)] hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
-                    classList={{ 'border-(--primary)': currentId() === null }}
-                >
-                    <span class="opacity-70">No model selected</span>
-                </button>
-                <For each={items()}>
-                    {(config) => (
-                        <button
-                            type="button"
-                            onClick={() => pick(config.id)}
-                            class="text-left px-4 py-3 rounded-lg border border-[color-mix(in_oklch,var(--text),transparent_85%)] hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
-                            classList={{ 'border-(--primary)': currentId() === config.id }}
-                        >
-                            <div class="truncate">{config.name}</div>
-                            <div class="text-sm opacity-50 truncate">{config.model || config.provider}</div>
-                        </button>
-                    )}
-                </For>
-            </div>
-        </div>
-    )
-}
-
-/**
  * Opens the session pickers in a modal.
  *
- * Both the left rail and the Preferences screen let you change the model and
- * the player character, and both did it by hand-rolling the same modal.open
- * call — which is how the two drifted into a picker on one side and a <select>
- * on the other. The title and the close-on-pick wiring live here now.
+ * The left rail and Preferences both let you change the player character, and
+ * both did it by hand-rolling the same modal.open call — which is how the two
+ * drifted into a picker on one side and a <select> on the other. The title and
+ * the close-on-pick wiring live here now.
+ *
+ * There is no model picker here any more: the models library does that job
+ * as well as a dedicated picker did, so both entry points open it directly.
+ * See useLlmConfigs in components/LlmConfigsDialog.
  */
 export function useAssetPickers() {
     const modal = useModal()
     return {
-        openLlmConfig: () => modal.open({
-            title: 'Model',
-            content: () => <LlmConfigPicker onPick={() => modal.close()} />,
-        }),
         openPlayerCharacter: () => modal.open({
             title: 'Player Character',
             content: () => <PlayerCharacterPicker onPick={() => modal.close()} />,

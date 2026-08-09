@@ -21,7 +21,6 @@ const TAB_INITIAL: Record<Tab, string> = {
     actors: '/actors',
     chat: '/chat',
     notes: '/notes',
-    preferences: '/preferences',
 }
 
 function makeTabRouter(tab: Tab) {
@@ -39,7 +38,7 @@ declare module '@tanstack/solid-router' {
     }
 }
 
-const TABS: Tab[] = ['home', 'scenarios', 'actors', 'chat', 'notes', 'preferences']
+const TABS: Tab[] = ['home', 'scenarios', 'actors', 'chat', 'notes']
 
 // A file dropped anywhere unhandled makes the browser open it, discarding the
 // page — including an unsaved editor. Registered once, app-wide.
@@ -52,7 +51,6 @@ export function App() {
         actors: makeTabRouter('actors'),
         chat: makeTabRouter('chat'),
         notes: makeTabRouter('notes'),
-        preferences: makeTabRouter('preferences'),
     }
 
     return (

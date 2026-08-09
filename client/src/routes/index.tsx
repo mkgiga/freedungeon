@@ -6,20 +6,17 @@ import { Text } from '../components/typography/Text'
 import { Heading } from '../components/typography/Heading'
 import { Loader } from '../components/Loader'
 import { setActiveTab, type Tab } from '../tab-state'
+import { usePreferences } from '../components/PreferencesDialog'
 import { trpc } from '../trpc'
 
 export const Route = createFileRoute('/')({ component: RouteComponent })
 
-type DashboardLink = { label: string; target: Tab }
+type DashboardLink = { label: string; onClick: () => void }
 
-const ASSET_LINKS: DashboardLink[] = [
+const ASSET_TABS: { label: string; target: Tab }[] = [
   { label: 'Scenarios', target: 'scenarios' },
   { label: 'Actors', target: 'actors' },
   { label: 'Notes', target: 'notes' },
-]
-
-const SETTINGS_LINKS: DashboardLink[] = [
-  { label: 'Preferences', target: 'preferences' },
 ]
 
 function DashboardList(props: { links: DashboardLink[] }) {
@@ -31,7 +28,7 @@ function DashboardList(props: { links: DashboardLink[] }) {
             type="button"
             class="flex items-center justify-between px-4 py-3 text-left hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
             classList={{ 'border-t border-[color-mix(in_oklch,var(--text),transparent_90%)]': i() > 0 }}
-            onClick={() => setActiveTab(link.target)}
+            onClick={link.onClick}
           >
             <span>{link.label}</span>
             <MdFillChevron_right size={20} class="opacity-40" />
@@ -44,6 +41,10 @@ function DashboardList(props: { links: DashboardLink[] }) {
 
 function RouteComponent() {
   const [news] = createResource(() => trpc.news.list.query())
+  const preferences = usePreferences()
+
+  const assetLinks = ASSET_TABS.map(t => ({ label: t.label, onClick: () => setActiveTab(t.target) }))
+  const settingsLinks = [{ label: 'Preferences', onClick: preferences.open }]
 
   return (
     <div class="flex flex-col h-full overflow-hidden">
@@ -92,12 +93,12 @@ function RouteComponent() {
 
         <section class="flex flex-col gap-2">
           <Heading level={2}>Assets</Heading>
-          <DashboardList links={ASSET_LINKS} />
+          <DashboardList links={assetLinks} />
         </section>
 
         <section class="flex flex-col gap-2">
           <Heading level={2}>Settings</Heading>
-          <DashboardList links={SETTINGS_LINKS} />
+          <DashboardList links={settingsLinks} />
         </section>
       </div>
     </div>

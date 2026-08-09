@@ -1,9 +1,11 @@
 import { For, Show } from 'solid-js'
-import { MdFillSmart_toy } from 'solid-icons/md'
+import { MdFillSettings, MdFillSmart_toy } from 'solid-icons/md'
 import { state } from '../state'
 import { activeTab, setActiveTab } from '../tab-state'
 import { viewport } from '../viewport'
 import { useAssetPickers } from './chat/AssetPicker'
+import { useLlmConfigs } from './LlmConfigsDialog'
+import { usePreferences } from './PreferencesDialog'
 import { ImageIcon } from './ImageIcon'
 import { NAV_ITEMS } from './nav-items'
 import { Text } from './typography/Text'
@@ -19,6 +21,8 @@ import { Text } from './typography/Text'
  */
 export function LeftNav() {
     const pickers = useAssetPickers()
+    const configs = useLlmConfigs()
+    const preferences = usePreferences()
     const showLabels = () => viewport() === 'wide'
 
     const player = () => {
@@ -59,7 +63,7 @@ export function LeftNav() {
                         type="button"
                         class="left-nav-detail"
                         title={llmConfig() ? `Model: ${llmConfig()!.name} — click to change` : 'Choose a model'}
-                        onClick={pickers.openLlmConfig}
+                        onClick={() => configs.open()}
                     >
                         <span class="left-nav-detail-icon"><MdFillSmart_toy size={20} /></span>
                         <Show when={showLabels()}>
@@ -86,6 +90,22 @@ export function LeftNav() {
                     </button>
                 )}
             </For>
+
+            {/* Kept in the rail where it has always been, but it opens a dialog
+                rather than switching tabs — so it never costs you the screen you
+                were on. Outside NAV_ITEMS because that list is the set of tabs,
+                and this is no longer one. */}
+            <button
+                type="button"
+                class="left-nav-preferences"
+                title="Preferences"
+                onClick={preferences.open}
+            >
+                <MdFillSettings size={26} />
+                <Show when={showLabels()}>
+                    <Text>Preferences</Text>
+                </Show>
+            </button>
         </menu>
     )
 }

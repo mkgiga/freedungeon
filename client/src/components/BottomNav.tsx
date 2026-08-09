@@ -1,5 +1,6 @@
 import { MdFillChat, MdFillHouse, MdFillNote, MdFillPerson, MdFillSettings } from 'solid-icons/md'
 import type { Tab } from '../tab-state'
+import { usePreferences } from './PreferencesDialog'
 
 export type { Tab }
 
@@ -8,15 +9,19 @@ export type { Tab }
  * Home. NavDrawer and the Drawer's `side: 'left'` support are both intact and
  * still work — nothing currently opens them, so the drawer is simply
  * unreachable rather than removed.
+ *
+ * The last slot is not a tab: Preferences opens as a dialog over whatever you
+ * were doing, so it never has an active state here.
  */
 export function BottomNav(props: { activeTab: Tab; onChange: (t: Tab) => void }) {
+    const preferences = usePreferences()
     return (
         <menu id="main-nav">
-            <button type="button" onClick={() => props.onChange('home')}        classList={{ active: props.activeTab === 'home' }}>        <MdFillHouse size={32} /></button>
-            <button type="button" onClick={() => props.onChange('actors')}      classList={{ active: props.activeTab === 'actors' }}>      <MdFillPerson size={32} /></button>
-            <button type="button" onClick={() => props.onChange('chat')}        classList={{ active: props.activeTab === 'chat' }}>        <MdFillChat size={32} /></button>
-            <button type="button" onClick={() => props.onChange('notes')}       classList={{ active: props.activeTab === 'notes' }}>       <MdFillNote size={32} /></button>
-            <button type="button" onClick={() => props.onChange('preferences')} classList={{ active: props.activeTab === 'preferences' }}><MdFillSettings size={32} /></button>
+            <button type="button" onClick={() => props.onChange('home')}   classList={{ active: props.activeTab === 'home' }}>   <MdFillHouse size={32} /></button>
+            <button type="button" onClick={() => props.onChange('actors')} classList={{ active: props.activeTab === 'actors' }}> <MdFillPerson size={32} /></button>
+            <button type="button" onClick={() => props.onChange('chat')}   classList={{ active: props.activeTab === 'chat' }}>   <MdFillChat size={32} /></button>
+            <button type="button" onClick={() => props.onChange('notes')}  classList={{ active: props.activeTab === 'notes' }}>  <MdFillNote size={32} /></button>
+            <button type="button" onClick={preferences.open}><MdFillSettings size={32} /></button>
         </menu>
     )
 }

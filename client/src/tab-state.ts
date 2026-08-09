@@ -1,6 +1,8 @@
 import { createSignal } from 'solid-js'
 
-export type Tab = 'home' | 'scenarios' | 'actors' | 'chat' | 'notes' | 'preferences'
+/** Preferences is deliberately absent: it's a dialog, not a destination, so it
+ *  can be opened over whatever you were doing and closed back onto it. */
+export type Tab = 'home' | 'scenarios' | 'actors' | 'chat' | 'notes'
 
 export const [activeTab, setActiveTab] = createSignal<Tab>('home')
 

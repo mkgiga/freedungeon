@@ -4,7 +4,7 @@ import { hydrated, state } from '../state'
 import { trpc } from '../trpc'
 import { LLM_PRESETS } from '@shared/llm-presets'
 import { setPendingConfigEdit } from '../pending-nav'
-import { setActiveTab } from '../tab-state'
+import { useLlmConfigs } from './LlmConfigsDialog'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
 import { Em } from './typography/Em'
@@ -46,6 +46,7 @@ const CHOICES: Record<string, { label: string; hint?: string }> = {
 export function OnboardingOverlay() {
     const [busy, setBusy] = createSignal(false)
     const [error, setError] = createSignal<string | null>(null)
+    const configs = useLlmConfigs()
 
     // Gated on hydration: before the server's first state arrives the store
     // holds defaults, and "no timestamp yet" is indistinguishable from "never
@@ -76,7 +77,7 @@ export function OnboardingOverlay() {
                 id: config.id,
                 focusEndpoint: LLM_PRESETS[presetKey]?.editable === true,
             })
-            setActiveTab('preferences')
+            configs.open(config.id)
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err))
         } finally {
