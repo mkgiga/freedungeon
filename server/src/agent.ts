@@ -626,7 +626,7 @@ export async function dispatchPromptToAgent(args: {
     userContent: string;
 }) {
     const llmConfig = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!];
-    if (!llmConfig) throw new Error('No active LLM config selected');
+    if (!llmConfig) throw new Error('No model selected — choose one in Preferences first.');
 
     // Flag generation up front so the UI shows feedback immediately — before
     // the composer probe (up to ~1.5s) and macro expansion, and so a failure in
@@ -676,7 +676,7 @@ export async function dispatchPromptToAgent(args: {
     const currentLoop: 'claude' | 'ai-sdk' =
         llmConfig.provider === 'anthropic' ? 'claude'
             : (llmConfig.provider === 'openai' || llmConfig.provider === 'custom') ? 'ai-sdk'
-                : (() => { throw new Error(`Provider "${llmConfig.provider}" isn't supported by the agent loop yet — use an Anthropic config or an OpenAI-v1-compatible (openai/custom) endpoint.`); })();
+                : (() => { throw new Error(`Provider "${llmConfig.provider}" isn't supported yet — use an Anthropic model or an OpenAI-v1-compatible (openai/custom) endpoint.`); })();
 
     // The Claude loop can't start without a signed-in CLI, and left alone it
     // reports the wrong problem: `dependencyPath` yields null for an
@@ -691,7 +691,7 @@ export async function dispatchPromptToAgent(args: {
             throw new ActionableError(
                 claudeStatus === 'unauthenticated'
                     ? 'No Claude account is connected, so this model can\'t run.'
-                    : `${DEPENDENCIES.claudeCli.label} isn't ready — Anthropic configs run through it.`,
+                    : `${DEPENDENCIES.claudeCli.label} isn't ready — Anthropic models run through it.`,
                 { label: 'Fix this', kind: 'openLlmConfig' },
             );
         }

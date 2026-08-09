@@ -337,7 +337,7 @@ export async function initDb() {
         .createTable('llm_configs')
         .ifNotExists()
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
-        .addColumn('name', 'text', (col) => col.notNull().defaultTo('Untitled Config'))
+        .addColumn('name', 'text', (col) => col.notNull().defaultTo('Untitled Model'))
         .addColumn('provider', 'text', (col) => col.notNull())
         .addColumn('endpoint', 'text', (col) => col.notNull())
         .addColumn('model', 'text', (col) => col.notNull())

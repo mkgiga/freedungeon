@@ -253,7 +253,7 @@ function ClaudeAuthNotice() {
         switch (status) {
             case 'unauthenticated':
                 return {
-                    message: 'No Claude account is connected, so this config can\'t run yet.',
+                    message: 'No Claude account is connected, so this model can\'t run yet.',
                     action: 'Sign in to Claude',
                     run: () => trpc.dependencies.signIn.mutate(),
                 }
@@ -271,7 +271,7 @@ function ClaudeAuthNotice() {
                 // Once the bytes are there the server re-derives status, which
                 // lands on 'unauthenticated' and the patcher offers sign-in.
                 return {
-                    message: 'Claude Code isn\'t installed yet. Anthropic configs run through it.',
+                    message: 'Claude Code isn\'t installed yet. Anthropic models run through it.',
                     action: 'Download Claude Code',
                     run: () => trpc.dependencies.ensure.mutate({ key: 'claudeCli' }),
                 }

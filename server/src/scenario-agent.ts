@@ -217,7 +217,7 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
  * of retrying or inventing page content.
  */
 export const WEB_FETCH_UNAVAILABLE =
-    'Web fetch is not available with the currently selected model. Only Anthropic (Claude) configurations can browse. '
+    'Web fetch is not available with the currently selected model. Only Anthropic (Claude) models can browse. '
     + 'Tell the user this, and ask them to paste the relevant text if they need it.'
 
 /** Execute one collaborator tool. Shared by both agent paths. */

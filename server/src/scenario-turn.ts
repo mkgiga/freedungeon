@@ -162,6 +162,6 @@ async function runViaClaude(args: {
 export function activeLlmConfig(): LLMConfig {
     const id = state.userPreferences.activeLLMConfigId
     const cfg = id ? state.assets.llmConfigs[id] : null
-    if (!cfg) throw new Error('No active LLM config — choose one in Preferences first.')
+    if (!cfg) throw new Error('No model selected — choose one in Preferences first.')
     return cfg
 }

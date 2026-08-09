@@ -31,7 +31,7 @@ async function requireProviderDependencies(provider: string): Promise<void> {
     }
     if (status !== 'satisfied') {
         throw new Error(
-            `${DEPENDENCIES.claudeCli.label} could not be downloaded, so this config can't be saved. ` +
+            `${DEPENDENCIES.claudeCli.label} could not be downloaded, so this model can't be saved. ` +
             `Retry from the download panel, or use an OpenAI-compatible endpoint instead.`,
         )
     }
