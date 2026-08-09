@@ -164,7 +164,11 @@ export function LlmConfigsDialog(props: { initialId?: string | null }) {
                     <div class="rail-dialog-pane-body">
                         <Show
                             when={activeConfig()}
-                            fallback={<Text size="sm" class="settings-hint">Select a model, or create one.</Text>}
+                            fallback={
+                                <Text size="sm" class="settings-hint rail-dialog-pane-empty">
+                                    Select a model, or create one.
+                                </Text>
+                            }
                         >
                             {(config) => (
                                 // Keyed on id so switching configs rebuilds the
@@ -174,6 +178,7 @@ export function LlmConfigsDialog(props: { initialId?: string | null }) {
                                     <LlmConfigEditor
                                         id={config().id}
                                         onDelete={() => confirmDelete(config())}
+                                        onCancel={() => modal.close()}
                                     />
                                 </Show>
                             )}

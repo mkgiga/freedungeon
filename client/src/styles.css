@@ -1055,17 +1055,6 @@ button {
   min-width: 0;
 }
 
-.settings-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 28px;
-}
-
-.settings-actions-spacer {
-  flex: 1;
-}
-
 /* ── Preferences dialog ──
 
    A table of contents beside one scrolling column, not a router: settings are
@@ -1271,12 +1260,51 @@ button {
   border-bottom: 1px solid color-mix(in oklch, var(--text), transparent 88%);
 }
 
+/* A column, not a scroller. Scrolling belongs to the pane's content, so a
+   content component can hold part of itself still — see .editor-pane, whose
+   action rail must stay on screen while the fields above it scroll. */
 .rail-dialog-pane-body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  padding: 20px 24px 32px 24px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   max-width: 620px;
+}
+
+.rail-dialog-pane-empty {
+  padding: 20px 24px;
+}
+
+/* Scrolling fields above a fixed action rail. */
+.editor-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.editor-pane-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px 24px 24px;
+}
+
+/* No top border: the rail sits on the dialog's own edge, and a second line
+   there reads as a seam. Separation comes from the background instead, which
+   also keeps the buttons legible over content scrolling beneath them. */
+.editor-pane-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 12px 24px;
+  background: var(--bg);
+}
+
+.editor-pane-footer-spacer {
+  flex: 1;
 }
 
 /* One column on a phone: the rail becomes the whole dialog until something is

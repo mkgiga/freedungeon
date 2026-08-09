@@ -7,7 +7,7 @@ import { Text } from './typography/Text'
 import { Heading } from './typography/Heading'
 import { SchemaForm } from './json-ui'
 import { TextEditor } from './TextEditor'
-import { SettingsActions, SettingsField, SettingsGroup, SettingsInput } from './settings'
+import { SettingsField, SettingsGroup, SettingsInput } from './settings'
 import type { SchemaField, SchemaFormHooks } from '@shared/schema-ui'
 import type { LLMProvider } from '@shared/types'
 import { LLM_PRESETS } from '@shared/llm-presets'
@@ -27,6 +27,8 @@ export function LlmConfigEditor(props: {
     id: string
     onSaved?: (id: string) => void
     onDelete?: () => void
+    /** Omit to leave the button out — the rail renders whatever it's given. */
+    onCancel?: () => void
 }) {
     const serverConfig = () => state.assets.llmConfigs[props.id]
 
@@ -103,11 +105,16 @@ export function LlmConfigEditor(props: {
         onSchemaChange: (fields) => setDraft('schema', fields),
     })
 
+    // Two children, deliberately: the fields scroll, the action rail doesn't.
+    // Save used to be the last thing in the scrolling column, which meant that
+    // on a config with a long system prompt or a big parameter set it only
+    // existed if you scrolled to the very bottom looking for it.
     return (
-        <>
-            <Show when={draft.provider === 'anthropic'}>
-                <ClaudeAuthNotice />
-            </Show>
+        <div class="editor-pane">
+            <div class="editor-pane-scroll">
+                <Show when={draft.provider === 'anthropic'}>
+                    <ClaudeAuthNotice />
+                </Show>
 
             <SettingsGroup title="Connection">
                 <SettingsField label="Name">
@@ -197,17 +204,26 @@ export function LlmConfigEditor(props: {
                     </Text>
                 </Show>
             </SettingsGroup>
+            </div>
 
-            <SettingsActions>
+            {/* Sibling of the scroller, not its last child — that's what keeps
+                it on screen. Delete sits apart from the pair on the right so a
+                misfire lands on Cancel rather than on the destructive one. */}
+            <div class="editor-pane-footer">
                 <Show when={props.onDelete}>
                     <button type="button" class="modal-btn modal-btn-danger" onClick={() => props.onDelete!()}>
                         Delete
                     </button>
                 </Show>
-                <span class="settings-actions-spacer" />
+                <span class="editor-pane-footer-spacer" />
+                <Show when={props.onCancel}>
+                    <button type="button" class="modal-btn modal-btn-cancel" onClick={() => props.onCancel!()}>
+                        Cancel
+                    </button>
+                </Show>
                 <button type="button" class="modal-btn modal-btn-confirm" onClick={save}>Save</button>
-            </SettingsActions>
-        </>
+            </div>
+        </div>
     )
 }
 

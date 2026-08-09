@@ -95,12 +95,3 @@ export function SettingsInput(props: {
         />
     )
 }
-
-/**
- * The row a pane's primary action sits on. Borderless for the same reason the
- * editor modal footer is: the content above already ends in a bordered control,
- * and a second line reads as a seam.
- */
-export function SettingsActions(props: { children: JSXElement }) {
-    return <div class="settings-actions">{props.children}</div>
-}
