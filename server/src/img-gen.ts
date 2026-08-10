@@ -1,7 +1,11 @@
 // image generation module — Stable Diffusion WebUI Forge provider
 //
 // Forge quirk: txt2img is a blocking call and the server runs one job at a
-// time with a single global /progress endpoint (no per-job ids).
+// time. It does support per-job tracking, though: send `force_task_id` with
+// the request and poll `/internal/progress` with that id for this job's own
+// active/queued/progress/eta. There is deliberately no result-by-id endpoint —
+// the finished PNG only ever comes back on the original request's response, so
+// "async" means holding that promise, not collecting the result later.
 
 // Runtime-configurable: the endpoint comes from the `imageGen` feature's
 // config (userPreferences), which the user can change without restarting. The
@@ -48,6 +52,12 @@ export interface GenerationOptions {
     modules?: string[];
     /** extra override_settings, e.g. { CLIP_stop_at_last_layers: 2 } */
     overrideSettings?: Record<string, unknown>;
+    /**
+     * Our own id for this job, echoed to Forge as `force_task_id` so
+     * `getTaskProgress` can ask about this generation specifically rather than
+     * about whatever the server happens to be running.
+     */
+    taskId?: string;
     /** escape hatch: extra raw fields merged into the txt2img payload */
     raw?: Record<string, unknown>;
     signal?: AbortSignal;
@@ -206,6 +216,7 @@ export async function generateImage(options: string | GenerationOptions): Promis
                 scheduler: opts.scheduler,
                 batch_size: opts.batchSize,
                 n_iter: opts.batches,
+                force_task_id: opts.taskId,
             }),
             override_settings: await buildOverrideSettings(opts),
             // Keep the model resident between jobs (see loaded-model tracking).
@@ -242,6 +253,44 @@ export async function getProgress(): Promise<GenerationProgress> {
         currentStep: res.state?.sampling_step ?? 0,
         totalSteps: res.state?.sampling_steps ?? 0,
     };
+}
+
+/**
+ * Progress of one specific job, by the id it was submitted with.
+ *
+ * `queued` matters: Forge runs one generation at a time, so a job fired while
+ * another is running reports queued with no progress of its own. The global
+ * /sdapi/v1/progress can't distinguish that from "running slowly" — it only
+ * ever describes whatever is in front.
+ *
+ * Returns null when Forge has no opinion (unknown id, or it answered oddly);
+ * callers treat that as "no news" and keep whatever they last showed.
+ */
+export async function getTaskProgress(taskId: string): Promise<TaskProgress | null> {
+    try {
+        const res = await forge<any>('/internal/progress', {
+            method: 'POST',
+            body: JSON.stringify({ id_task: taskId, id_live_preview: -1, live_preview: false }),
+        });
+        return {
+            active: res.active === true,
+            queued: res.queued === true,
+            completed: res.completed === true,
+            progress: typeof res.progress === 'number' ? Math.max(0, Math.min(1, res.progress)) : null,
+            etaSeconds: typeof res.eta === 'number' ? res.eta : null,
+        };
+    } catch {
+        return null;
+    }
+}
+
+export interface TaskProgress {
+    active: boolean;
+    queued: boolean;
+    completed: boolean;
+    /** 0..1 while active; null when queued or finished. */
+    progress: number | null;
+    etaSeconds: number | null;
 }
 
 /** Stop the currently running generation server-side. */

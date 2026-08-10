@@ -15,6 +15,8 @@ import { startItemDrag } from './itemDrag'
 import { ChatInput, createPendingChoicePrompt } from './ChatInput'
 import { ContinueBar } from './ContinueBar'
 import { MdFillChat, MdFillGroups, MdFillKeyboard_arrow_down, MdFillKeyboard_arrow_up, MdFillPerson, MdFillBackpack } from 'solid-icons/md'
+import { Loader } from '../Loader'
+import { isIconPending } from './inventory/resolveItem'
 
 /**
  * The persistent bottom band. It is one container with two faces: the present
@@ -272,7 +274,14 @@ export function GameStatePanel() {
                                         >
                                             <Show
                                                 when={item.icon}
-                                                fallback={<span class="chat-inventory-slot-emoji">{pickEmojiForItem(item.label)}</span>}
+                                                fallback={
+                                                    <Show
+                                                        when={isIconPending(item.key)}
+                                                        fallback={<span class="chat-inventory-slot-emoji">{pickEmojiForItem(item.label)}</span>}
+                                                    >
+                                                        <Loader size={22} />
+                                                    </Show>
+                                                }
                                             >
                                                 {(icon) => <img class="chat-inventory-slot-icon" src={icon()} alt={item.label} />}
                                             </Show>

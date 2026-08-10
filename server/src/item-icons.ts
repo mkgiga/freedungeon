@@ -13,9 +13,10 @@
 import { state } from './server'
 import { resolveFeatureConfig, featureEnabled, type ImageGenConfig } from '@shared/features'
 import { parseMacros, withItemDescription, withImagePrompt } from './macro'
-import { generateImage, setForgeUrl } from './img-gen'
+import { generateImage, getTaskProgress, setForgeUrl } from './img-gen'
 import { storeUpload } from './v2/uploads'
 import { withActivity } from './activity'
+import { nanoid } from 'nanoid'
 import { removeBackground } from './bg-removal'
 import { log } from './logger'
 
@@ -109,11 +110,17 @@ export async function generateSceneImage(
  * must not fail the agent's tool call — the item is still defined, just
  * without an icon, and the agent can redefine it later to retry.
  */
-export async function generateItemIcon(label: string, description: string): Promise<string | undefined> {
+export async function generateItemIcon(label: string, description: string, itemKey?: string): Promise<string | undefined> {
     const cfg = imageGenConfig()
     if (!cfg) return undefined
 
     setForgeUrl(cfg.endpoint)
+
+    // Our own id for this generation, so the progress we report is this icon's
+    // and not whatever Forge happens to be working on. Forge runs one job at a
+    // time, so with several icons in flight the others are genuinely queued —
+    // the global progress endpoint would show them all the leader's numbers.
+    const taskId = `freedungeon-icon-${nanoid(8)}`
 
     // The prompt template is user-editable at
     // server/src/prompts/GENERATE_ITEM_ICON_PROMPT.macro and reads the item
@@ -127,17 +134,27 @@ export async function generateItemIcon(label: string, description: string): Prom
     // strand a spinner on screen.
     // No `steps` in the activity data: the step count now lives in Forge's own
     // config, so it can only come back from /sdapi/v1/progress at runtime.
-    return withActivity('generatingItemIcon', { label }, async (update) => {
+    // `key` is what lets the inventory show a spinner on the one slot this is
+    // for. It stays in the activity — transient, never persisted — rather than
+    // on the block, so a server restart can't leave an item pending forever.
+    return withActivity('generatingItemIcon', { label, key: itemKey }, async (update) => {
         try {
             // Only size and (optionally) checkpoint are specified — steps, CFG
             // and the negative prompt are deliberately left to whatever the
             // user has configured in the Forge UI.
-            const result = await generateImage({
-                prompt,
-                width: cfg.iconSize,
-                height: cfg.iconSize,
-                ...(cfg.checkpoint ? { checkpoint: cfg.checkpoint } : {}),
-            })
+            const stopPolling = pollTask(taskId, update)
+            let result
+            try {
+                result = await generateImage({
+                    prompt,
+                    width: cfg.iconSize,
+                    height: cfg.iconSize,
+                    taskId,
+                    ...(cfg.checkpoint ? { checkpoint: cfg.checkpoint } : {}),
+                })
+            } finally {
+                stopPolling()
+            }
 
             const image = result.images[0]
             if (!image) {
@@ -172,4 +189,41 @@ export async function generateItemIcon(label: string, description: string): Prom
             return undefined
         }
     })
+}
+
+/**
+ * Poll one job's progress into its activity until stopped. Returns the stopper.
+ *
+ * Deliberately fire-and-forget on error: `getTaskProgress` already swallows
+ * failures into null, and a progress read that fails must never take down the
+ * generation it is only describing.
+ */
+function pollTask(taskId: string, update: (patch: Record<string, unknown>) => void): () => void {
+    const timer = setInterval(async () => {
+        const p = await getTaskProgress(taskId)
+        if (!p) return
+        update({
+            queued: p.queued,
+            progress: p.progress ?? undefined,
+            etaSeconds: p.etaSeconds ?? undefined,
+        })
+    }, 600)
+    return () => clearInterval(timer)
+}
+
+/**
+ * Start an icon generation and hand the URL back when it lands.
+ *
+ * Fire-and-forget by design: `define_item` used to await the icon inside the
+ * tool call, so the model sat idle for the whole generation before its tool
+ * result came back. The item is fully usable without an icon, so the turn
+ * continues immediately and the picture catches up.
+ *
+ * `onDone` runs only on success; a failed generation leaves the item as it is,
+ * which is the same outcome the awaited version produced.
+ */
+export function queueItemIcon(label: string, description: string, itemKey: string, onDone: (url: string) => void): void {
+    void generateItemIcon(label, description, itemKey)
+        .then(url => { if (url) onDone(url) })
+        .catch(err => log.server.error(`Item icon job failed: ${err}`))
 }

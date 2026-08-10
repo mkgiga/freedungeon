@@ -5,13 +5,13 @@ import { Hono } from 'hono';
 import { COMMANDS, type CommandName } from '@shared/game-state/commands';
 import { QUERIES, type QueryName } from '@shared/game-state/queries';
 import { applyBlockToCtx } from '@shared/game-state';
-import { serializeBlocks } from '@shared/blocks';
+import { parseBlocks, serializeBlocks } from '@shared/blocks';
 import { state, setState } from './server';
 import { db } from './db';
 import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { featureEnabled } from '@shared/features';
 import { visible } from '@shared/visibility';
-import { generateItemIcon, itemIconsEnabled, generateSceneImage, sceneImagesEnabled, type ImageAspect } from './item-icons';
+import { queueItemIcon, itemIconsEnabled, generateSceneImage, sceneImagesEnabled, type ImageAspect } from './item-icons';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
@@ -273,17 +273,11 @@ export async function execCommand(
         (block as { src: string }).src = url;
     }
 
+    // An icon this item already has is reused as-is. A new one is NOT awaited:
+    // see the queueItemIcon call after the message is created.
     if (block.type === 'defineItem') {
         const existing = state.currentChat.gameState.itemDefs?.[block.key]?.icon;
-        if (existing) {
-            block.icon = existing;
-        } else if (itemIconsEnabled()) {
-            // The visual description is written for the image model; `description`
-            // is the player-facing blurb and only stands in for items defined
-            // before the field existed.
-            const prompt = block.visualDescription ?? block.description ?? block.label;
-            block.icon = await generateItemIcon(block.label, prompt);
-        }
+        if (existing) block.icon = existing;
     }
 
     const effects: string[] = [];
@@ -309,11 +303,66 @@ export async function execCommand(
     };
     setState('currentChat', 'messages', messageId, message);
 
+    // Kicked off only once the block is persisted, because the icon patches
+    // that message when it arrives. Not awaited: the model gets its tool result
+    // now and keeps working while the GPU catches up.
+    if (block.type === 'defineItem' && !block.icon && itemIconsEnabled()) {
+        // The visual description is written for the image model; `description`
+        // is the player-facing blurb and only stands in for items defined
+        // before the field existed.
+        const prompt = block.visualDescription ?? block.description ?? block.label;
+        const key = block.key;
+        queueItemIcon(block.label, prompt, key, (url) => attachItemIcon(chatId, messageId, key, url));
+    }
+
     return {
         ok: true,
         messageId,
         effects: effects.length > 0 ? effects.join('\n') : describeNoOp(command, parsed.data, ctxBefore, state.currentChat.gameState),
     };
+}
+
+/**
+ * Attach a generated icon to an already-persisted define_item block.
+ *
+ * The block is written before the picture exists, so this edits it after the
+ * fact: re-parse, set `icon`, re-serialize. Going through the message (rather
+ * than only patching gameState) is what makes it stick — game state is derived
+ * by replaying blocks, so an icon that lived only in state would vanish on the
+ * next replay.
+ *
+ * Silently does nothing when the message is gone or the chat has moved on. A
+ * generation outlives rewinds, deletions and chat switches, and none of those
+ * are errors — the user simply no longer wants what it was making.
+ */
+function attachItemIcon(chatId: string, messageId: string, key: string, url: string): void {
+    if (state.currentChat.id !== chatId) return;
+    const msg = state.currentChat.messages[messageId];
+    if (!msg) return;
+
+    const blocks = parseBlocks(msg.content);
+    const target = blocks.find(b => b.type === 'defineItem' && b.key === key);
+    if (!target || target.type !== 'defineItem') return;
+    if (target.icon) return;
+
+    // parseBlocks caches by content string and hands out shared arrays, so the
+    // block must be replaced rather than mutated in place.
+    const patched = blocks.map(b =>
+        b === target ? { ...target, icon: url } : b);
+
+    setState('currentChat', 'messages', messageId, {
+        ...msg,
+        content: serializeBlocks(patched),
+        updatedAt: Date.now(),
+    });
+
+    // The live ctx was computed before the icon existed; replay would produce
+    // it, but nothing replays until the next turn and the HUD is showing this
+    // item now.
+    const defs = state.currentChat.gameState.itemDefs;
+    if (defs?.[key]) {
+        setState('currentChat', 'gameState', 'itemDefs', key, { ...defs[key], icon: url });
+    }
 }
 
 function handleExec(req: ExecRequest) {

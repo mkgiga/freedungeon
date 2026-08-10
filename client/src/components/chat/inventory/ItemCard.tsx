@@ -3,6 +3,8 @@ import type { ItemDefinition } from '@shared/types'
 import { Text } from '../../typography/Text'
 import { Em } from '../../typography/Em'
 import { pickEmojiForItem } from './itemEmoji'
+import { Loader } from '../../Loader'
+import { isIconPending } from './resolveItem'
 
 const CARD_WIDTH = 320
 const GAP = 8
@@ -40,7 +42,14 @@ export function ItemCard(props: {
             <div class="item-card-head">
                 <Show
                     when={props.item.icon}
-                    fallback={<span class="item-card-emoji">{pickEmojiForItem(props.item.label)}</span>}
+                    fallback={
+                        <Show
+                            when={isIconPending(props.item.key)}
+                            fallback={<span class="item-card-emoji">{pickEmojiForItem(props.item.label)}</span>}
+                        >
+                            <Loader size={26} />
+                        </Show>
+                    }
                 >
                     {(icon) => <img class="item-card-icon" src={icon()} alt="" />}
                 </Show>

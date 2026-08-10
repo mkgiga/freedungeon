@@ -3,6 +3,8 @@ import type { GameStateContext } from '@shared/types'
 import { Text } from '../typography/Text'
 import { pickEmojiForItem } from './inventory/itemEmoji'
 import { resolveItem } from './inventory/resolveItem'
+import { Loader } from '../Loader'
+import { isIconPending } from './inventory/resolveItem'
 
 export function InventoryModal(props: {
     /** Reactive accessor for the game state to display. Passed in as a prop
@@ -25,7 +27,14 @@ export function InventoryModal(props: {
                     <For each={items()}>{(item) => (
                         <tr class="inventory-row">
                             <td class="inventory-col-icon">
-                                <Show when={item.icon} fallback={<span>{pickEmojiForItem(item.label)}</span>}>
+                                <Show
+                                    when={item.icon}
+                                    fallback={
+                                        <Show when={isIconPending(item.key)} fallback={<span>{pickEmojiForItem(item.label)}</span>}>
+                                            <Loader size={20} />
+                                        </Show>
+                                    }
+                                >
                                     {(icon) => <img class="inventory-icon-img" src={icon()} alt={item.label} />}
                                 </Show>
                             </td>

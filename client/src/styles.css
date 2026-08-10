@@ -2427,13 +2427,23 @@ button {
   justify-content: flex-end;
 }
 
-.chat-block-unformatted-content {
+/* A chosen option is a player action like any other — the pill it used to wear
+   made picking one look like a different kind of event from typing one. The
+   answered menu still reappears above it with the pick highlighted, so nothing
+   here has to re-state where the action came from. One rule for both so the
+   player's voice can't drift into two looks. */
+.chat-block-unformatted-content,
+.chat-block-choice-text {
   max-width: 70%;
   font-family: var(--font-serif);
   font-size: 17px;
   line-height: 1.68;
   color: var(--primary);
   white-space: pre-wrap;
+}
+
+.chat-block-choice {
+  justify-content: flex-end;
 }
 
 /* ── Chat Input ── */
@@ -4016,12 +4026,40 @@ body.item-dragging [data-drop-actor].drop-target-hover {
   padding: 8px 0;
 }
 
-.chat-block-choice-text {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: color-mix(in oklch, var(--primary), transparent 85%);
-  border: 1px solid color-mix(in oklch, var(--primary), transparent 70%);
+
+/* A use attempt reads as a statement of what the player did, so it gets no
+   container at all — the weight alone separates it from narration. inline-flex
+   keeps the icon on the text's baseline run rather than breaking the line. */
+.tryuse-label {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.tryuse-icon {
+  width: 1.35em;
+  height: 1.35em;
+  object-fit: contain;
+  border-radius: 4px;
+  /* Sits with the text rather than on it — the icons are transparent PNGs and
+     an em-sized box would otherwise ride high against the cap height. */
+  vertical-align: -0.25em;
+}
+
+.tryuse-emoji {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* The item is the specific thing being reported; underlined so it stands out
+   inside a line that is already bold throughout. */
+.tryuse-item {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in oklch, var(--primary), transparent 45%);
 }
 /* ── Dependency patcher ───────────────────────────────────────────────────
    Blocks the whole app while a required external file downloads. Fixed rather
