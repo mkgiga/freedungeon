@@ -72,7 +72,7 @@ export function ChatInput(props: { hidden?: boolean }) {
                         class="text-editor-textarea"
                         style={{ "min-height": "12rem" }}
                         autofocus
-                        placeholder="e.g. Keep Vega terse — no apologising."
+                        placeholder="e.g. 100% increased chance to fail."
                         value={draft()}
                         onInput={(e) => setDraft(e.currentTarget.value)}
                     />
