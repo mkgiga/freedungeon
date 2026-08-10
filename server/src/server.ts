@@ -25,6 +25,8 @@ import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
 import { getEmbeddedClientFiles } from './embedded';
 import { refreshDependencies } from './dependencies';
 import { applyDeleteCascades } from './cascade';
+import { ensureCert } from './tls';
+import { createServer as createHttpsServer } from 'node:https';
 
 export const app = new Hono();
 export const httpServer = createServer();
@@ -211,6 +213,10 @@ async function listen() {
     const port = Number(process.env.FREEDUNGEON_PORT) || config.server.port || 8078;
     const wsPort = Number(process.env.FREEDUNGEON_WS_PORT) || config.server.wsPort || 8079;
     const hostname = process.env.FREEDUNGEON_HOST || config.server.hostname || "0.0.0.0";
+    const httpsEnabled = process.env.FREEDUNGEON_HTTPS === '1' || (config.server as { https?: boolean }).https === true;
+    // The client derives its socket port as "served port + 1" from
+    // window.location, so the TLS pair has to stay adjacent for wss to land.
+    const httpsPort = Number(process.env.FREEDUNGEON_HTTPS_PORT) || (config.server as { httpsPort?: number }).httpsPort || 8443;
 
     // Bind failures are the single most likely startup error — a second copy of
     // the app, or something else on the port. Left unhandled it surfaces as an
@@ -223,6 +229,14 @@ async function listen() {
     } catch (err) {
         exitWithPortError(err, port, wsPort);
     }
+
+    // Opt-in TLS listener for LAN devices. Deliberately after the HTTP listener
+    // is already up and outside its try/catch: this is an enhancement, and no
+    // failure in it may cost the user the app. See tls.ts for why the
+    // certificate is public and what that does and doesn't buy.
+    if (httpsEnabled) {
+        await startHttpsListener(hostname, httpsPort);
+    }
     // node's http server reports bind failures asynchronously, not by throwing.
     httpServer.on('error', (err) => exitWithPortError(err, port, wsPort));
 
@@ -233,6 +247,32 @@ async function listen() {
         agentPort: Number(process.env.AGENT_PORT ?? 8076),
         dataDir: DATA_DIR,
     });
+}
+
+/**
+ * Bring up the HTTPS pair: the Hono app over TLS, and socket.io alongside it.
+ *
+ * Both halves are required. A page served over https can't open a `ws://`
+ * socket — the browser blocks it as mixed content — so the socket needs its own
+ * TLS listener, attached to the same `io` instance so both origins share one
+ * set of rooms and handlers.
+ */
+async function startHttpsListener(hostname: string, httpsPort: number): Promise<void> {
+    const tls = await ensureCert();
+    if (!tls) return;
+
+    const wssPort = httpsPort + 1;
+    try {
+        Bun.serve({ port: httpsPort, hostname, tls: { cert: tls.cert, key: tls.key }, fetch: app.fetch });
+        const wssServer = createHttpsServer({ cert: tls.cert, key: tls.key });
+        // attach, not construct: one io, two transports.
+        io.attach(wssServer);
+        wssServer.on('error', (err) => log.server.warn(`HTTPS: socket listener failed (${err.message})`));
+        wssServer.listen(wssPort);
+        log.server.ok(`HTTPS: https://${tls.host}:${httpsPort}  (installable on phones; key is public — see tls.ts)`);
+    } catch (err) {
+        log.server.warn(`HTTPS: could not listen on ${httpsPort} (${err instanceof Error ? err.message : err}); HTTP is unaffected`);
+    }
 }
 
 async function initHttp() {

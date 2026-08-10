@@ -34,6 +34,9 @@ export type LaunchOptions = {
     dataDir?: string
     port?: number
     wsPort?: number
+    /** Serve a TLS listener alongside HTTP, so phones can install the PWA. */
+    https: boolean
+    httpsPort?: number
     host?: string
     help: boolean
     version: boolean
@@ -47,12 +50,22 @@ Options:
   --data-dir <path>   Where chats, uploads and settings live (default: ~/.freedungeon)
   --port <n>          HTTP port (default: 8078)
   --ws-port <n>       WebSocket port (default: 8079)
+  --https             Also serve HTTPS, so phones can install the app (see below)
+  --https-port <n>    HTTPS port (default: 8443; its socket uses the next port)
   --host <addr>       Bind address (default: 0.0.0.0)
   -h, --help          Show this message
   -v, --version       Print the version
 
 Environment:
   FREEDUNGEON_DATA_DIR   Same as --data-dir; the flag wins when both are set.
+  FREEDUNGEON_HTTPS=1    Same as --https, for launchers that can't pass flags.
+
+HTTPS on a LAN:
+  --https fetches a publicly-trusted certificate for *.my.local-ip.co and
+  serves on https://<your-dashed-ip>.my.local-ip.co:8443 — the address is
+  printed at startup. Nothing needs installing on the phone. The certificate's
+  private key is published by that service, so the connection is trusted but
+  NOT private: use it on a network you trust.
 `
 
 function toPort(raw: string | undefined, flag: string): number | undefined {
@@ -76,6 +89,8 @@ export function parseLaunchOptions(argv?: string[]): LaunchOptions {
             'data-dir': { type: 'string' },
             port: { type: 'string' },
             'ws-port': { type: 'string' },
+            https: { type: 'boolean', default: false },
+            'https-port': { type: 'string' },
             host: { type: 'string' },
             help: { type: 'boolean', short: 'h', default: false },
             version: { type: 'boolean', short: 'v', default: false },
@@ -91,6 +106,8 @@ export function parseLaunchOptions(argv?: string[]): LaunchOptions {
         dataDir: values['data-dir'] ? path.resolve(values['data-dir']) : undefined,
         port: toPort(values.port, '--port'),
         wsPort: toPort(values['ws-port'], '--ws-port'),
+        https: values.https === true,
+        httpsPort: toPort(values['https-port'], '--https-port'),
         host: values.host,
         help: values.help === true,
         version: values.version === true,
@@ -103,6 +120,10 @@ export function parseLaunchOptions(argv?: string[]): LaunchOptions {
  */
 export function applyLaunchOptions(opts: LaunchOptions): void {
     if (opts.dataDir) process.env.FREEDUNGEON_DATA_DIR = opts.dataDir
+    if (opts.https) process.env.FREEDUNGEON_HTTPS = '1'
+    // Only the base port is taken: the TLS socket listener is always its
+    // neighbour, for the same reason --port moves the ws port with it.
+    if (opts.httpsPort !== undefined) process.env.FREEDUNGEON_HTTPS_PORT = String(opts.httpsPort)
     if (opts.port !== undefined) {
         process.env.FREEDUNGEON_PORT = String(opts.port)
         // The client derives the socket port from the one it was served on
