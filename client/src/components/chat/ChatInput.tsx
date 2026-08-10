@@ -250,11 +250,25 @@ export function ChatInput(props: { hidden?: boolean }) {
                 placeholder={pendingChoicePrompt() ? '…or type your own action' : 'Type a message...'}
                 value={message()}
                 onInput={(e) => setMessage(e.currentTarget.value)}
+                /*
+                 * Shift+Enter sends, plain Enter breaks the line. Ctrl/Cmd+Enter
+                 * still sends too — it was the only send key before this, and
+                 * leaving it costs nothing.
+                 *
+                 * No viewport check: Shift+Enter can't be typed on a soft
+                 * keyboard, so this is desktop-only by construction, and gating
+                 * on `phone` would take it away from a tablet with a real
+                 * keyboard for no reason.
+                 */
                 onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        e.preventDefault()
-                        handleSend()
-                    }
+                    if (e.key !== 'Enter') return
+                    // Mid-IME, Enter commits the candidate rather than the
+                    // message — sending here would fire on every accepted
+                    // character for anyone typing Japanese, Chinese or Korean.
+                    if (e.isComposing) return
+                    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) return
+                    e.preventDefault()
+                    handleSend()
                 }}
             />
 
