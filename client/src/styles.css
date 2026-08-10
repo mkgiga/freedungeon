@@ -145,6 +145,13 @@ main {
   flex: 1;
   display: flex;
   min-height: 0;
+  /* The `*` reset zeroes min-height but not min-width, so every flex item still
+     carries `min-width: auto` — a content-based floor. This was the one link in
+     .app-body → main → .tab-pane → .chat-layout → .chat-main that lacked it, and
+     one is enough: a long chat title can't wrap, so its min-content width became
+     a floor on the whole row, pushing the entire shell past the right edge and
+     carrying the composer and the per-message menus off screen with it. */
+  min-width: 0;
 }
 
 .tab-pane {
