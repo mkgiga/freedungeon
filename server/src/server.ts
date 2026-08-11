@@ -81,10 +81,23 @@ export const [state, _setState] = createStore({
 
 export function setState(...args: any[]) {
     (_setState as Function)(...args);
-    const value = args.at(-1);
     const path = args.slice(0, -1);
     persistPath(path);
-    io.emit('state', { path, value });
+    // Emit what the state now IS at this path, not the argument that produced
+    // it. Identical for a plain value, and the only correct thing for a
+    // `produce(...)` writer — whose last argument is a function, and would
+    // otherwise be put on the wire as one.
+    io.emit('state', { path, value: readPath(path) });
+}
+
+/** Current value at a state path, or undefined if any level is missing. */
+function readPath(path: unknown[]): unknown {
+    let node: any = state;
+    for (const part of path) {
+        if (node == null) return undefined;
+        node = node[part as keyof typeof node];
+    }
+    return node;
 }
 
 export function deleteState(...path: string[]) {

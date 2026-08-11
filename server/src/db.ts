@@ -123,10 +123,6 @@ export interface DB {
         push: Generated<number>;
         created_at: Generated<number>;
     };
-    settings: {
-        key: string;
-        value: string;
-    };
     extension_state: {
         extension: string;
         name: string;
@@ -354,13 +350,6 @@ export async function initDb() {
         .addColumn('values', 'text', (col) => col.notNull().defaultTo('{}'))
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
-        .execute();
-
-    await db.schema
-        .createTable('settings')
-        .ifNotExists()
-        .addColumn('key', 'text', (col) => col.primaryKey().notNull())
-        .addColumn('value', 'text', (col) => col.notNull())
         .execute();
 
     // Extension-owned state. Composite key rather than one namespaced string so
@@ -762,7 +751,12 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
     return result;
 }
 
-export async function loadStateFromDb(): Promise<AppState> {
+/**
+ * Everything the database holds. Not the whole AppState: preferences come from
+ * preferences.json and the transient roots are rebuilt at boot, so the return
+ * type says so rather than pretending to produce a complete state.
+ */
+export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences'>> {
     const actors = await loadAssetLibraryActors();
     const notes = await loadAssetLibraryNotes();
     const images = await loadAssetLibraryImages();
@@ -785,11 +779,10 @@ export async function loadStateFromDb(): Promise<AppState> {
         }
     }
 
-    const prefsRow = await db.selectFrom('settings').selectAll().where('key', '=', 'userPreferences').executeTakeFirst();
-    const userPreferences = prefsRow
-        ? JSON.parse(prefsRow.value)
-        : { activeLLMConfigId: null, playerCharacterId: null, theme: 'system', enableChoicePrompts: false };
-
+    // Preferences deliberately absent: they live in preferences.json, loaded by
+    // loadPreferences() at startup. A `settings` table used to hold them and was
+    // read here, but start() overwrote the result on the very next line — the
+    // row on disk was stale and every key in it was already in the JSON file.
     return {
         assets: { actors, notes, images, llmConfigs, chats },
         extensionState,
@@ -810,7 +803,6 @@ export async function loadStateFromDb(): Promise<AppState> {
         },
         isGenerating: false,
         notifications: [],
-        userPreferences,
     };
 }
 
