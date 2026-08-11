@@ -44,6 +44,7 @@ const [state, _setState] = createStore<AppState>({
   activities: {},
   dependencies: {},
   notifications: [],
+  extensionState: {},
   userPreferences: {
     theme: 'system',
     activeLLMConfigId: null,

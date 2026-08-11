@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import { state } from './server';
 import { savePreferences } from './preferences';
 import { DB_PATH, ensureDataDirs } from './paths';
+import { log } from './logger';
 import type { Actor, Note, ChatMessage, AppState, Chat, LLMConfig, AppNotification, CurrentChatState, ImageAsset }  from '@shared/types';
 export interface DB {
     actor_expressions: {
@@ -124,6 +125,12 @@ export interface DB {
     };
     settings: {
         key: string;
+        value: string;
+    };
+    extension_state: {
+        extension: string;
+        name: string;
+        /** JSON-encoded. */
         value: string;
     };
 }
@@ -354,6 +361,21 @@ export async function initDb() {
         .ifNotExists()
         .addColumn('key', 'text', (col) => col.primaryKey().notNull())
         .addColumn('value', 'text', (col) => col.notNull())
+        .execute();
+
+    // Extension-owned state. Composite key rather than one namespaced string so
+    // an extension's rows can be read, counted or dropped as a set — the thing
+    // you need the moment an extension is uninstalled.
+    //
+    // `value` is JSON: this table stores whatever an extension declared, and the
+    // shape is the extension's business, not the schema's.
+    await db.schema
+        .createTable('extension_state')
+        .ifNotExists()
+        .addColumn('extension', 'text', (col) => col.notNull())
+        .addColumn('name', 'text', (col) => col.notNull())
+        .addColumn('value', 'text', (col) => col.notNull())
+        .addPrimaryKeyConstraint('extension_state_pk', ['extension', 'name'])
         .execute();
 
     await db.schema
@@ -751,6 +773,18 @@ export async function loadStateFromDb(): Promise<AppState> {
         llmConfigs[row.id] = hydrateLLMConfig(row);
     }
 
+    // One row per declared value; grouped back into the nested shape the state
+    // tree uses. A row whose JSON no longer parses is skipped rather than
+    // failing the boot — one bad extension value must not cost you the app.
+    const extensionState: Record<string, Record<string, unknown>> = {};
+    for (const row of await db.selectFrom('extension_state').selectAll().execute()) {
+        try {
+            (extensionState[row.extension] ??= {})[row.name] = JSON.parse(row.value);
+        } catch {
+            log.server.warn(`Dropping unreadable extension state ${row.extension}.${row.name}`);
+        }
+    }
+
     const prefsRow = await db.selectFrom('settings').selectAll().where('key', '=', 'userPreferences').executeTakeFirst();
     const userPreferences = prefsRow
         ? JSON.parse(prefsRow.value)
@@ -758,6 +792,7 @@ export async function loadStateFromDb(): Promise<AppState> {
 
     return {
         assets: { actors, notes, images, llmConfigs, chats },
+        extensionState,
         // Always empty on boot: activities are runtime-only and never persisted.
         activities: {},
         // Likewise re-derived from disk by refreshDependencies() at startup.
@@ -925,10 +960,49 @@ export function saveLLMConfig(config: LLMConfig) {
  * are intentionally ignored — the only such write is boot hydration, whose
  * data just came FROM the db.
  */
+/**
+ * Write one extension value, or drop its row when the value is gone.
+ *
+ * `undefined` means deleted rather than "store undefined": JSON has no such
+ * value, so round-tripping it would produce the string "undefined" and load
+ * back as a parse error.
+ */
+function saveExtensionValue(extension: string, name: string, value: unknown): void {
+    if (value === undefined) {
+        db.deleteFrom('extension_state')
+            .where('extension', '=', extension)
+            .where('name', '=', name)
+            .execute()
+        return
+    }
+    db.insertInto('extension_state')
+        .values({ extension, name, value: JSON.stringify(value) })
+        .onConflict((oc) => oc.columns(['extension', 'name']).doUpdateSet({ value: JSON.stringify(value) }))
+        .execute()
+}
+
+/** Drop everything an extension stored. For uninstall. */
+export function clearExtensionState(extension: string): Promise<unknown> {
+    return db.deleteFrom('extension_state').where('extension', '=', extension).execute()
+}
+
 export function persistPath(path: readonly unknown[]) {
     const [root, a, b] = path
     if (root === 'userPreferences') {
         savePreferences(state.userPreferences)
+        return
+    }
+    // Extension state. Any write below `extensionState.<ext>.<name>` persists
+    // that whole `name` value, because the row holds one serialized value —
+    // there is nothing finer to write. Deleting the value drops the row.
+    if (root === 'extensionState' && typeof a === 'string') {
+        const bag = state.extensionState[a]
+        if (!bag) {
+            db.deleteFrom('extension_state').where('extension', '=', a).execute()
+            return
+        }
+        if (typeof b === 'string') saveExtensionValue(a, b, bag[b])
+        else for (const [name, value] of Object.entries(bag)) saveExtensionValue(a, name, value)
         return
     }
     if (root === 'currentChat' && a === 'messages' && typeof b === 'string') {

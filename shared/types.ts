@@ -38,6 +38,18 @@ export type AppState = {
     dependencies: Partial<Record<DependencyKey, DependencyState>>;
     notifications: AppNotification[];
     userPreferences: UserPreferences;
+    /**
+     * State owned by extensions (today: built-in features), keyed by extension
+     * then by the variable name it declared.
+     *
+     * A persisted root like `assets`, not a transient one: writes go through
+     * setState, so they reach the database and the client by the same path
+     * everything else does. Deliberately separate from
+     * `userPreferences.features[key].values`, which is *settings* — user-facing,
+     * schema-rendered, and rewritten wholesale on every change. This is an
+     * extension's own working state and never appears in a settings form.
+     */
+    extensionState: Record<string, Record<string, unknown>>;
 }
 
 /**

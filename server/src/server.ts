@@ -25,6 +25,7 @@ import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
 import { getEmbeddedClientFiles } from './embedded';
 import { refreshDependencies } from './dependencies';
 import { applyDeleteCascades } from './cascade';
+import { FEATURES, resolveFeatureState, type FeatureKey } from '@shared/features';
 import { ensureCert } from './tls';
 import { createServer as createHttpsServer } from 'node:https';
 
@@ -66,6 +67,7 @@ export const [state, _setState] = createStore({
     activities: {},
     dependencies: {},
     notifications: [],
+    extensionState: {},
     userPreferences: {
         theme: "system",
         playerCharacterId: null,
@@ -104,12 +106,37 @@ export function deleteState(...path: string[]) {
     io.emit('delete', { path: parentPath, key });
 }
 
+/**
+ * Give every declaring feature its bag, defaults merged over what was stored.
+ *
+ * Not just a convenience: Solid's setState cannot create intermediate objects,
+ * so `setState('extensionState', 'myext', 'counter', 1)` throws unless
+ * `extensionState.myext` already exists. Seeding here is what makes an
+ * extension's ordinary nested writes work at all — and it applies defaults on
+ * read the same way feature settings do, so a variable added in a later version
+ * arrives without a migration.
+ */
+function seedExtensionState(stored: Record<string, Record<string, unknown>>) {
+    const keys = new Set([...Object.keys(FEATURES), ...Object.keys(stored ?? {})]);
+    for (const key of keys) {
+        const declared = FEATURES[key]?.state
+        // Keep rows for an extension we no longer know about: it may just be
+        // switched off or mid-upgrade, and dropping its data would be worse
+        // than carrying it.
+        const values = declared
+            ? resolveFeatureState(key as FeatureKey, stored?.[key])
+            : (stored?.[key] ?? {})
+        setState('extensionState', key, values);
+    }
+}
+
 function start() {
     (async () => {
         await initDb();
         const loaded = await loadStateFromDb();
         setState('assets', loaded.assets);
         setState('userPreferences', loadPreferences());
+        seedExtensionState(loaded.extensionState);
         await logChatMessageCounts();
         backfillOnboarding();
         await refreshDependencies();

@@ -15,6 +15,16 @@ export type FeatureSpec = {
     description: string
     schema: SchemaField[]
     defaults: Record<string, unknown>
+    /**
+     * Working state this feature owns, declared so it has defaults and a home.
+     *
+     * Distinct from `schema`/`defaults`, which are *settings* — user-authored,
+     * rendered into the preferences form, and rewritten wholesale on change.
+     * This never appears in a form; it's what the feature keeps for itself, and
+     * it lives in `state.extensionState[key]` where writes persist and reach
+     * the client through the same setState funnel as everything else.
+     */
+    state?: Record<string, { default: unknown }>
 }
 
 /** Per-feature stored config (in userPreferences.features[key]). */
@@ -36,6 +46,12 @@ export const FEATURES: Record<string, FeatureSpec> = {
         key: 'imageGen',
         name: 'Image generation',
         description: 'Needs Stable Diffusion WebUI Forge running with --api.',
+        // Not a setting: nothing renders it and the user never edits it. It is
+        // here so the bag exists and the value has a default.
+        state: {
+            /** Last checkpoint Forge reported, to skip a redundant switch. */
+            lastCheckpoint: { default: '' },
+        },
         schema: [
             {
                 path: ['endpoint'],
@@ -129,6 +145,24 @@ export function resolveFeatureConfig(
         enabled: stored?.enabled ?? false,
         values: { ...(spec?.defaults ?? {}), ...(stored?.values ?? {}) },
     }
+}
+
+/**
+ * A feature's state, defaults applied on read.
+ *
+ * Same resolve-on-read rule as settings, for the same reason: a variable added
+ * in a later version has to arrive with its default for installs that never
+ * stored one, without a migration.
+ */
+export function resolveFeatureState(
+    key: FeatureKey,
+    stored: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+    const declared = FEATURES[key]?.state ?? {}
+    const defaults = Object.fromEntries(
+        Object.entries(declared).map(([name, spec]) => [name, spec.default]),
+    )
+    return { ...defaults, ...(stored ?? {}) }
 }
 
 /**
