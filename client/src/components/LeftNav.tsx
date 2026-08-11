@@ -9,6 +9,7 @@ import { usePreferences } from './PreferencesDialog'
 import { useHelp } from './HelpDialog'
 import { ImageIcon } from './ImageIcon'
 import { NAV_ITEMS } from './nav-items'
+import { useAction } from '../actions'
 import { Text } from './typography/Text'
 
 /**
@@ -26,6 +27,12 @@ export function LeftNav() {
     const preferences = usePreferences()
     const help = useHelp()
     const showLabels = () => viewport() === 'wide'
+
+    // The rail is mounted for the whole desktop session, so it's the natural
+    // owner of the two app-wide actions. Both are dialogs — they open over
+    // whatever you were doing rather than navigating away from it.
+    useAction('app.preferences', preferences.open)
+    useAction('app.help', () => help.open())
 
     const player = () => {
         const id = state.userPreferences.playerCharacterId

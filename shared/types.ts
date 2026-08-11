@@ -406,6 +406,13 @@ export type UserPreferences = {
          *  default", so an untouched install keeps tracking edits to that file. */
         systemPrompt?: string;
     };
+    /**
+     * Keybind overrides by action id (see shared/actions.ts). Only what the
+     * user changed is stored; everything else resolves to the registry's
+     * default, so a re-bound default travels to existing installs. An explicit
+     * `null` means "unbound" and is deliberately distinct from absent.
+     */
+    keybinds?: Record<string, string | null>;
     /** Presentation-only settings, grouped by the surface they affect. Nothing
      *  here reaches the agent or the server's turn logic. */
     interface?: {

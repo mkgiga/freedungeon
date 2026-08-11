@@ -20,6 +20,7 @@ import { ActivityOverlay } from '../../components/ActivityOverlay'
 import { ShowOn } from '../../components/ShowOn'
 import { viewport } from '../../viewport'
 import { chatView, setChatView } from '../../tab-state'
+import { useAction } from '../../actions'
 
 const PAGE_SIZE = 60    // how many messages to load per sentinel-trigger
 const WINDOW_SIZE = 200 // max messages rendered to the DOM at once
@@ -422,6 +423,8 @@ function ConversationViewBody(props: { onBack: () => void }) {
    * screens have no width to give, so they keep the overlay drawer.
    */
   const [inlineSidebar, setInlineSidebar] = createSignal(false)
+
+  useAction('chat.toggleSidebar', () => toggleSidebar())
 
   const toggleSidebar = () => {
     if (viewport() === 'wide') setInlineSidebar((open) => !open)

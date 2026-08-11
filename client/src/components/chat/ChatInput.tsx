@@ -17,6 +17,8 @@ import { Em } from '../typography/Em'
 import { DebugPromptButton } from './DebugPromptButton'
 import { usePlayback } from './playback'
 import { viewport } from '../../viewport'
+import { useAction, keybindLabel } from '../../actions'
+import { matchesKeybind } from '@shared/actions'
 
 const latestMessageId = () => {
     const msgs = Object.values(state.currentChat.messages ?? {})
@@ -211,6 +213,11 @@ export function ChatInput(props: { hidden?: boolean }) {
         })
     }
 
+    // Claimed while the composer exists, which is the only time they mean
+    // anything. Both route through the same guards as the buttons.
+    useAction('chat.regenerate', () => { void handleRegenerate() })
+    useAction('chat.fastForward', () => { void handleContinue() })
+
     const pendingChoicePrompt = createPendingChoicePrompt()
 
     const handleChoose = async (messageId: string, optionIndex: number) => {
@@ -262,13 +269,16 @@ export function ChatInput(props: { hidden?: boolean }) {
                  * right affordance there.
                  */
                 onKeyDown={(e) => {
-                    if (e.key !== 'Enter') return
                     // Mid-IME, Enter commits the candidate rather than the
                     // message — sending here would fire on every accepted
                     // character for anyone typing Japanese, Chinese or Korean.
                     if (e.isComposing) return
-                    if (e.shiftKey) return
                     if (viewport() === 'phone') return
+                    // Handled here rather than by the global dispatcher: this is
+                    // a key pressed *into a text field*, which the dispatcher
+                    // deliberately leaves alone. Same resolved binding either
+                    // way, so rebinding it in Preferences works.
+                    if (!matchesKeybind(e, keybindLabel('chat.send'))) return
                     e.preventDefault()
                     handleSend()
                 }}

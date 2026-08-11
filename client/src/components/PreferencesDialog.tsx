@@ -10,6 +10,8 @@ import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
 import { SchemaForm } from './json-ui'
 import { SettingsField, SettingsGroup, SettingsToggle } from './settings'
+import { KeybindEditor } from './KeybindEditor'
+import { viewport } from '../viewport'
 import { FEATURES, resolveFeatureConfig, type FeatureKey } from '@shared/features'
 import { installAvailable, isStandalone, triggerInstall } from '../pwa-install'
 import { ShowOn } from './ShowOn'
@@ -24,7 +26,7 @@ import { ShowOn } from './ShowOn'
  * also why a phone can simply drop it and lose nothing.
  */
 
-type SectionId = 'general' | 'interface' | 'features' | 'install'
+type SectionId = 'general' | 'interface' | 'keybinds' | 'features' | 'install'
 
 export function PreferencesDialog() {
     const pickers = useAssetPickers()
@@ -33,6 +35,8 @@ export function PreferencesDialog() {
     const sections = (): { id: SectionId; label: string }[] => [
         { id: 'general', label: 'General' },
         { id: 'interface', label: 'Interface' },
+        // Desktop only: a touch screen has no keys to bind.
+        ...(viewport() === 'phone' ? [] : [{ id: 'keybinds' as const, label: 'Keybinds' }]),
         { id: 'features', label: 'Features' },
         ...(isStandalone() ? [] : [{ id: 'install' as const, label: 'Install' }]),
     ]
@@ -192,6 +196,17 @@ export function PreferencesDialog() {
                         />
                     </SettingsGroup>
                 </Section>
+
+                <Show when={viewport() !== 'phone'}>
+                    <Section id="keybinds" label="Keybinds">
+                        <SettingsGroup>
+                            <Text size="sm" class="settings-hint">
+                                Click a shortcut, then press the keys you want. Escape cancels.
+                            </Text>
+                            <KeybindEditor />
+                        </SettingsGroup>
+                    </Section>
+                </Show>
 
                 <Section id="features" label="Features">
                     <SettingsGroup>

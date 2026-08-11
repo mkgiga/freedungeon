@@ -1062,6 +1062,70 @@ button {
   min-width: 0;
 }
 
+/* ── Keybind editor ── */
+
+.keybind-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.keybind-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  min-width: 0;
+
+  & + & {
+    border-top: 1px solid color-mix(in oklch, var(--text), transparent 92%);
+  }
+}
+
+.keybind-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* A button, not an input: it captures a chord rather than accepting text, and
+   a real input would let you paste one in. */
+.keybind-capture {
+  flex-shrink: 0;
+  min-width: 116px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklch, var(--text), transparent 85%);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+
+  &:hover {
+    border-color: color-mix(in oklch, var(--primary), transparent 50%);
+  }
+
+  &.is-capturing {
+    border-color: var(--primary);
+    background: color-mix(in oklch, var(--primary), transparent 90%);
+  }
+}
+
+.keybind-key {
+  font-family: 'Courier New', monospace;
+  font-size: var(--text-sm);
+}
+
+.keybind-clear {
+  width: 32px;
+
+  &:disabled {
+    opacity: 0.25;
+    cursor: default;
+    background: none;
+  }
+}
+
 /* ── Preferences dialog ──
 
    A table of contents beside one scrolling column, not a router: settings are

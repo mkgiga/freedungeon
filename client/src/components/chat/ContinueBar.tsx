@@ -1,6 +1,6 @@
-import { onCleanup, onMount } from 'solid-js'
 import { MdFillKeyboard_arrow_down } from 'solid-icons/md'
 import { usePlayback } from './playback'
+import { useAction, keybindLabel } from '../../actions'
 import { Text } from '../typography/Text'
 import { ShowOn } from '../ShowOn'
 
@@ -16,19 +16,10 @@ import { ShowOn } from '../ShowOn'
 export function ContinueBar() {
     const playback = usePlayback()
 
-    // Space and Enter advance too — on desktop the pointer is rarely near the
-    // bar, and holding one key through a scene beats hunting for it.
-    const onKeydown = (e: KeyboardEvent) => {
-        if (e.key !== ' ' && e.key !== 'Enter') return
-        const target = e.target as HTMLElement | null
-        // A modal over the chat (director's note, confirms) owns its own keys.
-        if (target?.closest('input, textarea, [contenteditable="true"], .modal-overlay')) return
-        e.preventDefault()
-        playback.tap()
-    }
-
-    onMount(() => document.addEventListener('keydown', onKeydown))
-    onCleanup(() => document.removeEventListener('keydown', onKeydown))
+    // The key that advances is the `chat.advance` action, claimed only while
+    // this bar is on screen — which is exactly when advancing means anything.
+    // The dispatcher already declines bare keys while focus is in a text field.
+    useAction('chat.advance', () => playback.tap())
 
     return (
         <button type="button" class="continue-bar" onClick={() => playback.tap()}>
@@ -37,7 +28,7 @@ export function ContinueBar() {
                 {playback.isActiveScrolling() ? 'Tap to reveal' : 'Tap to continue'}
             </Text>
             <ShowOn viewport={['tablet', 'wide']}>
-                <kbd class="continue-bar-key">Space</kbd>
+<kbd class="continue-bar-key">{keybindLabel('chat.advance') ?? '—'}</kbd>
             </ShowOn>
         </button>
     )
