@@ -17,8 +17,7 @@ import { Em } from '../typography/Em'
 import { DebugPromptButton } from './DebugPromptButton'
 import { usePlayback } from './playback'
 import { viewport } from '../../viewport'
-import { useAction, keybindLabel } from '../../actions'
-import { matchesKeybind } from '@shared/actions'
+import { useAction } from '../../actions'
 
 const latestMessageId = () => {
     const msgs = Object.values(state.currentChat.messages ?? {})
@@ -218,6 +217,24 @@ export function ChatInput(props: { hidden?: boolean }) {
     useAction('chat.regenerate', () => { void handleRegenerate() })
     useAction('chat.fastForward', () => { void handleContinue() })
 
+    /*
+     * Send is bound to a bare Enter, so it needs both escapes from the "don't
+     * fire while typing" rule: `whileTyping` to be considered at all, and an
+     * `enabled` that narrows it to THIS textarea. Without the second, Enter in
+     * the rename dialog — or any other input in the app — would send a message,
+     * because the composer is still mounted behind it.
+     *
+     * Desktop only: a phone's return key is a bare Enter with no Shift to reach
+     * for, so binding it would leave no way to type a second line.
+     */
+    let composerEl: HTMLTextAreaElement | undefined
+    useAction('chat.send', () => { void handleSend() }, {
+        whileTyping: true,
+        enabled: () => viewport() !== 'phone'
+            && !!composerEl
+            && document.activeElement === composerEl,
+    })
+
     const pendingChoicePrompt = createPendingChoicePrompt()
 
     const handleChoose = async (messageId: string, optionIndex: number) => {
@@ -258,30 +275,7 @@ export function ChatInput(props: { hidden?: boolean }) {
                 placeholder={pendingChoicePrompt() ? '…or type your own action' : 'Type a message...'}
                 value={message()}
                 onInput={(e) => setMessage(e.currentTarget.value)}
-                /*
-                 * Enter sends, Shift+Enter breaks the line — the convention
-                 * every desktop chat app uses. Ctrl/Cmd+Enter sends as well; it
-                 * was the only send key before, and leaving it costs nothing.
-                 *
-                 * Desktop only. A phone's on-screen return key is a plain Enter
-                 * with no modifier and no Shift to reach, so sending on it would
-                 * leave no way to type a second line — the send button is the
-                 * right affordance there.
-                 */
-                onKeyDown={(e) => {
-                    // Mid-IME, Enter commits the candidate rather than the
-                    // message — sending here would fire on every accepted
-                    // character for anyone typing Japanese, Chinese or Korean.
-                    if (e.isComposing) return
-                    if (viewport() === 'phone') return
-                    // Handled here rather than by the global dispatcher: this is
-                    // a key pressed *into a text field*, which the dispatcher
-                    // deliberately leaves alone. Same resolved binding either
-                    // way, so rebinding it in Preferences works.
-                    if (!matchesKeybind(e, keybindLabel('chat.send'))) return
-                    e.preventDefault()
-                    handleSend()
-                }}
+                ref={(el) => { composerEl = el }}
             />
 
             {/* Turn actions along the bottom edge: out-of-character tools on the

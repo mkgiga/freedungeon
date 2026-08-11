@@ -1,3 +1,4 @@
+import type { AppState } from './types'
 import type { FeatureKey } from './features'
 
 /**
@@ -33,6 +34,26 @@ export type ActionSpec = {
      * keybind editor, so a disabled feature can't be driven by a stale binding.
      */
     feature?: FeatureKey
+    /**
+     * A baseline condition owned by whoever *declares* the action, as opposed
+     * to whoever implements it. Both must pass for the action to run.
+     *
+     * A callback rather than declarative data on purpose: a constraint that
+     * depends on state nobody anticipated is the normal case, not the exotic
+     * one, and an expression language would only ever be a worse JavaScript.
+     * It's re-evaluated at dispatch, so it tracks state set at runtime.
+     *
+     * Reads app state through `ctx` instead of importing it, which is what
+     * keeps this module free of a client dependency — the dispatcher supplies
+     * the context. Anything client-only (focus, route, local signals) belongs
+     * in the registration's `enabled` instead; this can't see it.
+     */
+    canExecute?: (ctx: ActionContext) => boolean
+}
+
+/** What a declaration-site `canExecute` is given. */
+export type ActionContext = {
+    state: AppState
 }
 
 export const ACTIONS: Record<string, ActionSpec> = {
@@ -41,6 +62,9 @@ export const ACTIONS: Record<string, ActionSpec> = {
         label: 'Send message',
         description: 'While the composer is focused. Shift+Enter always inserts a line break.',
         defaultKeybind: 'Enter',
+        // The server rejects a concurrent turn outright, so firing here would
+        // only produce an error toast.
+        canExecute: ({ state }) => !state.isGenerating,
     },
     'chat.advance': {
         id: 'chat.advance',
@@ -52,12 +76,14 @@ export const ACTIONS: Record<string, ActionSpec> = {
         id: 'chat.regenerate',
         label: 'Regenerate last turn',
         defaultKeybind: 'Alt+R',
+        canExecute: ({ state }) => !state.isGenerating,
     },
     'chat.fastForward': {
         id: 'chat.fastForward',
         label: 'Fast forward',
         description: 'Let the story continue without adding anything of your own.',
         defaultKeybind: 'Alt+F',
+        canExecute: ({ state }) => !state.isGenerating,
     },
     'chat.toggleSidebar': {
         id: 'chat.toggleSidebar',

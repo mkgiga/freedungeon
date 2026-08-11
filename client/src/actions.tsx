@@ -18,10 +18,39 @@ import { featureEnabled, type FeatureKey } from '@shared/features'
 
 type Handler = () => void
 
+/**
+ * Conditions on a registration — everything that can't be said in the shared
+ * registry, because it isn't shared state.
+ */
+export type ActionOptions = {
+    /**
+     * Whether the action can run right now. Evaluated at dispatch time, at the
+     * registration site, so it can read anything the client can see: DOM focus,
+     * the current route, local signals, and the replicated server state.
+     *
+     * This is deliberately NOT part of the shared ActionSpec. A predicate
+     * declared there could only reach `state`, which is precisely the wrong
+     * half for the cases that need it most — "is this input focused" has no
+     * representation in application state and shouldn't acquire one.
+     */
+    enabled?: () => boolean
+    /**
+     * Let a modifier-less binding fire while focus is in a text field. Off by
+     * default, because a bare `Space` belongs to whoever is typing. Turning it
+     * on is only safe alongside an `enabled` that scopes to a specific element
+     * — otherwise the action fires from every text field in the app.
+     */
+    whileTyping?: boolean
+}
+
+type Registration = { handler: Handler; options: ActionOptions }
+
 type ActionsApi = {
-    register: (id: ActionId, handler: Handler) => () => void
+    register: (id: ActionId, handler: Handler, options?: ActionOptions) => () => void
     /** Run an action by id, whatever bound it. Returns false if nothing claimed it. */
     invoke: (id: ActionId) => boolean
+    /** Whether something has claimed this action and its conditions are met. */
+    isAvailable: (id: ActionId) => boolean
     keybindOf: (id: ActionId) => string | null
 }
 
@@ -40,16 +69,23 @@ export function useActions(): ActionsApi {
  * dialog, say) takes the binding while it's up and hands it back on cleanup,
  * which is the behaviour you want without anyone tracking z-order.
  */
-export function useAction(id: ActionId, handler: Handler): void {
+export function useAction(id: ActionId, handler: Handler, options?: ActionOptions): void {
     const actions = useActions()
-    onMount(() => onCleanup(actions.register(id, handler)))
+    onMount(() => onCleanup(actions.register(id, handler, options)))
 }
 
-/** Whether an action can fire: its owning feature must be on, if it has one. */
+/**
+ * The conditions the *declaration* imposes: its feature must be on, and its own
+ * `canExecute` must pass. Separate from the registration's `enabled` so an
+ * action can't be made callable by a handler that forgot the constraint — both
+ * gates have to open.
+ */
 function actionAvailable(id: string): boolean {
-    const feature = ACTIONS[id]?.feature
-    if (!feature) return true
-    return featureEnabled(state.userPreferences, feature as FeatureKey)
+    const spec = ACTIONS[id]
+    if (!spec) return false
+    if (spec.feature && !featureEnabled(state.userPreferences, spec.feature as FeatureKey)) return false
+    if (spec.canExecute && !spec.canExecute({ state })) return false
+    return true
 }
 
 /**
@@ -69,28 +105,47 @@ function isBareKey(binding: string): boolean {
 }
 
 export function ActionsProvider(props: { children: JSXElement }) {
-    // A stack per action: the most recent registration is the live one.
-    const handlers = new Map<string, Handler[]>()
+    // A stack per action: the most recent *eligible* registration is the live
+    // one. Not simply the last — two composers can be mounted at once (the chat
+    // list and a conversation), and the one that answers must be the one whose
+    // conditions hold, not whichever mounted later.
+    const handlers = new Map<string, Registration[]>()
 
-    const register = (id: ActionId, handler: Handler) => {
+    const register = (id: ActionId, handler: Handler, options: ActionOptions = {}) => {
         const stack = handlers.get(id) ?? []
-        stack.push(handler)
+        const entry: Registration = { handler, options }
+        stack.push(entry)
         handlers.set(id, stack)
         return () => {
             const current = handlers.get(id)
             if (!current) return
-            const at = current.lastIndexOf(handler)
+            const at = current.indexOf(entry)
             if (at !== -1) current.splice(at, 1)
         }
     }
 
-    const invoke = (id: ActionId): boolean => {
+    /** Topmost registration whose `enabled` holds, if any. */
+    const liveFor = (id: string, opts: { typing?: boolean } = {}): Registration | null => {
+        if (!actionAvailable(id)) return null
         const stack = handlers.get(id)
-        const top = stack?.[stack.length - 1]
-        if (!top || !actionAvailable(id)) return false
-        top()
+        if (!stack) return null
+        for (let i = stack.length - 1; i >= 0; i--) {
+            const entry = stack[i]!
+            if (opts.typing && !entry.options.whileTyping) continue
+            if (entry.options.enabled && !entry.options.enabled()) continue
+            return entry
+        }
+        return null
+    }
+
+    const invoke = (id: ActionId): boolean => {
+        const live = liveFor(id)
+        if (!live) return false
+        live.handler()
         return true
     }
+
+    const isAvailable = (id: ActionId) => liveFor(id) !== null
 
     const keybindOf = (id: ActionId) => resolveKeybind(id, state.userPreferences.keybinds)
 
@@ -99,14 +154,22 @@ export function ActionsProvider(props: { children: JSXElement }) {
         // no room in the UI to explain them.
         if (viewport() === 'phone') return
 
+        // Mid-IME, a keypress belongs to the input method: Enter commits a
+        // candidate rather than meaning Enter. Checked once here rather than in
+        // every handler.
+        if (e.isComposing) return
+
+        const typing = isTextEntry(e.target)
+
         for (const id of Object.keys(ACTIONS)) {
             const binding = resolveKeybind(id, state.userPreferences.keybinds)
             if (!binding || !matchesKeybind(e, binding)) continue
-            if (isBareKey(binding) && isTextEntry(e.target)) continue
-            if (!handlers.get(id)?.length) continue
-            if (!actionAvailable(id)) continue
+            // A modifier-less chord while typing only reaches actions that asked
+            // for it — and those are expected to scope themselves to an element.
+            const live = liveFor(id, { typing: typing && isBareKey(binding) })
+            if (!live) continue
             e.preventDefault()
-            invoke(id as ActionId)
+            live.handler()
             return
         }
     }
@@ -115,7 +178,7 @@ export function ActionsProvider(props: { children: JSXElement }) {
     onCleanup(() => document.removeEventListener('keydown', onKeydown))
 
     return (
-        <ActionsContext.Provider value={{ register, invoke, keybindOf }}>
+        <ActionsContext.Provider value={{ register, invoke, isAvailable, keybindOf }}>
             {props.children}
         </ActionsContext.Provider>
     )
