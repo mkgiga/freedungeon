@@ -16,6 +16,7 @@ import {
 import { Em } from '../typography/Em'
 import { DebugPromptButton } from './DebugPromptButton'
 import { usePlayback } from './playback'
+import { viewport } from '../../viewport'
 
 const latestMessageId = () => {
     const msgs = Object.values(state.currentChat.messages ?? {})
@@ -255,10 +256,10 @@ export function ChatInput(props: { hidden?: boolean }) {
                  * every desktop chat app uses. Ctrl/Cmd+Enter sends as well; it
                  * was the only send key before, and leaving it costs nothing.
                  *
-                 * On a phone the on-screen keyboard's return key produces plain
-                 * Enter with no modifier, so this makes it send there too. That
-                 * matches the same apps, and the send button is still there for
-                 * anyone who'd rather tap it.
+                 * Desktop only. A phone's on-screen return key is a plain Enter
+                 * with no modifier and no Shift to reach, so sending on it would
+                 * leave no way to type a second line — the send button is the
+                 * right affordance there.
                  */
                 onKeyDown={(e) => {
                     if (e.key !== 'Enter') return
@@ -267,6 +268,7 @@ export function ChatInput(props: { hidden?: boolean }) {
                     // character for anyone typing Japanese, Chinese or Korean.
                     if (e.isComposing) return
                     if (e.shiftKey) return
+                    if (viewport() === 'phone') return
                     e.preventDefault()
                     handleSend()
                 }}
