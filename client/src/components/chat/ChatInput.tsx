@@ -251,14 +251,14 @@ export function ChatInput(props: { hidden?: boolean }) {
                 value={message()}
                 onInput={(e) => setMessage(e.currentTarget.value)}
                 /*
-                 * Shift+Enter sends, plain Enter breaks the line. Ctrl/Cmd+Enter
-                 * still sends too — it was the only send key before this, and
-                 * leaving it costs nothing.
+                 * Enter sends, Shift+Enter breaks the line — the convention
+                 * every desktop chat app uses. Ctrl/Cmd+Enter sends as well; it
+                 * was the only send key before, and leaving it costs nothing.
                  *
-                 * No viewport check: Shift+Enter can't be typed on a soft
-                 * keyboard, so this is desktop-only by construction, and gating
-                 * on `phone` would take it away from a tablet with a real
-                 * keyboard for no reason.
+                 * On a phone the on-screen keyboard's return key produces plain
+                 * Enter with no modifier, so this makes it send there too. That
+                 * matches the same apps, and the send button is still there for
+                 * anyone who'd rather tap it.
                  */
                 onKeyDown={(e) => {
                     if (e.key !== 'Enter') return
@@ -266,7 +266,7 @@ export function ChatInput(props: { hidden?: boolean }) {
                     // message — sending here would fire on every accepted
                     // character for anyone typing Japanese, Chinese or Korean.
                     if (e.isComposing) return
-                    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) return
+                    if (e.shiftKey) return
                     e.preventDefault()
                     handleSend()
                 }}
