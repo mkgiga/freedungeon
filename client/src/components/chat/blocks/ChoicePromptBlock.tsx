@@ -4,11 +4,14 @@ import type { ChoicePromptBlock as ChoicePromptBlockType } from '../blocks'
 /**
  * The agent's optional end-of-turn multiple-choice menu.
  *
- * Rendered in chat history for every occurrence. When `interactive` (the menu
- * is the latest message, unanswered, and the global setting is on) the options
- * are clickable; otherwise they're static — the chosen one (if any) is
- * highlighted and the rest dimmed. The same options are also surfaced in the
- * input bar when interactive (see ChatInput); both call the same handler.
+ * Rendered inline in the history, which is also where it is answered. When
+ * `interactive` (the menu is the latest message, unanswered, and the global
+ * setting is on) the options are clickable; otherwise they're static — the
+ * chosen one is highlighted and the rest dimmed.
+ *
+ * It used to be mirrored into the composer rail, which meant the rail grew with
+ * the number of options and ate the vertical space the scene needs. Here it
+ * scrolls with everything else and costs nothing when it's off screen.
  */
 export function ChoicePromptBlock(props: {
     block: ChoicePromptBlockType

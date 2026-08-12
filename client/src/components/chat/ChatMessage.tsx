@@ -27,6 +27,7 @@ import { latestMessageId } from './latest'
 import { featureEnabled } from '@shared/features'
 import { state } from '../../state'
 import { usePlayback } from './playback'
+import { useRehydrationConfirm } from './rehydration'
 
 /**
  * Block types with no renderer in the Switch below — pure state mutations that
@@ -78,6 +79,7 @@ export function ChatMessage(props: {
     }
     const modal = useModal()
     const playback = usePlayback()
+    const withRehydrationConfirm = useRehydrationConfirm()
 
     // Whether a given block index is "in the future" of the current playback —
     // i.e., this message is the playing one AND the block hasn't been revealed
@@ -97,22 +99,11 @@ export function ChatMessage(props: {
     const choiceEnabled = () => featureEnabled(state.userPreferences, 'choicePrompts')
     const chosenIndex = () => props.message.metadata?.chosenIndex as number | undefined
 
-    // While a choice prompt is the active, unanswered prompt, its options are
-    // rendered in the input bar — so hide the history copy to avoid showing it
-    // twice. It reappears here (static, with the pick highlighted) once it's
-    // answered or superseded. Scoped to a lone choicePrompt block, which is how
-    // end_turn emits it.
-    const hideForActivePrompt = () =>
-        choiceEnabled() && isLatest() && chosenIndex() == null &&
-        props.message.role === 'assistant' &&
-        blocks().length === 1 && blocks()[0]?.type === 'choicePrompt'
-
     // A future assistant message that playback hasn't reached yet stays hidden,
     // so a fast provider can't show later dialogue/narration before the user
     // taps to it. User/system messages (and already-played ones) always show.
     const isVisible = () =>
-        (props.message.role !== 'assistant' || playback.isMessageRevealed(props.message.id)) &&
-        !hideForActivePrompt()
+        props.message.role !== 'assistant' || playback.isMessageRevealed(props.message.id)
 
     /**
      * Message-level tap target. While this message is mid-playback, a tap
@@ -134,6 +125,22 @@ export function ChatMessage(props: {
         const target = e.target as HTMLElement | null
         if (target?.closest('button:not(:disabled), input, textarea, select, .editable-text, a[href]')) return
         playback.tap()
+    }
+
+    /**
+     * Answering the menu is a turn trigger, exactly like pressing send — so it
+     * takes the same two guards the composer applies: skip any unread playback
+     * (the pick supersedes it) and confirm the rebuild cost if this chat has no
+     * live agent session. Calling `chooseOption` bare would quietly skip both.
+     */
+    const chooseOption = async (optionIndex: number) => {
+        if (state.isGenerating) return
+        await withRehydrationConfirm('Choose anyway', () => {
+            playback.skipAll()
+            return trpc.chat.chooseOption
+                .mutate({ messageId: props.message.id, optionIndex })
+                .then(() => {})
+        })
     }
 
     const updateBlock = (index: number, updated: Block) => {
@@ -285,7 +292,7 @@ export function ChatMessage(props: {
                                     block={block as Extract<Block, { type: 'choicePrompt' }>}
                                     chosenIndex={chosenIndex()}
                                     interactive={choiceEnabled() && isLatest() && chosenIndex() == null}
-                                    onChoose={(index) => trpc.chat.chooseOption.mutate({ messageId: props.message.id, optionIndex: index })}
+                                    onChoose={(index) => chooseOption(index)}
                                 />
                             </Match>
                             <Match when={block.type === 'choice'}>

@@ -12,7 +12,7 @@ import { ItemCard } from './inventory/ItemCard'
 import { usePlayback } from './playback'
 import { serializeBlocks } from './blocks'
 import { startItemDrag } from './itemDrag'
-import { ChatInput, createPendingChoicePrompt } from './ChatInput'
+import { ChatInput } from './ChatInput'
 import { ContinueBar } from './ContinueBar'
 import { MdFillChat, MdFillGroups, MdFillKeyboard_arrow_down, MdFillKeyboard_arrow_up, MdFillPerson, MdFillBackpack } from 'solid-icons/md'
 import { Loader } from '../Loader'
@@ -48,22 +48,10 @@ export function GameStatePanel() {
     const [mode, setMode] = createSignal<'actors' | 'composer'>('composer')
     const [inventoryOpen, setInventoryOpen] = createSignal(false)
 
-    // A menu the agent just offered is unusable while the composer is hidden, so
-    // surface it. Keyed on the message id: re-opening only follows a *new* menu,
-    // otherwise dismissing one that's still pending would immediately undo itself.
-    const pendingChoicePrompt = createPendingChoicePrompt()
-    let autoOpenedFor: string | null = null
-    createEffect(() => {
-        const pending = pendingChoicePrompt()
-        if (!pending) {
-            autoOpenedFor = null
-            return
-        }
-        if (pending.messageId !== autoOpenedFor) {
-            autoOpenedFor = pending.messageId
-            setMode('composer')
-        }
-    })
+    // No auto-switch on a new menu any more: it existed because the options
+    // lived in this rail and were unreachable while it showed the actors. They
+    // are answered from the message history now, so forcing the rail to change
+    // under the user would take away the scene for no reason.
 
     const resolveActorName = (customId: string) => {
         for (const a of Object.values(state.assets.actors)) {

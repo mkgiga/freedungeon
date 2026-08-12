@@ -4176,7 +4176,8 @@ body.item-dragging [data-drop-actor].drop-target-hover {
   padding-top: 4px;
 }
 
-/* Option button — shared between the in-message menu and the input bar. */
+/* Option button — full-width so a long option wraps rather than shrinking the
+   others, and so the whole row is the hit target on a phone. */
 .choice-prompt-option {
   display: block;
   width: 100%;
@@ -4212,15 +4213,6 @@ body.item-dragging [data-drop-actor].drop-target-hover {
 .choice-prompt-option:disabled:not(.is-chosen):not(.is-dimmed) {
   opacity: 0.6;
 }
-
-/* Interactive copy of the options, surfaced in the input bar. */
-.choice-prompt-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 0;
-}
-
 
 /* A use attempt reads as a statement of what the player did, so it gets no
    container at all — the weight alone separates it from narration. inline-flex

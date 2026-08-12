@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createMemo, createSignal, Show } from 'solid-js'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { parseBlocks } from './blocks'
@@ -16,6 +16,7 @@ import {
 import { Em } from '../typography/Em'
 import { DebugPromptButton } from './DebugPromptButton'
 import { usePlayback } from './playback'
+import { useRehydrationConfirm } from './rehydration'
 import { viewport } from '../../viewport'
 import { useAction } from '../../actions'
 
@@ -58,6 +59,7 @@ export function ChatInput(props: { hidden?: boolean }) {
     const [message, setMessage] = createSignal('')
     const modal = useModal()
     const playback = usePlayback()
+    const withRehydrationConfirm = useRehydrationConfirm()
 
     const openDirectorNote = () => {
         const initial = state.currentChat.pendingSystemNotice ?? ''
@@ -98,56 +100,6 @@ export function ChatInput(props: { hidden?: boolean }) {
     const hasPendingNotice = createMemo(() =>
         (state.currentChat.pendingSystemNotice ?? '').trim().length > 0
     )
-
-    /**
-     * Run an action that triggers an agent turn. If this chat has no
-     * SDK session yet, show a confirm modal with the estimated rebuild
-     * cost first. Resolves true when the action ran, false when the
-     * user cancelled.
-     */
-    const withRehydrationConfirm = (
-        actionLabel: string,
-        run: () => Promise<void> | void,
-    ): Promise<boolean> => {
-        const rehydration = state.currentChat.agentRehydration
-        if (!rehydration) {
-            const r = run()
-            return Promise.resolve(r instanceof Promise ? r.then(() => true) : true) as Promise<boolean>
-        }
-        return new Promise<boolean>((resolve) => {
-            modal.open({
-                title: 'Rebuild agent memory?',
-                content: () => (
-                    <div>
-                        <Text>
-                            This chat has <Em bold>{rehydration.messageCount} prior messages</Em>{' '}
-                            but no live agent session. The next agent turn will inject the full
-                            chat history into a new session so the agent regains context.
-                        </Text>
-                        <Text class="mt-2">
-                            <Em type="warning" bold>One-time cost:</Em> approximately{' '}
-                            <Em bold>{rehydration.estimatedTokens.toLocaleString()} input tokens</Em>{' '}
-                            (rough char/4 estimate). Subsequent prompts in this chat resume the
-                            rebuilt session normally and hit cache.
-                        </Text>
-                        <div class="modal-confirm-actions">
-                            <button class="modal-btn modal-btn-cancel" onClick={() => { modal.close(); resolve(false) }}>Cancel</button>
-                            <button
-                                class="modal-btn modal-btn-confirm"
-                                onClick={async () => {
-                                    modal.close()
-                                    await run()
-                                    resolve(true)
-                                }}
-                            >
-                                {actionLabel}
-                            </button>
-                        </div>
-                    </div>
-                ),
-            })
-        })
-    }
 
     const openRehydrationInfo = () => {
         const rehydration = state.currentChat.agentRehydration
@@ -235,41 +187,16 @@ export function ChatInput(props: { hidden?: boolean }) {
             && document.activeElement === composerEl,
     })
 
+    // Only for the placeholder hint. The options themselves render inline in
+    // the history now — see ChoicePromptBlock — because a menu of any length
+    // made this rail as tall as the answers, and there is no vertical room for
+    // that. The composer stays the escape hatch for typing your own action.
     const pendingChoicePrompt = createPendingChoicePrompt()
-
-    const handleChoose = async (messageId: string, optionIndex: number) => {
-        await withRehydrationConfirm('Choose anyway', () => {
-            playback.skipAll()
-            return trpc.chat.chooseOption.mutate({ messageId, optionIndex }).then(() => {})
-        })
-    }
 
     return (
         // Hidden rather than unmounted while the band shows the actors rail, so
         // an unsent draft survives closing and reopening the composer.
         <div class="chat-composer" classList={{ hidden: props.hidden }}>
-            {/* Choice menu sits directly above the textarea so the two read as one
-              * unit (no action strip wedged between them) when the latest agent
-              * message is a menu. */}
-            <Show when={pendingChoicePrompt()}>
-                {(p) => (
-                    <div class="choice-prompt-bar" role="group" aria-label="Choices">
-                        <For each={p().options}>
-                            {(option, i) => (
-                                <button
-                                    type="button"
-                                    class="choice-prompt-option"
-                                    disabled={state.isGenerating}
-                                    onClick={() => handleChoose(p().messageId, i())}
-                                >
-                                    {option}
-                                </button>
-                            )}
-                        </For>
-                    </div>
-                )}
-            </Show>
-
             <textarea
                 class="chat-input-textarea"
                 placeholder={pendingChoicePrompt() ? '…or type your own action' : 'Type a message...'}
