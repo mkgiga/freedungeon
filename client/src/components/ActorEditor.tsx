@@ -122,13 +122,19 @@ export function ActorEditor(props: {
     // record with the key swapped — iterating preserves insertion order, so the
     // renamed row stays put instead of jumping to the end. Committed to the draft
     // only (persists on Save). Caller guards against empty/duplicate names.
+    //
+    // Assigned inside `produce` rather than as `setDraft('expressions', rebuilt)`,
+    // which MERGES: the old key survived the merge and the new one was added
+    // beside it, so every rename produced a duplicate row sharing one image.
+    // `reconcile` also removes the stale key but reorders the renamed row to the
+    // end; replacing the reference keeps it where it was.
     const renameExpression = (oldName: string, newName: string) => {
         if (newName === oldName) return
         const rebuilt: Record<string, string> = {}
         for (const [k, v] of Object.entries(draft.expressions ?? {})) {
             rebuilt[k === oldName ? newName : k] = v
         }
-        setDraft('expressions', rebuilt)
+        setDraft(produce((d) => { d.expressions = rebuilt }))
     }
 
     // Adds the row straight away rather than gating it behind a dialog: the
