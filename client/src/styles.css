@@ -3443,6 +3443,17 @@ button {
   background-color: color-mix(in oklch, var(--text), transparent 90%);
 }
 
+/* Present but inert. The row stays legible rather than fading to noise — it has
+   to be readable enough to explain, via its title, why it can't be used. */
+.dropdown-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dropdown-item:disabled:hover {
+  background-color: transparent;
+}
+
 .dropdown-item-danger {
   color: var(--danger);
 
@@ -4243,6 +4254,29 @@ body.item-dragging [data-drop-actor].drop-target-hover {
 .tryuse-emoji {
   font-size: 1.1em;
   line-height: 1;
+}
+
+/* An inspect request is the same kind of statement as a use attempt, so it
+   borrows that treatment wholesale rather than inventing a second one. */
+.inspect-label {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.inspect-icon {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.15em;
+}
+
+.inspect-target {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in oklch, var(--primary), transparent 45%);
 }
 
 /* The item is the specific thing being reported; underlined so it stands out

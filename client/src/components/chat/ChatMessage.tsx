@@ -20,6 +20,7 @@ import { GiveItemBlock } from './blocks/GiveItemBlock'
 import { TakeItemBlock } from './blocks/TakeItemBlock'
 import { UseItemBlock } from './blocks/UseItemBlock'
 import { TryUseBlock } from './blocks/TryUseBlock'
+import { InspectBlock } from './blocks/InspectBlock'
 import { SetLocationBlock } from './blocks/SetLocationBlock'
 import { ChoicePromptBlock } from './blocks/ChoicePromptBlock'
 import { ChoiceBlock } from './blocks/ChoiceBlock'
@@ -278,6 +279,12 @@ export function ChatMessage(props: {
                             <Match when={block.type === 'tryUse'}>
                                 <TryUseBlock
                                     block={block as Extract<Block, { type: 'tryUse' }>}
+                                    onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'inspect'}>
+                                <InspectBlock
+                                    block={block as Extract<Block, { type: 'inspect' }>}
                                     onUpdate={(b) => updateBlock(i(), b)}
                                 />
                             </Match>

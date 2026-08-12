@@ -62,6 +62,11 @@ export type TryUseBlock = { type: 'tryUse'; what: string; on: string }
 // The agent's adjudicated outcome of a use attempt: consumes qty of the item
 // from the party inventory. Item effects are separate follow-up blocks.
 export type UseItemBlock = { type: 'useItem'; item: string; target: string; qty: number }
+// A user's request to look closer at something, produced by picking "Inspect"
+// off a speech portrait (not typed text). `target` is an actor customId, the
+// same identifier speech and every game-state tool use. Like tryUse it is a
+// request, not an outcome: the agent answers it with narration.
+export type InspectBlock = { type: 'inspect'; target: string }
 
 export type Block =
     // Rendering commands
@@ -88,8 +93,9 @@ export type Block =
     // Choice flow
     | ChoicePromptBlock
     | ChoiceBlock
-    // Drag-and-drop use attempt
+    // Mechanical user actions (HUD gestures, not typed text)
     | TryUseBlock
+    | InspectBlock
 
 // ── Blocking semantics (visual-novel-style playback) ──
 
@@ -227,6 +233,9 @@ export function parseBlocks(content: string): Block[] {
         tryUse: (opts: { what: string; on: string }) => {
             blocks.push({ type: 'tryUse', what: opts.what, on: opts.on })
         },
+        inspect: (target: string) => {
+            blocks.push({ type: 'inspect', target })
+        },
         // No-op parity with createScope (shared/game-state/scope.ts) so legacy
         // content calling attack() doesn't abort the parse mid-message.
         attack: (_target: string) => {},
@@ -354,6 +363,8 @@ export function serializeBlocks(blocks: Block[]): string {
                     return `choice(${tpl(b.text)});`
                 case 'tryUse':
                     return `tryUse({ what: ${str(b.what)}, on: ${str(b.on)} });`
+                case 'inspect':
+                    return `inspect(${str(b.target)});`
             }
         })
         .filter(Boolean)

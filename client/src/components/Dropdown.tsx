@@ -6,63 +6,54 @@ export type DropdownItem = {
     icon?: JSXElement
     onClick: () => void
     danger?: boolean
+    /** Shown greyed and inert. Prefer this over omitting the item: a menu whose
+     *  entries come and go teaches nothing, while a disabled row says the action
+     *  exists and why it isn't available right now (via `title`). */
+    disabled?: boolean
+    /** Tooltip — the place to explain a `disabled`. */
+    title?: string
 }
 
-export function Dropdown(props: {
-    trigger: JSXElement
+const VIEWPORT_MARGIN = 8
+
+/**
+ * The floating menu half of a dropdown, anchored to an element you already own.
+ *
+ * Split out from `Dropdown` because that component supplies its own trigger
+ * button, and some triggers can't be wrapped: the speech portrait is
+ * `float: left` (the dialogue wraps around it), so an extra container — or an
+ * extra button around its button — changes the layout. Here the caller keeps
+ * its element and just hands over the rect to hang the menu off.
+ */
+export function AnchoredMenu(props: {
+    anchor: HTMLElement
     items: DropdownItem[]
+    onClose: () => void
 }) {
-    const [isOpen, setIsOpen] = createSignal(false)
-    // Initial pos is a best-guess based on the trigger; clamped after mount.
-    const [pos, setPos] = createSignal<{ top: number; right: number } | null>(null)
-    // Hidden during the first layout pass so the user never sees the pre-clamp flash.
+    // Initial pos is a best-guess from the anchor; clamped after mount.
+    const r = props.anchor.getBoundingClientRect()
+    const [pos, setPos] = createSignal({ top: r.bottom + 4, right: window.innerWidth - r.right })
+    // Hidden during the first layout pass so the pre-clamp position never flashes.
     const [visible, setVisible] = createSignal(false)
-    let containerRef: HTMLDivElement | undefined
     let menuRef: HTMLDivElement | undefined
-    let triggerRef: HTMLButtonElement | undefined
-
-    const VIEWPORT_MARGIN = 8
-
-    const close = () => {
-        setIsOpen(false)
-        setVisible(false)
-    }
-
-    const open = () => {
-        if (!triggerRef) return
-        const r = triggerRef.getBoundingClientRect()
-        setPos({ top: r.bottom + 4, right: window.innerWidth - r.right })
-        setVisible(false)
-        setIsOpen(true)
-    }
-
-    const toggle = (e: MouseEvent) => {
-        e.stopPropagation()
-        if (isOpen()) close()
-        else open()
-    }
 
     // After the menu mounts we know its real size — clamp it inside the viewport,
-    // flipping above the trigger if it would overflow the bottom.
+    // flipping above the anchor if it would overflow the bottom.
     const clampToViewport = () => {
-        if (!menuRef || !triggerRef) return
+        if (!menuRef) return
         const menu = menuRef.getBoundingClientRect()
-        const triggerRect = triggerRef.getBoundingClientRect()
+        const anchorRect = props.anchor.getBoundingClientRect()
         const vw = window.innerWidth
         const vh = window.innerHeight
         const current = pos()
-        if (!current) return
 
         let top = current.top
         let right = current.right
 
-        // Vertical: if the menu would overflow the bottom, flip above the trigger.
         if (top + menu.height > vh - VIEWPORT_MARGIN) {
-            top = Math.max(VIEWPORT_MARGIN, triggerRect.top - menu.height - 4)
+            top = Math.max(VIEWPORT_MARGIN, anchorRect.top - menu.height - 4)
         }
 
-        // Horizontal: right-anchored; if the menu's left edge would overflow,
-        // slide it rightward to keep it on-screen.
         const leftEdge = vw - right - menu.width
         if (leftEdge < VIEWPORT_MARGIN) {
             right = Math.max(VIEWPORT_MARGIN, vw - menu.width - VIEWPORT_MARGIN)
@@ -74,16 +65,19 @@ export function Dropdown(props: {
 
     const handleClickOutside = (e: MouseEvent) => {
         const target = e.target as Node
-        const insideContainer = containerRef?.contains(target)
-        const insideMenu = menuRef?.contains(target)
-        if (!insideContainer && !insideMenu) close()
+        if (menuRef?.contains(target)) return
+        if (props.anchor.contains(target)) return
+        props.onClose()
     }
 
     const handleKeydown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') close()
+        if (e.key === 'Escape') props.onClose()
     }
 
-    const handleReposition = () => { if (isOpen()) close() }
+    // The menu is positioned in viewport coordinates, so anything that moves the
+    // anchor invalidates it. Closing is the honest response — the alternative is
+    // tracking the anchor every frame for a menu that lives a second.
+    const handleReposition = () => props.onClose()
 
     document.addEventListener('click', handleClickOutside)
     document.addEventListener('keydown', handleKeydown)
@@ -97,40 +91,66 @@ export function Dropdown(props: {
     })
 
     return (
-        <div ref={containerRef} class="dropdown-container">
+        <Portal>
+            <div
+                ref={(el) => {
+                    menuRef = el
+                    // Menu is in the DOM now — measure on the next frame so
+                    // styles are settled, then clamp + reveal.
+                    requestAnimationFrame(clampToViewport)
+                }}
+                class="dropdown-menu dropdown-menu-portal"
+                classList={{ 'dropdown-menu-hidden': !visible() }}
+                style={{ top: `${pos().top}px`, right: `${pos().right}px` }}
+            >
+                <For each={props.items}>
+                    {(item) => (
+                        <button
+                            class="dropdown-item"
+                            classList={{ 'dropdown-item-danger': item.danger }}
+                            disabled={item.disabled}
+                            title={item.title}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                item.onClick()
+                                props.onClose()
+                            }}
+                        >
+                            <Show when={item.icon}>{item.icon}</Show>
+                            <span>{item.label}</span>
+                        </button>
+                    )}
+                </For>
+            </div>
+        </Portal>
+    )
+}
+
+export function Dropdown(props: {
+    trigger: JSXElement
+    items: DropdownItem[]
+}) {
+    const [isOpen, setIsOpen] = createSignal(false)
+    let triggerRef: HTMLButtonElement | undefined
+
+    const toggle = (e: MouseEvent) => {
+        e.stopPropagation()
+        setIsOpen((open) => !open)
+    }
+
+    return (
+        <div class="dropdown-container">
             <button ref={triggerRef} class="dropdown-trigger" onClick={toggle}>
                 {props.trigger}
             </button>
-            <Show when={isOpen() && pos()}>
-                <Portal>
-                    <div
-                        ref={(el) => {
-                            menuRef = el
-                            // Menu is in the DOM now — measure on the next frame so
-                            // styles are settled, then clamp + reveal.
-                            requestAnimationFrame(clampToViewport)
-                        }}
-                        class="dropdown-menu dropdown-menu-portal"
-                        classList={{ 'dropdown-menu-hidden': !visible() }}
-                        style={{ top: `${pos()!.top}px`, right: `${pos()!.right}px` }}
-                    >
-                        <For each={props.items}>
-                            {(item) => (
-                                <button
-                                    class={`dropdown-item ${item.danger ? 'dropdown-item-danger' : ''}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        item.onClick()
-                                        close()
-                                    }}
-                                >
-                                    <Show when={item.icon}>{item.icon}</Show>
-                                    <span>{item.label}</span>
-                                </button>
-                            )}
-                        </For>
-                    </div>
-                </Portal>
+            <Show when={isOpen() && triggerRef}>
+                {(anchor) => (
+                    <AnchoredMenu
+                        anchor={anchor()}
+                        items={props.items}
+                        onClose={() => setIsOpen(false)}
+                    />
+                )}
             </Show>
         </div>
     )

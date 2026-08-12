@@ -120,6 +120,8 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         // A use *attempt* (drag-and-drop user event) — no state change; the
         // agent's answering useItem block carries the actual consumption.
         tryUse: (_opts: { what: string; on: string }) => {},
+        // A request to look closer — narration, not state. The agent answers it.
+        inspect: (_target: string) => {},
 
         // ── Item definitions ──────────────────────────────────────────────
         // Redefining a key overwrites, so an agent can revise a description or
@@ -283,6 +285,6 @@ export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string
         case 'setLocation':
             scope.setLocation(block.description);
             return;
-        // text / pause / image / webview / unformatted / noOpContinue / tryUse: display-only.
+        // text / pause / image / webview / unformatted / noOpContinue / tryUse / inspect: display-only.
     }
 }
