@@ -1,4 +1,4 @@
-import { For } from 'solid-js'
+import { For, Show } from 'solid-js'
 import { createRouter, createMemoryHistory, RouterProvider } from '@tanstack/solid-router'
 import { MetaProvider } from '@solidjs/meta'
 import { routeTree } from './routeTree.gen'
@@ -13,7 +13,7 @@ import { PatcherOverlay } from './components/PatcherOverlay'
 import { OnboardingOverlay } from './components/OnboardingOverlay'
 import { LeftNav } from './components/LeftNav'
 import { ShowOn } from './components/ShowOn'
-import { activeTab, setActiveTab, type Tab } from './tab-state'
+import { activeTab, setActiveTab, chatView, type Tab } from './tab-state'
 import { guardStrayImageDrops } from './utils/imageUpload'
 
 const TAB_INITIAL: Record<Tab, string> = {
@@ -79,9 +79,20 @@ export function App() {
                                 </main>
                             </div>
                             {/* One nav at a time — the rail replaces the bar rather
-                                than doubling up on the same five destinations. */}
+                                than doubling up on the same five destinations.
+
+                                An open conversation gives the bar's height back to
+                                the scene: a phone has to fit the feed, the actors
+                                band and the composer in one column, and that is the
+                                one screen where the height is worth more than the
+                                shortcut. Only the conversation, not the chat list —
+                                a list has nothing to gain, and its TopBar has no
+                                back button, so hiding the nav there would strand
+                                you. Here the back button leads out. */}
                             <ShowOn viewport="phone">
-                                <BottomNav activeTab={activeTab()} onChange={setActiveTab} />
+                                <Show when={!(activeTab() === 'chat' && chatView() === 'conversation')}>
+                                    <BottomNav activeTab={activeTab()} onChange={setActiveTab} />
+                                </Show>
                             </ShowOn>
                             {/* Outside the tab panes so they block every tab, not just the active
                                 one. Patcher is mounted last so it layers above onboarding —

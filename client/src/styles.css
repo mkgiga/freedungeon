@@ -2714,8 +2714,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   aspect-ratio: 1 / 1;
   border-radius: 8px;
   padding: 0;
@@ -2723,9 +2723,13 @@ button {
   flex-shrink: 0;
   transition: opacity 120ms, background-color 120ms;
 
+  /* Sized here rather than by each icon's `size` prop so the whole row stays
+     uniform. These are borderless at rest, so the glyph *is* the target as far
+     as the thumb is concerned — an ample box behind a small icon doesn't help
+     you aim at it. */
   svg {
-    width: 24px;
-    height: 24px;
+    width: 30px;
+    height: 30px;
   }
 
   &:hover {
