@@ -788,6 +788,8 @@ export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences
         extensionState,
         // Always empty on boot: activities are runtime-only and never persisted.
         activities: {},
+        // Rebuilt by scanning the extensions directory; the folder is the truth.
+        extensions: {},
         // Likewise re-derived from disk by refreshDependencies() at startup.
         dependencies: {},
         currentChat: {

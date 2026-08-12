@@ -6,6 +6,7 @@
  * (compatible with `Date.now()` and `new Date(ms)`).
  */
 import type { DependencyKey, DependencyState } from './dependencies'
+import type { ExtensionInfo } from './extensions'
 
 export type AppState = {
     assets: {
@@ -50,6 +51,13 @@ export type AppState = {
      * extension's own working state and never appears in a settings form.
      */
     extensionState: Record<string, Record<string, unknown>>;
+    /**
+     * Installed extensions, keyed by id. Rebuilt by scanning the extensions
+     * directory at boot, so it is transient like `activities` — the folder on
+     * disk is the truth, not this. Whether each is switched on lives in
+     * `userPreferences.extensions`, which does persist.
+     */
+    extensions: Record<string, ExtensionInfo>;
 }
 
 /**
@@ -425,6 +433,8 @@ export type UserPreferences = {
      * `null` means "unbound" and is deliberately distinct from absent.
      */
     keybinds?: Record<string, string | null>;
+    /** Which extensions are switched on. Absent means off. */
+    extensions?: Record<string, { enabled: boolean }>;
     /** Presentation-only settings, grouped by the surface they affect. Nothing
      *  here reaches the agent or the server's turn logic. */
     interface?: {

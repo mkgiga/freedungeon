@@ -1,0 +1,39 @@
+import { z } from 'zod'
+import { router, procedure } from '../../trpc'
+import { state } from '../../server'
+import {
+    installFromZip,
+    setExtensionEnabled,
+    uninstallExtension,
+    scanExtensions,
+} from '../../extensions/host'
+
+/**
+ * Managing extensions. Reads come from replicated state rather than these
+ * endpoints — `state.extensions` is already on the client — so this is only
+ * the verbs.
+ */
+export const extensionsRouter = router({
+    /** Re-read the extensions directory, for a folder dropped in while running. */
+    rescan: procedure
+        .mutation(() => ({ found: scanExtensions().length })),
+
+    setEnabled: procedure
+        .input(z.object({ id: z.string(), enabled: z.boolean() }))
+        .mutation(async ({ input }) => {
+            await setExtensionEnabled(input.id, input.enabled)
+            return state.extensions[input.id] ?? null
+        }),
+
+    /** Install from a `.zip` already on disk. */
+    installFromZip: procedure
+        .input(z.object({ path: z.string().min(1) }))
+        .mutation(async ({ input }) => installFromZip(input.path)),
+
+    uninstall: procedure
+        .input(z.object({ id: z.string() }))
+        .mutation(async ({ input }) => {
+            await uninstallExtension(input.id)
+            return { success: true }
+        }),
+})

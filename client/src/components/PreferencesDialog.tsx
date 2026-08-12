@@ -11,6 +11,7 @@ import { Text } from './typography/Text'
 import { SchemaForm } from './json-ui'
 import { SettingsField, SettingsGroup, SettingsToggle } from './settings'
 import { KeybindEditor } from './KeybindEditor'
+import { ExtensionsList } from './ExtensionsList'
 import { viewport } from '../viewport'
 import { FEATURES, resolveFeatureConfig, type FeatureKey } from '@shared/features'
 import { installAvailable, isStandalone, triggerInstall } from '../pwa-install'
@@ -26,7 +27,7 @@ import { ShowOn } from './ShowOn'
  * also why a phone can simply drop it and lose nothing.
  */
 
-type SectionId = 'general' | 'interface' | 'keybinds' | 'features' | 'install'
+type SectionId = 'general' | 'interface' | 'keybinds' | 'features' | 'extensions' | 'install'
 
 export function PreferencesDialog() {
     const pickers = useAssetPickers()
@@ -38,6 +39,7 @@ export function PreferencesDialog() {
         // Desktop only: a touch screen has no keys to bind.
         ...(viewport() === 'phone' ? [] : [{ id: 'keybinds' as const, label: 'Keybinds' }]),
         { id: 'features', label: 'Features' },
+        { id: 'extensions', label: 'Extensions' },
         ...(isStandalone() ? [] : [{ id: 'install' as const, label: 'Install' }]),
     ]
 
@@ -234,6 +236,12 @@ export function PreferencesDialog() {
                                 )
                             }}
                         </For>
+                    </SettingsGroup>
+                </Section>
+
+                <Section id="extensions" label="Extensions">
+                    <SettingsGroup>
+                        <ExtensionsList />
                     </SettingsGroup>
                 </Section>
 

@@ -26,6 +26,7 @@ import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
 import { getEmbeddedClientFiles } from './embedded';
 import { refreshDependencies } from './dependencies';
 import { applyDeleteCascades } from './cascade';
+import { loadExtensions } from './extensions/host';
 import { FEATURES, resolveFeatureState, type FeatureKey } from '@shared/features';
 import { ensureCert } from './tls';
 import { createServer as createHttpsServer } from 'node:https';
@@ -69,6 +70,7 @@ export const [state, _setState] = createStore({
     dependencies: {},
     notifications: [],
     extensionState: {},
+    extensions: {},
     userPreferences: {
         theme: "system",
         playerCharacterId: null,
@@ -226,6 +228,7 @@ function start() {
         await logChatMessageCounts();
         backfillOnboarding();
         await refreshDependencies();
+        await loadExtensions();
         await initProcessHandlers();
         await initHttp();
         await initWebSocket();

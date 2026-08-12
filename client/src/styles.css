@@ -6,6 +6,9 @@
   --bg: oklch(13.441% 0.00002 271.152);
   --bg-2: oklch(20.817% 0.00673 258.419);
   --primary: oklch(64.6% 0.14237 253.939);
+  /* Already repeated as a literal in .modal-btn-danger and
+     .dropdown-item-danger; tokenised here for new rules. */
+  --danger: oklch(65% 0.2 25);
   --secondary: oklch(97.015% 0.00011 271.152);
   --text: oklch(87% 0 0);
   --text-dim: color-mix(in oklch, var(--text), transparent 30%);
@@ -1062,6 +1065,89 @@ button {
   min-width: 0;
 }
 
+
+/* ── Extensions list ── */
+
+.extension-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+
+  & + & {
+    border-top: 1px solid color-mix(in oklch, var(--text), transparent 92%);
+  }
+}
+
+/* An extension that can't run reads as rejected rather than as merely switched
+   off: tinted ground, a red edge, and the whole row pulled back so it doesn't
+   compete with the ones that work. `is-failed` is the softer case — its
+   manifest is fine and it can be retried, so it keeps its switch. */
+.extension-row.is-rejected,
+.extension-row.is-failed {
+  margin-inline: -12px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  border-left: 3px solid var(--danger);
+  background: color-mix(in oklch, var(--danger), transparent 94%);
+}
+
+.extension-row.is-rejected .extension-name {
+  opacity: 0.7;
+}
+
+.extension-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.extension-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.extension-name {
+  font-weight: 500;
+}
+
+/* Sized to sit where the checkbox would be, so rows still line up. */
+.extension-badge {
+  flex-shrink: 0;
+  margin-top: 1px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--danger);
+  border: 1px solid color-mix(in oklch, var(--danger), transparent 60%);
+  background: color-mix(in oklch, var(--danger), transparent 88%);
+}
+
+.extension-row-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 28px;
+}
+
+/* Why an extension can't load, next to the extension — not only in a log. */
+.extension-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-left: 28px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--danger);
+  background: color-mix(in oklch, var(--danger), transparent 90%);
+}
 /* ── Keybind editor ── */
 
 .keybind-list {
