@@ -92,15 +92,33 @@ The backend uses Bun and exposes a tRPC API.
 
 ### State Management
 
-The backend leverages solid-js' reactivity library to manage a single global server-side state object using createStore, and emits updates to the frontend via socket.io events. The client contains a 100% identical copy of the global state object which is used to render the UI. The client never modifies state directly, but instead emits tRPC requests to the backend, which then updates the global state; the `setState`/`deleteState` wrappers emit the corresponding socket patch as part of the same call. This architecture allows for a very simple mental model of state management that only syncs one-way (server to client, never the opposite), and ensures that the frontend is always in sync with the backend.
+The backend holds a single global state object (`createStore` in `server.ts`) and emits updates to the frontend over socket.io. The client keeps an identical copy and renders from it. The client **never** modifies state directly — it sends tRPC requests, the server writes, and the change flows back down as a socket patch. One-way, always.
 
-All modifications to application state in the backend must be done via the `setState` or `deleteState` functions exported by `server.ts` - they ensure that mutations to state are caught and emitted.
+**Write state with `mutate`:**
+
+```ts
+mutate(s => { s.currentChat.gameState.itemDefs[key].icon = url })
+```
+
+`mutate` is Immer underneath. You mutate a draft; Immer reports exactly which leaves changed; each patch is applied to the store, handed to `persistPath`, and emitted to the client. Several edits in one call become several precise patches, not one coarse whole-object write. Because you're editing a draft, assigning a nested object creates it (`s.a.b = { c: 1 }` works whether or not `a.b` existed).
+
+`setState`/`deleteState` still exist and are still correct, but are now reserved for two cases inside `server.ts`: paths whose segments are variables, and the boot writes — where `setStore`'s **merge** is load-bearing (`setState('userPreferences', loaded)` keeps keys the initial store declares that a stored file predates).
+
+**The merge/replace rule.** A plain path write to a Solid store *merges* an object; it never removes keys. Replacing a record — renaming a key, dropping an entry — needs `produce` or `reconcile`, or the old key survives beside the new one. This has caused three separate bugs in this codebase; if a rename produces a duplicate, this is why.
+
+**Arrays are leaf values.** Write them whole (`s.x.list = next`). Deleting an array index leaves a hole rather than splicing, and the patch protocol has no representation for splice or reorder. Anything that gains and loses members should be a `Record` keyed by id — which is what every `assets.*` root already is.
+
+**There is no reactivity on the server.** Bun resolves solid-js's SSR build, where the store is inert: `createEffect` never runs, not even once. Reactivity is a client-only thing here, and `mutate` is explicit precisely because nothing can observe a write on its own. Do not add an effect to `server/src` expecting it to fire — it will fail silently.
 
 For application state types, see `shared/types.ts`.
 
 ### Data persistence
 
-Data persistence is handled using sqlite with kysely as a query builder with a Bun adapter. The very same `setState`/`deleteState` interception point described in [State Management](#state-management) that emits socket patches to the client also calls `persistPath`, which dehydrates the mutated entity to an SQL upsert (entity present in state) or delete (entity absent). Both the frontend and the database are updated through this single choke point so that we don't have to concern ourselves with updating the db inside individual endpoints' logic, and whenever we add a new row/table to the database - we update/add handlers as necessary. Non-persistable roots (`currentChat.gameState`, `isGenerating`, `notifications`, ...) simply fall through.
+Data persistence is sqlite via kysely with a Bun adapter. The same choke point that emits socket patches also calls `persistPath`, which dehydrates the mutated entity to an SQL upsert (present in state) or delete (absent). The frontend and the database are updated through one path, so endpoints never write SQL themselves; when a new table is added, `persistPath` gains a branch. Non-persistable roots (`currentChat.gameState`, `isGenerating`, `notifications`, `activities`, `dependencies`) simply fall through.
+
+Deleting an *entity* also runs `applyDeleteCascades` (`cascade.ts`) before removal. The database's foreign keys act on a projection nothing reads back at runtime, so in-memory cascades are what actually keep the store consistent — evicting a Scenario's residents, removing its collaborator conversation, pruning refs to a deleted actor or note.
+
+**Extension state.** `state.extensionState[key]` is a persisted root backed by the `extension_state` table, for state an extension owns. It is *not* `userPreferences.features[key].values`, which is settings: user-authored, schema-rendered, rewritten wholesale. Extensions declare defaults via `FeatureSpec.state` and write through `extensionStore(key)` in `extension-state.ts`.
 
 For data models/types, see `server/src/db.ts`.
 
