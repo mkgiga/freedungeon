@@ -111,11 +111,32 @@ export function mutate(fn: (draft: AppState) => void): void {
         if (patch.op === 'remove') {
             removeAt(path);
         } else {
-            (_setState as Function)(...path, patch.value);
+            applyValue(path, patch.value);
             persistPath(path);
             io.emit('state', { path, value: patch.value });
         }
     }
+}
+
+/**
+ * Write a value at a path, REPLACING rather than merging.
+ *
+ * `setStore(path, obj)` merges an object into whatever is already there, so
+ * keys the new value dropped would survive — assigning a rebuilt map would
+ * leave the removed entries behind. Immer emits one `replace` patch for a
+ * whole-object assignment, and it has to mean replace. Scalars take the plain
+ * path write, which has no such ambiguity.
+ */
+function applyValue(path: (string | number)[], value: unknown): void {
+    if (value === null || typeof value !== 'object') {
+        (_setState as Function)(...path, value);
+        return;
+    }
+    _setState(produce((s: any) => {
+        let target = s;
+        for (const p of path.slice(0, -1)) target = target[p];
+        target[path.at(-1)!] = value;
+    }));
 }
 
 /**

@@ -5,7 +5,7 @@ import {
     installFromZip,
     setExtensionEnabled,
     uninstallExtension,
-    scanExtensions,
+    rescanExtensions,
 } from '../../extensions/host'
 
 /**
@@ -16,7 +16,7 @@ import {
 export const extensionsRouter = router({
     /** Re-read the extensions directory, for a folder dropped in while running. */
     rescan: procedure
-        .mutation(() => ({ found: scanExtensions().length })),
+        .mutation(async () => ({ found: (await rescanExtensions()).length })),
 
     setEnabled: procedure
         .input(z.object({ id: z.string(), enabled: z.boolean() }))

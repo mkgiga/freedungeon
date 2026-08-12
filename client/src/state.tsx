@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js';
-import { createStore, produce } from 'solid-js/store';
+import { createStore, produce, reconcile } from 'solid-js/store';
 import { io } from 'socket.io-client';
 import type { AppState, CurrentChatState } from '@shared/types';
 
@@ -76,7 +76,12 @@ socket.on('init', (data: AppState) => {
 socket.on('state', ({ path, value }: { path: string[], value: any }) => {
   if (!path || path.length === 0 || path.some(p => p == null)) return;
   try {
-    (_setState as Function)(...path, value);
+    // `reconcile` for objects, because a plain path write MERGES: a patch that
+    // replaces a map would leave keys the server had removed sitting in the
+    // client's copy, and the two would silently drift apart. Scalars have no
+    // such ambiguity.
+    (_setState as Function)(...path,
+      value !== null && typeof value === 'object' ? reconcile(value) : value);
   } catch (e) {
     console.error('[CLIENT/setState THREW]', path, e);
   }

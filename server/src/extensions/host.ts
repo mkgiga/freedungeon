@@ -162,19 +162,47 @@ async function deactivate(id: string): Promise<void> {
     }
 }
 
-/** Scan, then activate everything currently enabled. Called once at startup. */
-export async function loadExtensions(): Promise<void> {
+/**
+ * Re-read the directory and reconcile against what is running.
+ *
+ * This is what both startup and the Rescan button use, so a folder dropped in
+ * while the server is up behaves exactly as it would have at boot: discovered,
+ * and started if it was already enabled. Anything already running keeps its
+ * `active` status rather than being reported back as merely installed, and
+ * anything whose folder has disappeared is stopped rather than left running
+ * against files that no longer exist.
+ */
+export async function rescanExtensions(): Promise<ExtensionInfo[]> {
     fs.mkdirSync(EXTENSIONS_DIR, { recursive: true })
     const found = scanExtensions()
     const results: ExtensionInfo[] = []
+
     for (const info of found) {
-        results.push(info.status === 'installed' && enabledFlag(info.manifest.id)
-            ? await activate(info)
-            : info)
+        const id = info.manifest.id
+        if (loaded.has(id)) {
+            results.push({ ...info, status: 'active' })
+            continue
+        }
+        results.push(info.status === 'installed' && enabledFlag(id) ? await activate(info) : info)
     }
+
+    // Folder deleted out from under a running extension.
+    for (const id of [...loaded.keys()]) {
+        if (!found.some(f => f.manifest.id === id)) {
+            log.server.warn(`Extension ${id} disappeared from disk; stopping it`)
+            await deactivate(id)
+        }
+    }
+
     publish(results)
+    return results
+}
+
+/** Scan, then activate everything currently enabled. Called once at startup. */
+export async function loadExtensions(): Promise<void> {
+    const results = await rescanExtensions()
     const active = results.filter(r => r.status === 'active').length
-    if (found.length) log.server.info(`Extensions: ${active} active of ${found.length} installed`)
+    if (results.length) log.server.info(`Extensions: ${active} active of ${results.length} installed`)
 }
 
 /** Turn one on or off, applying it immediately rather than at next boot. */
