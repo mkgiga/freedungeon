@@ -1,21 +1,18 @@
-import { produce } from 'solid-js/store'
-import { state, setState, deleteState } from './server'
+import { mutate, state } from './server'
 
 /**
  * The authoring surface for an extension's own persisted state.
  *
- * `setState('extensionState', 'myext', 'a', 'b', value)` is the funnel, and it
+ * `mutate(s => { s.extensionState.myext.a.b = value })` is the funnel, and it
  * is a poor thing to ask a plugin author to write: path-as-arguments, and it
  * throws if any level is missing. This wraps it so the extension writes what it
  * means.
  *
- * Built on `produce` rather than on Solid's reactivity, and that isn't a
- * preference. The server resolves solid-js's SSR build, where the store is
- * inert — `createEffect` never runs, so `createMutable` plus a change listener
- * (the obvious design) cannot observe anything here. `produce` is the one store
- * utility that survives that, and it happens to give exactly the ergonomics
- * wanted: mutate a draft, and new nested properties come into being on
- * assignment.
+ * Built on `mutate`, which is Immer underneath. Not on Solid's reactivity: the
+ * server resolves solid-js's SSR build, where the store is inert — an effect
+ * never runs — so `createMutable` plus a change listener, the obvious design,
+ * can observe nothing here. Immer gives the same ergonomics and, unlike a
+ * listener, reports exactly which leaves changed.
  *
  * One write per `update` call regardless of how many fields it touches, so a
  * batch of related changes is a single database write and a single socket
@@ -46,20 +43,22 @@ export function extensionStore<T extends Record<string, unknown> = Record<string
     // The bag is seeded at boot for every declaring feature (see
     // seedExtensionState). An extension registered at runtime may not have one
     // yet, and setState cannot create a missing level — so make it here.
-    if (!state.extensionState[key]) setState('extensionState', key, {})
+    if (!state.extensionState[key]) mutate(s => { s.extensionState[key] = {} })
 
     return {
         get values() {
             return (state.extensionState[key] ?? {}) as T
         },
         set(name, value) {
-            setState('extensionState', key, name, value)
+            mutate(s => { s.extensionState[key]![name] = value })
         },
         remove(name) {
-            deleteState('extensionState', key, name)
+            mutate(s => { delete s.extensionState[key]![name] })
         },
         update(fn) {
-            setState('extensionState', key, produce(fn as (d: unknown) => void))
+            // The draft is already a mutable proxy, so the author's function runs
+            // directly against it — no nested producer.
+            mutate(s => { fn((s.extensionState[key] ??= {}) as T) })
         },
     }
 }

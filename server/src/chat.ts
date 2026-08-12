@@ -1,6 +1,6 @@
 import { bold, brightGreen, ComfyLogger, reset, style, white } from "comfylogger";
 import { db, loadChatById, saveChat } from "./db";
-import { state, setState, deleteState } from "./server";
+import { mutate, state } from "./server";
 import type { ChatMessage, Chat, CurrentChatState } from "@shared/types";
 import { nanoid } from "nanoid";
 import { runTurn, createInitialContext } from "./game-state";
@@ -33,9 +33,9 @@ export class CurrentChat {
         // Load the new chat
         const loadedChat = await loadChatById(id);
         if (loadedChat) {
-            setState('currentChat', loadedChat);
+            mutate(s => { s.currentChat = loadedChat });
             const refreshed = runTurn(Object.values(loadedChat.messages));
-            setState('currentChat', 'gameState', refreshed.ctx);
+            mutate(s => { s.currentChat.gameState = refreshed.ctx });
         } else {
             logChat(`Failed to load chat with id ${id}`);
             throw new Error(`Failed to load chat with id ${id}`);
@@ -59,7 +59,7 @@ export class CurrentChat {
             updatedAt: Date.now(),
         }
 
-        setState('currentChat', newChat);
+        mutate(s => { s.currentChat = newChat });
     }
 
     static getMessage(id: string) {
@@ -79,12 +79,12 @@ export class CurrentChat {
         }
 
         if (currentChat.messages[message.id]) {
-            setState('currentChat', 'messages', message.id, {
+            mutate(s => { s.currentChat.messages[message.id] = {
                 ...currentChat.messages[message.id],
                 ...message,
-            });
+            } });
         } else {
-            setState('currentChat', 'messages', message.id, message);
+            mutate(s => { s.currentChat.messages[message.id] = message });
         }
 
         return currentChat.messages[message.id];
@@ -99,7 +99,7 @@ export class CurrentChat {
         }
         if (!currentChat.messages[messageId]) return;
 
-        deleteState('currentChat', 'messages', messageId);
+        mutate(s => { delete s.currentChat.messages[messageId] });
     }
 
     /**
@@ -160,7 +160,7 @@ export class CurrentChat {
             // RPC clears this on the happy path; the finally covers
             // every other path.
             if (state.isGenerating) {
-                setState('isGenerating', false);
+                mutate(s => { s.isGenerating = false });
             }
         }
     }
@@ -349,7 +349,7 @@ export class CurrentChat {
     private static async refreshStateAndResetSnapshot() {
         if (!state.currentChat.id) return;
         const turnResult = runTurn(Object.values(state.currentChat.messages));
-        setState('currentChat', 'gameState', turnResult.ctx);
+        mutate(s => { s.currentChat.gameState = turnResult.ctx });
         await resetFlagsSnapshotToCurrent(state.currentChat.id);
     }
 
@@ -434,7 +434,7 @@ export class CurrentChat {
         logChat(`[BRANCH] After saveChat: DB count for new ${newChat.id} = ${countAfterSave}, DB count for source ${sourceChatId} = ${sourceCountAfterSave}`);
 
         logChat(`[BRANCH] Before loadChat: current chat id = ${state.currentChat.id}, messages count = ${Object.keys(state.currentChat.messages).length}`);
-        setState('assets', 'chats', newChat.id, newChat);
+        mutate(s => { s.assets.chats[newChat.id] = newChat });
 
         await CurrentChat.loadChat(newChat.id);
 
@@ -498,7 +498,7 @@ export class CurrentChat {
         }
 
         saveChat(newChat, newMessages);
-        setState('assets', 'chats', newId, newChat);
+        mutate(s => { s.assets.chats[newId] = newChat });
 
         // Full copy of the source SDK session so the clone inherits the
         // agent's memory. No anchor needed since we copied every message.

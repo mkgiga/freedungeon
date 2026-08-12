@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
-import { state, setState, deleteState } from '../../server'
+import { mutate, state } from '../../server'
 import { nanoid } from 'nanoid'
 import type { Actor } from '@shared/types'
 import { inLibrary, homedIn } from '@shared/visibility'
@@ -37,8 +37,8 @@ export const actorsRouter = router({
             if (input.id !== undefined && state.assets.actors[input.id]) {
                 const id = input.id
                 const existing = state.assets.actors[id]
-                setState('assets', 'actors', id, {
-                    ...existing,
+                mutate(s => { s.assets.actors[id] = {
+                    ...existing!,
                     name: input.name,
                     description: input.description,
                     avatarUrl: input.avatarUrl,
@@ -48,7 +48,7 @@ export const actorsRouter = router({
                     // screen omits it and must not relocate the actor.
                     ...(input.homeChatId !== undefined ? { homeChatId: input.homeChatId ?? null } : {}),
                     updatedAt: now,
-                })
+                } })
                 return state.assets.actors[id]
             }
 
@@ -64,7 +64,7 @@ export const actorsRouter = router({
                 createdAt: now,
                 updatedAt: now,
             }
-            setState('assets', 'actors', newId, actor)
+            mutate(s => { s.assets.actors[newId] = actor })
             return actor
         }),
 
@@ -78,7 +78,7 @@ export const actorsRouter = router({
         .mutation(({ input }) => {
             const actor = state.assets.actors[input.id]
             if (!actor) return { success: true }
-            setState('assets', 'actors', input.id, { ...actor, deletedAt: Date.now() })
+            mutate(s => { s.assets.actors[input.id] = { ...actor, deletedAt: Date.now() } })
             return { success: true }
         }),
 
@@ -87,7 +87,7 @@ export const actorsRouter = router({
         .mutation(({ input }) => {
             const actor = state.assets.actors[input.id]
             if (!actor) throw new Error('Actor not found')
-            setState('assets', 'actors', input.id, { ...actor, deletedAt: null })
+            mutate(s => { s.assets.actors[input.id] = { ...actor, deletedAt: null } })
             return { success: true }
         }),
 
@@ -110,9 +110,9 @@ export const actorsRouter = router({
             if (input.homeChatId && !state.assets.chats[input.homeChatId]) {
                 throw new Error('Target chat not found')
             }
-            setState('assets', 'actors', input.id, {
+            mutate(s => { s.assets.actors[input.id] = {
                 ...actor, homeChatId: input.homeChatId, updatedAt: Date.now(),
-            })
+            } })
             return { success: true }
         }),
 
@@ -122,7 +122,7 @@ export const actorsRouter = router({
             const actor = state.assets.actors[input.actorId]
             if (!actor) throw new Error('Actor not found')
 
-            deleteState('assets', 'actors', input.actorId, 'expressions', input.name)
+            mutate(s => { delete s.assets.actors[input.actorId]!.expressions[input.name] })
             return { success: true }
         }),
 })

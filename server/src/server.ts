@@ -1,5 +1,6 @@
 import config from '../config.json' with { type: "json" };
-import { createStore, produce } from "solid-js/store";
+import { createStore, produce, unwrap } from "solid-js/store";
+import { produceWithPatches, enablePatches, setAutoFreeze } from "immer";
 import { isPrivateIP } from './utils/net';
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -79,6 +80,78 @@ export const [state, _setState] = createStore({
 } as AppState);
 
 
+// Patch generation for `mutate`. Auto-freeze must be off: Solid's store mutates
+// in place, and a frozen result would throw the first time anything touched it.
+enablePatches();
+setAutoFreeze(false);
+
+/**
+ * Edit application state by mutating a draft.
+ *
+ * The one funnel, in the form callers actually want:
+ *
+ *     mutate(d => { d.currentChat.gameState.itemDefs[key].icon = url })
+ *
+ * instead of spelling the path out as arguments. Immer records exactly which
+ * leaves changed and hands back patches whose `path` is the same array
+ * `persistPath` and the socket already speak — so this is a nicer front door
+ * onto the existing machinery, not a new protocol. Several edits in one call
+ * become several precise patches, not one coarse whole-object write.
+ *
+ * It also removes the sharp edge that `setState` has: a draft creates
+ * intermediate objects as you assign them, so `d.a.b = { c: 1 }` works whether
+ * or not `a.b` existed, and the emitted patch always targets a parent that does.
+ */
+export function mutate(fn: (draft: AppState) => void): void {
+    const [, patches] = produceWithPatches(unwrap(state) as AppState, fn as (d: AppState) => void);
+    for (const patch of patches) {
+        const path = patch.path as (string | number)[];
+        if (patch.op === 'remove') {
+            removeAt(path);
+        } else {
+            (_setState as Function)(...path, patch.value);
+            persistPath(path);
+            io.emit('state', { path, value: patch.value });
+        }
+    }
+}
+
+/**
+ * Remove one key, with the same semantics `deleteState` has — including the
+ * cascade rules, which exist in the store rather than only in the database
+ * (see cascade.ts) and would otherwise be skipped by a mutate-driven delete.
+ *
+ * Goes through `produce` because Solid's setStore MERGES a plain object rather
+ * than replacing it, so handing it a copy with the key missing silently does
+ * nothing.
+ */
+function removeAt(path: (string | number)[]): void {
+    const parentPath = path.slice(0, -1);
+    const key = path.at(-1)!;
+    applyDeleteCascades(path.map(String), state, {
+        set: (root, id, value) => setState('assets', root, id, value),
+        remove: (root, id) => deleteState('assets', root, id),
+    });
+    _setState(produce((s: any) => {
+        let target = s;
+        for (const p of parentPath) target = target[p];
+        delete target[key];
+    }));
+    persistPath(path);
+    io.emit('delete', { path: parentPath, key });
+}
+
+/**
+ * The low-level path write. `mutate` is the API for application code — this
+ * stays for the few places a path is genuinely dynamic (the cascade callbacks
+ * below, whose root is a variable) and for the boot writes, where setStore's
+ * MERGE semantics are load-bearing: `setState('userPreferences', loaded)` keeps
+ * any key the initial store declared that the stored file predates, whereas an
+ * assignment would drop it.
+ *
+ * That merge/replace difference is the one behavioural gap between the two, and
+ * the reason this wasn't simply deleted.
+ */
 export function setState(...args: any[]) {
     (_setState as Function)(...args);
     const path = args.slice(0, -1);

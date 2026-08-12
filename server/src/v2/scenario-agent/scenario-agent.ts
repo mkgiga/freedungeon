@@ -4,7 +4,7 @@ import { runScenarioTurn, activeLlmConfig } from '../../scenario-turn'
 import { getScenarioAgentPrompt } from '../../system-prompt'
 import type { ScenarioToolCall } from '../../scenario-agent'
 import { SCENARIO_TOOLS } from '@shared/scenario-agent/tools'
-import { state, setState } from '../../server'
+import { mutate, state } from '../../server'
 import { nanoid } from 'nanoid'
 
 import { saveMessage, loadChatById } from '../../db'
@@ -66,7 +66,7 @@ export const scenarioAgentRouter = router({
 
             const id = nanoid()
             const now = Date.now()
-            setState('assets', 'chats', id, {
+            mutate(s => { s.assets.chats[id] = {
                 id,
                 title: `Collaborator — ${scenario.title}`,
                 assets: { actors: [], notes: {}, images: [] },
@@ -75,7 +75,7 @@ export const scenarioAgentRouter = router({
                 homeChatId: input.scenarioId,
                 createdAt: now,
                 updatedAt: now,
-            })
+            } })
             return { id, created: true }
         }),
 

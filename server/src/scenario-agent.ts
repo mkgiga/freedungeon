@@ -13,7 +13,7 @@
 import { nanoid } from 'nanoid'
 import { SCENARIO_TOOLS, type ScenarioAgentDeps, type ScenarioToolName } from '@shared/scenario-agent/tools'
 import { visible, inLibrary } from '@shared/visibility'
-import { state, setState } from './server'
+import { mutate, state } from './server'
 import type { Actor, Note } from '@shared/types'
 
 /** Attachments of the Scenario, minus anything soft-deleted. */
@@ -40,21 +40,21 @@ function scenarioNotes(chatId: string): Note[] {
 function attachActor(chatId: string, actorId: string) {
     const chat = state.assets.chats[chatId]
     if (!chat || chat.assets.actors.includes(actorId)) return
-    setState('assets', 'chats', chatId, {
+    mutate(s => { s.assets.chats[chatId] = {
         ...chat,
         assets: { ...chat.assets, actors: [...chat.assets.actors, actorId] },
         updatedAt: Date.now(),
-    })
+    } })
 }
 
 function attachNote(chatId: string, noteId: string) {
     const chat = state.assets.chats[chatId]
     if (!chat || chat.assets.notes[noteId]) return
-    setState('assets', 'chats', chatId, {
+    mutate(s => { s.assets.chats[chatId] = {
         ...chat,
         assets: { ...chat.assets, notes: { ...chat.assets.notes, [noteId]: { enabled: true } } },
         updatedAt: Date.now(),
-    })
+    } })
 }
 
 function detach(chatId: string, id: string, kind: 'actor' | 'note') {
@@ -63,7 +63,7 @@ function detach(chatId: string, id: string, kind: 'actor' | 'note') {
     const assets = kind === 'actor'
         ? { ...chat.assets, actors: chat.assets.actors.filter(a => a !== id) }
         : { ...chat.assets, notes: Object.fromEntries(Object.entries(chat.assets.notes).filter(([n]) => n !== id)) }
-    setState('assets', 'chats', chatId, { ...chat, assets, updatedAt: Date.now() })
+    mutate(s => { s.assets.chats[chatId] = { ...chat, assets, updatedAt: Date.now() } })
 }
 
 export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
@@ -100,7 +100,7 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
                 createdAt: now,
                 updatedAt: now,
             }
-            setState('assets', 'actors', id, actor)
+            mutate(s => { s.assets.actors[id] = actor })
             attachActor(chatId, id)
             return { id, name }
         },
@@ -115,7 +115,7 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
                 ...(patch.description !== undefined ? { description: patch.description } : {}),
                 updatedAt: Date.now(),
             }
-            setState('assets', 'actors', id, next)
+            mutate(s => { s.assets.actors[id] = next })
             return { id, name: next.name }
         },
 
@@ -126,7 +126,7 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
             // Only soft-delete what this Scenario authored. An imported library
             // character is used elsewhere, so removing it here just unlinks it.
             if (existing.homeChatId === chatId) {
-                setState('assets', 'actors', id, { ...existing, deletedAt: Date.now() })
+                mutate(s => { s.assets.actors[id] = { ...existing, deletedAt: Date.now() } })
             }
         },
 
@@ -150,7 +150,7 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
                 createdAt: now,
                 updatedAt: now,
             }
-            setState('assets', 'notes', id, note)
+            mutate(s => { s.assets.notes[id] = note })
             attachNote(chatId, id)
             return { id, title }
         },
@@ -165,7 +165,7 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
                 ...(patch.content !== undefined ? { content: patch.content } : {}),
                 updatedAt: Date.now(),
             }
-            setState('assets', 'notes', id, next)
+            mutate(s => { s.assets.notes[id] = next })
             return { id, title: next.title }
         },
 
@@ -174,7 +174,7 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
             if (!existing) throw new Error(`No note ${id} in this scenario`)
             detach(chatId, id, 'note')
             if (existing.homeChatId === chatId) {
-                setState('assets', 'notes', id, { ...existing, deletedAt: Date.now() })
+                mutate(s => { s.assets.notes[id] = { ...existing, deletedAt: Date.now() } })
             }
         },
 

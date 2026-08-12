@@ -15,7 +15,7 @@
  */
 
 import { nanoid } from 'nanoid'
-import { setState, deleteState, state } from './server'
+import { mutate, state } from './server'
 import type { Activity } from '@shared/types'
 
 /**
@@ -26,7 +26,7 @@ import type { Activity } from '@shared/types'
 export function beginActivity(kind: string, data: Record<string, unknown> = {}): string {
     const id = nanoid()
     const activity: Activity = { id, kind, startedAt: Date.now(), data }
-    setState('activities', id, activity)
+    mutate(s => { s.activities[id] = activity })
     return id
 }
 
@@ -38,12 +38,12 @@ export function beginActivity(kind: string, data: Record<string, unknown> = {}):
 export function updateActivity(id: string, patch: Record<string, unknown>): void {
     const current = state.activities[id]
     if (!current) return
-    setState('activities', id, 'data', { ...current.data, ...patch })
+    mutate(s => { s.activities[id]!.data = { ...current.data, ...patch } })
 }
 
 export function endActivity(id: string): void {
     if (!state.activities[id]) return
-    deleteState('activities', id)
+    mutate(s => { delete s.activities[id] })
 }
 
 /**

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
-import { state, setState } from '../../server'
+import { mutate, state } from '../../server'
 import { ensureDependency, isSatisfied } from '../../dependencies'
 import { DEPENDENCIES } from '@shared/dependencies'
 
@@ -20,7 +20,7 @@ export const preferencesRouter = router({
         .mutation(({ input }) => {
             for (const [key, value] of Object.entries(input)) {
                 if (value !== undefined) {
-                    setState('userPreferences', key, value)
+                    mutate(s => { s.userPreferences[key] = value })
                 }
             }
             return state.userPreferences
@@ -55,7 +55,7 @@ export const preferencesRouter = router({
             }
             // `features` is initialized to {} in initial state, so this nested
             // path set is safe and emits a granular reactive update.
-            setState('userPreferences', 'features', input.key, next)
+            mutate(s => { s.userPreferences.features![input.key] = next })
             return state.userPreferences.features?.[input.key]
         }),
 })

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
-import { state, setState, deleteState } from '../../server'
+import { mutate, state } from '../../server'
 import { nanoid } from 'nanoid'
 import { LLM_PRESETS, defaultValuesFromSchema } from '@shared/llm-presets'
 import type { LLMConfig } from '@shared/types'
@@ -83,8 +83,8 @@ export const llmConfigsRouter = router({
 
             if (input.id !== undefined && state.assets.llmConfigs[input.id]) {
                 const id = input.id
-                setState('assets', 'llmConfigs', id, {
-                    ...state.assets.llmConfigs[id],
+                mutate(s => { s.assets.llmConfigs[id] = {
+                    ...state.assets.llmConfigs[id]!,
                     name: input.name,
                     provider: input.provider,
                     endpoint: input.endpoint,
@@ -94,7 +94,7 @@ export const llmConfigsRouter = router({
                     schema: parsedSchema,
                     values: parsedValues,
                     updatedAt: now,
-                })
+                } })
                 return state.assets.llmConfigs[id]
             }
 
@@ -112,7 +112,7 @@ export const llmConfigsRouter = router({
                 createdAt: now,
                 updatedAt: now,
             }
-            setState('assets', 'llmConfigs', newId, config)
+            mutate(s => { s.assets.llmConfigs[newId] = config })
             return config
         }),
 
@@ -139,14 +139,14 @@ export const llmConfigsRouter = router({
                 createdAt: now,
                 updatedAt: now,
             }
-            setState('assets', 'llmConfigs', newId, config)
+            mutate(s => { s.assets.llmConfigs[newId] = config })
             return config
         }),
 
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
-            deleteState('assets', 'llmConfigs', input.id)
+            mutate(s => { delete s.assets.llmConfigs[input.id] })
             return { success: true }
         }),
 })

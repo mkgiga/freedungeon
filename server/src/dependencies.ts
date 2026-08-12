@@ -26,7 +26,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { DEPENDENCIES, type DependencyKey, type DependencyState } from '@shared/dependencies'
 import { NATIVE_DIR, MODELS_DIR, DATA_DIR } from './paths'
-import { state, setState } from './server'
+import { mutate, state } from './server'
 import { log } from './logger'
 // The SDK ships the manifest of the CLI build it expects — version and
 // checksum both come from the installed package, so they can't drift apart.
@@ -285,7 +285,9 @@ async function hashFile(file: string): Promise<string> {
 // ── Status ──────────────────────────────────────────────────────────────────
 
 function publish(key: DependencyKey, patch: Partial<DependencyState>): void {
-    setState('dependencies', key, { ...state.dependencies[key], ...patch })
+    // refreshDependencies() writes each key in full at startup, so a patch
+    // always lands on an existing entry.
+    mutate(s => { s.dependencies[key] = { ...state.dependencies[key]!, ...patch } })
 }
 
 /**
@@ -378,7 +380,7 @@ export async function refreshDependencies(): Promise<void> {
         } catch (err) {
             log.server.warn(`Could not verify ${key}: ${err instanceof Error ? err.message : err}`)
         }
-        setState('dependencies', key, { key, label: meta.label, reason: meta.reason, status, account })
+        mutate(s => { s.dependencies[key] = { key, label: meta.label, reason: meta.reason, status, account } })
     }
 }
 

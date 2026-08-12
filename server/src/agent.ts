@@ -6,7 +6,7 @@ import { COMMANDS, type CommandName } from '@shared/game-state/commands';
 import { QUERIES, type QueryName } from '@shared/game-state/queries';
 import { applyBlockToCtx } from '@shared/game-state';
 import { parseBlocks, serializeBlocks } from '@shared/blocks';
-import { state, setState } from './server';
+import { mutate, state } from './server';
 import { db } from './db';
 import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
 import { featureEnabled } from '@shared/features';
@@ -188,7 +188,7 @@ function handleTurnClosed(req: TurnClosedRequest) {
             sdkTurnCloserSessionId: req.trailingWrapperSessionId,
         };
         const updated = { ...msg, metadata: nextMeta, updatedAt: Date.now() };
-        setState('currentChat', 'messages', messageId, updated);
+        mutate(s => { s.currentChat.messages[messageId] = updated });
         stamped++;
     }
     log.server.info(`Turn closer ${req.trailingWrapperUuid.slice(0, 8)}… in session ${req.trailingWrapperSessionId.slice(0, 8)}… stamped on ${stamped}/${req.messageIds.length} messages for chat ${req.chatId}`);
@@ -200,7 +200,7 @@ function handleSdkUuid(req: SdkUuidRequest) {
     if (!msg) return { error: 'message_not_found' };
     const nextMeta = { ...(msg.metadata ?? {}), sdkUuid: req.sdkUuid };
     const updated = { ...msg, metadata: nextMeta, updatedAt: Date.now() };
-    setState('currentChat', 'messages', req.messageId, updated);
+    mutate(s => { s.currentChat.messages[req.messageId] = updated });
     return { ok: true };
 }
 
@@ -283,7 +283,7 @@ export async function execCommand(
     const effects: string[] = [];
     const ctxBefore = JSON.parse(JSON.stringify(state.currentChat.gameState));
     applyBlockToCtx(state.currentChat.gameState, block, effects);
-    setState('currentChat', 'gameState', state.currentChat.gameState);
+    mutate(s => { s.currentChat.gameState = state.currentChat.gameState });
 
     const messageId = nanoid();
     const now = Date.now();
@@ -301,7 +301,7 @@ export async function execCommand(
         updatedAt: now,
         metadata,
     };
-    setState('currentChat', 'messages', messageId, message);
+    mutate(s => { s.currentChat.messages[messageId] = message });
 
     // Kicked off only once the block is persisted, because the icon patches
     // that message when it arrives. Not awaited: the model gets its tool result
@@ -350,18 +350,18 @@ function attachItemIcon(chatId: string, messageId: string, key: string, url: str
     const patched = blocks.map(b =>
         b === target ? { ...target, icon: url } : b);
 
-    setState('currentChat', 'messages', messageId, {
+    mutate(s => { s.currentChat.messages[messageId] = {
         ...msg,
         content: serializeBlocks(patched),
         updatedAt: Date.now(),
-    });
+    } });
 
     // The live ctx was computed before the icon existed; replay would produce
     // it, but nothing replays until the next turn and the HUD is showing this
     // item now.
     const defs = state.currentChat.gameState.itemDefs;
     if (defs?.[key]) {
-        setState('currentChat', 'gameState', 'itemDefs', key, { ...defs[key], icon: url });
+        mutate(s => { s.currentChat.gameState.itemDefs[key] = { ...defs[key]!, icon: url } });
     }
 }
 
@@ -453,12 +453,12 @@ function handleAnnounce(req: AnnouncementRequest) {
         // preamble has been baked into it, and future prompts resume
         // normally.
         if (state.currentChat.id === req.chatId && state.currentChat.agentRehydration !== null) {
-            setState('currentChat', 'agentRehydration', null);
+            mutate(s => { s.currentChat.agentRehydration = null });
         }
         log.server.info(`Captured agent session ${req.sessionId} for chat ${req.chatId}`);
     }
     if (req.event === 'turn_ended') {
-        setState('isGenerating', false);
+        mutate(s => { s.isGenerating = false });
         // Snapshot the post-turn flags so the NEXT prompt can diff
         // against them. Captures the agent's own set_flag/clear_flag
         // effects too — those will then NOT appear as deltas on the
@@ -656,7 +656,7 @@ async function runAiTurn(args: {
         // rehydration warning), so clear it here now that the transcript is
         // rebuilt — otherwise a post-invalidate AI-SDK turn leaves it stuck on.
         if (state.currentChat.id === args.chatId && state.currentChat.agentRehydration !== null) {
-            setState('currentChat', 'agentRehydration', null);
+            mutate(s => { s.currentChat.agentRehydration = null });
         }
     } catch (err) {
         if (controller.signal.aborted) {
@@ -681,12 +681,12 @@ export async function dispatchPromptToAgent(args: {
     // the composer probe (up to ~1.5s) and macro expansion, and so a failure in
     // either still surfaces as a cleared spinner via generateResponse's finally
     // rather than no feedback at all.
-    setState('isGenerating', true);
+    mutate(s => { s.isGenerating = true });
 
     // Re-run replay so any state effects from the just-appended user message
     // are visible to the agent's queries from the very first tool call.
     const turnResult = runTurn(Object.values(state.currentChat.messages));
-    setState('currentChat', 'gameState', turnResult.ctx);
+    mutate(s => { s.currentChat.gameState = turnResult.ctx });
     setCurrentTurnResult(turnResult);
 
     let expandedSystemPrompt = '';
@@ -790,7 +790,7 @@ export async function dispatchPromptToAgent(args: {
     // One-shot director's note composed in the UI. Consumed and cleared
     // here so it attaches to exactly one turn.
     const directorNote = state.currentChat.pendingSystemNotice.trim();
-    if (directorNote) setState('currentChat', 'pendingSystemNotice', '');
+    if (directorNote) mutate(s => { s.currentChat.pendingSystemNotice = '' });
 
     const sections: SystemNoticeSection[] = [];
     if (flagsDelta) {
@@ -818,7 +818,7 @@ export async function dispatchPromptToAgent(args: {
         const messages = currentLoop === 'ai-sdk'
             ? [...transcript.map(normalizeModelMessage), { role: 'user', content: userContent }]
             : [{ role: 'user', content: userContent }];
-        setState('currentChat', 'lastPrompt', {
+        mutate(s => { s.currentChat.lastPrompt = {
             capturedAt: Date.now(),
             provider: llmConfig.provider,
             model: llmConfig.model,
@@ -827,7 +827,7 @@ export async function dispatchPromptToAgent(args: {
             messages,
             rehydratedFromLog: needsPreamble,
             resumedSessionId: resumeSessionId,
-        });
+        } });
     }
 
     if (currentLoop === 'claude') {
@@ -938,10 +938,10 @@ export async function invalidateAgentSession(chatId: string) {
         const msgs = Object.values(state.currentChat.messages);
         if (msgs.length > 0) {
             const chars = msgs.reduce((sum, m) => sum + m.content.length, 0);
-            setState('currentChat', 'agentRehydration', {
+            mutate(s => { s.currentChat.agentRehydration = {
                 messageCount: msgs.length,
                 estimatedTokens: Math.ceil(chars / 4),
-            });
+            } });
         }
     }
     log.server.info(`Invalidated agent session for chat ${chatId}`);

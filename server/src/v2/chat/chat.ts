@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
-import { state, setState, deleteState } from '../../server'
+import { mutate, state } from '../../server'
 import { CurrentChat, logChat } from '../../chat'
 import { parseBlocks } from '@shared/blocks'
 import { nanoid } from 'nanoid'
@@ -49,22 +49,25 @@ export const chatRouter = router({
             }
 
             // Add to in-memory asset library; auto-save handles persistence
-            setState('assets', 'chats', newId, chat)
+            mutate(s => { s.assets.chats[newId] = chat })
 
             // Populate currentChat only for regular chats — templates are edited
             // via the detail view, not the conversation view.
             if (!input.isTemplate) {
-                setState('currentChat', {
+                mutate(s => { s.currentChat = {
                     id: newId,
                     title: chat.title,
-                    assets: { actors: [...chat.assets.actors], notes: { ...chat.assets.notes } },
+                    // `images` was missing here: setStore replaces `assets`
+                    // wholesale rather than deep-merging, so a new chat's
+                    // currentChat.assets.images was silently undefined.
+                    assets: { actors: [...chat.assets.actors], notes: { ...chat.assets.notes }, images: [...chat.assets.images] },
                     messages: {},
                     gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
                     agentRehydration: null,
                     pendingSystemNotice: '',
                     createdAt: now,
                     updatedAt: now,
-                })
+                } })
             }
 
             return { id: newId }
@@ -92,25 +95,25 @@ export const chatRouter = router({
             const isCurrent = state.currentChat.id === input.id
 
             if (title !== undefined) {
-                setState('assets', 'chats', input.id, 'title', title)
-                if (isCurrent) setState('currentChat', 'title', title)
+                mutate(s => { s.assets.chats[input.id]!.title = title })
+                if (isCurrent) mutate(s => { s.currentChat.title = title })
             }
             if (avatarUrl !== undefined) {
-                setState('assets', 'chats', input.id, 'avatarUrl', avatarUrl || undefined)
+                mutate(s => { s.assets.chats[input.id]!.avatarUrl = avatarUrl || undefined })
             }
             if (bannerUrl !== undefined) {
-                setState('assets', 'chats', input.id, 'bannerUrl', bannerUrl || undefined)
+                mutate(s => { s.assets.chats[input.id]!.bannerUrl = bannerUrl || undefined })
             }
             if (description !== undefined) {
-                setState('assets', 'chats', input.id, 'description', description || undefined)
+                mutate(s => { s.assets.chats[input.id]!.description = description || undefined })
             }
             if (actors !== undefined) {
-                setState('assets', 'chats', input.id, 'assets', 'actors', actors)
-                if (isCurrent) setState('currentChat', 'assets', 'actors', actors)
+                mutate(s => { s.assets.chats[input.id]!.assets.actors = actors })
+                if (isCurrent) mutate(s => { s.currentChat.assets.actors = actors })
             }
             if (images !== undefined) {
-                setState('assets', 'chats', input.id, 'assets', 'images', images)
-                if (isCurrent) setState('currentChat', 'assets', 'images', images)
+                mutate(s => { s.assets.chats[input.id]!.assets.images = images })
+                if (isCurrent) mutate(s => { s.currentChat.assets.images = images })
             }
             if (notes !== undefined) {
                 // Diff per-key: Solid stores merge object writes, so setting a
@@ -120,20 +123,20 @@ export const chatRouter = router({
                 const keep = new Set(notes)
                 for (const id of Object.keys(prev)) {
                     if (!keep.has(id)) {
-                        deleteState('assets', 'chats', input.id, 'assets', 'notes', id)
-                        if (isCurrent) deleteState('currentChat', 'assets', 'notes', id)
+                        mutate(s => { delete s.assets.chats[input.id]!.assets.notes[id] })
+                        if (isCurrent) mutate(s => { delete s.currentChat.assets.notes[id] })
                     }
                 }
                 for (const id of notes) {
                     if (!prev[id]) {
-                        setState('assets', 'chats', input.id, 'assets', 'notes', id, { enabled: true })
-                        if (isCurrent) setState('currentChat', 'assets', 'notes', id, { enabled: true })
+                        mutate(s => { s.assets.chats[input.id]!.assets.notes[id] = { enabled: true } })
+                        if (isCurrent) mutate(s => { s.currentChat.assets.notes[id] = { enabled: true } })
                     }
                 }
             }
 
-            setState('assets', 'chats', input.id, 'updatedAt', now)
-            if (isCurrent) setState('currentChat', 'updatedAt', now)
+            mutate(s => { s.assets.chats[input.id]!.updatedAt = now })
+            if (isCurrent) mutate(s => { s.currentChat.updatedAt = now })
 
             return { success: true }
         }),
@@ -145,12 +148,12 @@ export const chatRouter = router({
                 throw new Error(`Chat ${input.id} not found`)
             }
             const now = Date.now()
-            setState('assets', 'chats', input.id, 'title', input.title)
-            setState('assets', 'chats', input.id, 'updatedAt', now)
+            mutate(s => { s.assets.chats[input.id]!.title = input.title })
+            mutate(s => { s.assets.chats[input.id]!.updatedAt = now })
             // If it's the current chat, also update its title in currentChat
             if (state.currentChat.id === input.id) {
-                setState('currentChat', 'title', input.title)
-                setState('currentChat', 'updatedAt', now)
+                mutate(s => { s.currentChat.title = input.title })
+                mutate(s => { s.currentChat.updatedAt = now })
             }
             return { success: true }
         }),
@@ -167,10 +170,10 @@ export const chatRouter = router({
 
             const next = [...current, input.actorId]
             const now = Date.now()
-            setState('currentChat', 'assets', 'actors', next)
-            setState('assets', 'chats', chatId, 'assets', 'actors', next)
-            setState('currentChat', 'updatedAt', now)
-            setState('assets', 'chats', chatId, 'updatedAt', now)
+            mutate(s => { s.currentChat.assets.actors = next })
+            mutate(s => { s.assets.chats[chatId]!.assets.actors = next })
+            mutate(s => { s.currentChat.updatedAt = now })
+            mutate(s => { s.assets.chats[chatId]!.updatedAt = now })
             return { success: true }
         }),
 
@@ -182,10 +185,10 @@ export const chatRouter = router({
 
             const next = state.currentChat.assets.actors.filter(id => id !== input.actorId)
             const now = Date.now()
-            setState('currentChat', 'assets', 'actors', next)
-            setState('assets', 'chats', chatId, 'assets', 'actors', next)
-            setState('currentChat', 'updatedAt', now)
-            setState('assets', 'chats', chatId, 'updatedAt', now)
+            mutate(s => { s.currentChat.assets.actors = next })
+            mutate(s => { s.assets.chats[chatId]!.assets.actors = next })
+            mutate(s => { s.currentChat.updatedAt = now })
+            mutate(s => { s.assets.chats[chatId]!.updatedAt = now })
             return { success: true }
         }),
 
@@ -199,10 +202,10 @@ export const chatRouter = router({
             if (state.currentChat.assets.notes[input.noteId]) return { success: true }
 
             const now = Date.now()
-            setState('currentChat', 'assets', 'notes', input.noteId, { enabled: true })
-            setState('assets', 'chats', chatId, 'assets', 'notes', input.noteId, { enabled: true })
-            setState('currentChat', 'updatedAt', now)
-            setState('assets', 'chats', chatId, 'updatedAt', now)
+            mutate(s => { s.currentChat.assets.notes[input.noteId] = { enabled: true } })
+            mutate(s => { s.assets.chats[chatId]!.assets.notes[input.noteId] = { enabled: true } })
+            mutate(s => { s.currentChat.updatedAt = now })
+            mutate(s => { s.assets.chats[chatId]!.updatedAt = now })
             return { success: true }
         }),
 
@@ -213,10 +216,10 @@ export const chatRouter = router({
             if (!chatId) throw new Error('No chat loaded')
 
             const now = Date.now()
-            deleteState('currentChat', 'assets', 'notes', input.noteId)
-            deleteState('assets', 'chats', chatId, 'assets', 'notes', input.noteId)
-            setState('currentChat', 'updatedAt', now)
-            setState('assets', 'chats', chatId, 'updatedAt', now)
+            mutate(s => { delete s.currentChat.assets.notes[input.noteId] })
+            mutate(s => { delete s.assets.chats[chatId]!.assets.notes[input.noteId] })
+            mutate(s => { s.currentChat.updatedAt = now })
+            mutate(s => { s.assets.chats[chatId]!.updatedAt = now })
             return { success: true }
         }),
 
@@ -227,8 +230,8 @@ export const chatRouter = router({
             if (!chatId) throw new Error('No chat loaded')
             if (!state.currentChat.assets.notes[input.noteId]) throw new Error('Note is not attached to this chat')
 
-            setState('currentChat', 'assets', 'notes', input.noteId, 'enabled', input.enabled)
-            setState('assets', 'chats', chatId, 'assets', 'notes', input.noteId, 'enabled', input.enabled)
+            mutate(s => { s.currentChat.assets.notes[input.noteId]!.enabled = input.enabled })
+            mutate(s => { s.assets.chats[chatId]!.assets.notes[input.noteId]!.enabled = input.enabled })
             return { success: true }
         }),
 
@@ -236,7 +239,7 @@ export const chatRouter = router({
         .input(z.object({ text: z.string() }))
         .mutation(({ input }) => {
             if (!state.currentChat.id) throw new Error('No chat loaded')
-            setState('currentChat', 'pendingSystemNotice', input.text)
+            mutate(s => { s.currentChat.pendingSystemNotice = input.text })
             return { success: true }
         }),
 
@@ -270,11 +273,11 @@ export const chatRouter = router({
 
             // DB delete via persistPath; CASCADE removes chat_messages,
             // chat_actor_refs, and chat_note_refs for this chat.
-            deleteState('assets', 'chats', input.id)
+            mutate(s => { delete s.assets.chats[input.id] })
 
             // If the deleted chat was current, clear currentChat
             if (state.currentChat.id === input.id) {
-                setState('currentChat', {
+                mutate(s => { s.currentChat = {
                     id: null,
                     title: '',
                     assets: { actors: [], notes: {}, images: [] },
@@ -284,7 +287,7 @@ export const chatRouter = router({
                     pendingSystemNotice: '',
                     createdAt: null,
                     updatedAt: null,
-                })
+                } })
             }
 
             return { success: true }
@@ -331,7 +334,7 @@ export const chatRouter = router({
                 metadata: { ...(msg.metadata ?? {}), chosenIndex: input.optionIndex },
                 updatedAt: Date.now(),
             }
-            setState('currentChat', 'messages', input.messageId, updated)
+            mutate(s => { s.currentChat.messages[input.messageId] = updated })
 
             // Submit the pick as a distinct `choice(...)` user message (vs the
             // normal `unformatted(...)`), then let the agent respond.
@@ -401,7 +404,7 @@ export const chatRouter = router({
 
             const { cancelAgentTurn } = await import('../../agent')
             await cancelAgentTurn()
-            setState('isGenerating', false)
+            mutate(s => { s.isGenerating = false })
             return { success: true }
         }),
 })

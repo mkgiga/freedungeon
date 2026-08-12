@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
-import { state, setState } from '../../server'
+import { mutate, state } from '../../server'
 import { nanoid } from 'nanoid'
 import type { Note } from '@shared/types'
 import { inLibrary, homedIn } from '@shared/visibility'
@@ -33,8 +33,8 @@ export const notesRouter = router({
             if (input.id !== undefined && state.assets.notes[input.id]) {
                 const id = input.id
                 const existing = state.assets.notes[id]
-                setState('assets', 'notes', id, {
-                    ...existing,
+                mutate(s => { s.assets.notes[id] = {
+                    ...existing!,
                     title: input.title,
                     type: input.type,
                     content: input.content,
@@ -42,7 +42,7 @@ export const notesRouter = router({
                     // Only when explicitly supplied — see actors.upsert.
                     ...(input.homeChatId !== undefined ? { homeChatId: input.homeChatId ?? null } : {}),
                     updatedAt: now,
-                })
+                } })
                 return state.assets.notes[id]
             }
 
@@ -57,7 +57,7 @@ export const notesRouter = router({
                 createdAt: now,
                 updatedAt: now,
             }
-            setState('assets', 'notes', newId, note)
+            mutate(s => { s.assets.notes[newId] = note })
             return note
         }),
 
@@ -67,7 +67,7 @@ export const notesRouter = router({
         .mutation(({ input }) => {
             const note = state.assets.notes[input.id]
             if (!note) return { success: true }
-            setState('assets', 'notes', input.id, { ...note, deletedAt: Date.now() })
+            mutate(s => { s.assets.notes[input.id] = { ...note, deletedAt: Date.now() } })
             return { success: true }
         }),
 
@@ -76,7 +76,7 @@ export const notesRouter = router({
         .mutation(({ input }) => {
             const note = state.assets.notes[input.id]
             if (!note) throw new Error('Note not found')
-            setState('assets', 'notes', input.id, { ...note, deletedAt: null })
+            mutate(s => { s.assets.notes[input.id] = { ...note, deletedAt: null } })
             return { success: true }
         }),
 
@@ -94,9 +94,9 @@ export const notesRouter = router({
             if (input.homeChatId && !state.assets.chats[input.homeChatId]) {
                 throw new Error('Target chat not found')
             }
-            setState('assets', 'notes', input.id, {
+            mutate(s => { s.assets.notes[input.id] = {
                 ...note, homeChatId: input.homeChatId, updatedAt: Date.now(),
-            })
+            } })
             return { success: true }
         }),
 })

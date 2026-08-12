@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, procedure } from '../../trpc'
-import { state, setState, deleteState } from '../../server'
+import { mutate, state } from '../../server'
 import { nanoid } from 'nanoid'
 import type { ImageAsset } from '@shared/types'
 
@@ -40,7 +40,7 @@ export const imagesRouter = router({
                 createdAt: now,
                 updatedAt: now,
             }
-            setState('assets', 'images', image.id, image)
+            mutate(s => { s.assets.images[image.id] = image })
             return image
         }),
 
@@ -58,12 +58,12 @@ export const imagesRouter = router({
                 if (clash) throw new Error(`An image with key "${input.key}" already exists`)
             }
 
-            setState('assets', 'images', input.id, {
+            mutate(s => { s.assets.images[input.id] = {
                 ...existing,
                 ...(input.key ? { key: input.key } : {}),
                 ...(input.label ? { label: input.label } : {}),
                 updatedAt: Date.now(),
-            })
+            } })
             return { success: true }
         }),
 
@@ -71,18 +71,16 @@ export const imagesRouter = router({
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
-            deleteState('assets', 'images', input.id)
+            mutate(s => { delete s.assets.images[input.id] })
 
             // The store's chat copies aren't touched by the CASCADE, so drop
             // the id from each one that held it.
             for (const chat of Object.values(state.assets.chats)) {
                 if (!chat.assets.images?.includes(input.id)) continue
-                setState('assets', 'chats', chat.id, 'assets', 'images',
-                    chat.assets.images.filter(id => id !== input.id))
+                mutate(s => { s.assets.chats[chat.id]!.assets.images = chat.assets.images.filter(id => id !== input.id) })
             }
             if (state.currentChat.id && state.currentChat.assets.images?.includes(input.id)) {
-                setState('currentChat', 'assets', 'images',
-                    state.currentChat.assets.images.filter(id => id !== input.id))
+                mutate(s => { s.currentChat.assets.images = state.currentChat.assets.images.filter(id => id !== input.id) })
             }
             return { success: true }
         }),
