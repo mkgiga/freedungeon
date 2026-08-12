@@ -1072,6 +1072,39 @@ button {
 
 
 /* ── Extensions list ── */
+/* Install target. Dashed to read as "put something here" rather than as a
+   button that does something on its own — the same language the add-new tiles
+   use. `is-drop-target` is the shared drag-hover treatment. */
+.extension-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 18px 16px;
+  border: 1px dashed color-mix(in oklch, var(--text), transparent 70%);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, opacity 150ms ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary);
+    background: color-mix(in oklch, var(--primary), transparent 94%);
+  }
+
+  &.is-busy {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.extension-dropzone-icon {
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
 
 .extension-row {
   display: flex;

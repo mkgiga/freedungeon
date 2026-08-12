@@ -229,7 +229,50 @@ export async function setExtensionEnabled(id: string, enabled: boolean): Promise
  * top-level folder, which is what most archive tools produce).
  */
 export async function installFromZip(zipPath: string): Promise<ExtensionInfo> {
-    const files = unzipSync(new Uint8Array(fs.readFileSync(zipPath)))
+    return installFromZipBytes(new Uint8Array(fs.readFileSync(zipPath)))
+}
+
+/**
+ * An archive entry name, as a canonical POSIX-ish string.
+ *
+ * ZIP stores names with `/` regardless of platform, so they are parsed as
+ * POSIX and never handed to the host `path` module, whose behaviour differs by
+ * OS. The backslash fold is a compatibility shim, not an OS branch: Windows'
+ * own Compress-Archive writes `src\index.ts` in violation of the spec, and
+ * folding it everywhere means one canonical form on every platform — which is
+ * also what stops `..\..\x` from being a separate case to remember.
+ */
+function normalizeEntry(name: string): string {
+    return name.split('\\').join('/')
+}
+
+/**
+ * Split a normalized entry into path segments that are safe to join onto the
+ * extension's directory, or null if it must be refused.
+ *
+ * Validates the *segments* rather than resolving and comparing prefixes.
+ * Resolution asks the OS to interpret an attacker-controlled string and then
+ * tries to prove the answer was harmless; this never lets it be interpreted at
+ * all. Absolute paths, drive letters, UNC roots and any `..` are rejected
+ * outright, so the result can only ever be a descendant.
+ */
+function safeSegments(entry: string): string[] | null {
+    if (entry.startsWith('/')) return null            // absolute
+    if (/^[a-zA-Z]:/.test(entry)) return null         // C:\… drive-relative
+    const segments = entry.split('/').filter(s => s !== '' && s !== '.')
+    if (segments.length === 0) return null
+    if (segments.some(s => s === '..')) return null   // traversal
+    return segments
+}
+
+/**
+ * Same, from bytes — what an upload delivers. A browser hands over a File, not
+ * a path, so the drop zone posts the archive rather than naming one.
+ */
+export async function installFromZipBytes(bytes: Uint8Array): Promise<ExtensionInfo> {
+    const files = Object.fromEntries(
+        Object.entries(unzipSync(bytes)).map(([name, data]) => [normalizeEntry(name), data]),
+    )
     const names = Object.keys(files)
 
     const manifestKey = names.find(n => n === 'manifest.json')
@@ -244,18 +287,28 @@ export async function installFromZip(zipPath: string): Promise<ExtensionInfo> {
     // Unpacked under the id, not the archive name, so reinstalling the same
     // extension replaces it instead of accumulating copies.
     const dir = path.join(EXTENSIONS_DIR, manifest.id)
-    await deactivate(manifest.id)
-    fs.rmSync(dir, { recursive: true, force: true })
 
+    // Everything about the archive is checked BEFORE anything is written or the
+    // existing copy is removed. Validating as we go would let a bad archive
+    // delete a working extension and leave half of its replacement behind —
+    // the install has to either happen or not.
+    const entryRel = backgroundEntry(manifest)
+    if (!files[root + entryRel]) {
+        throw new Error(`manifest points at "${entryRel}", which is not in the archive`)
+    }
+    const planned: { target: string; bytes: Uint8Array }[] = []
     for (const [name, bytes] of Object.entries(files)) {
         if (!name.startsWith(root) || name.endsWith('/')) continue
         const rel = name.slice(root.length)
-        // A zip entry may name any path it likes; refuse anything that would
-        // land outside the extension's own directory.
-        const target = path.resolve(dir, rel)
-        if (!target.startsWith(path.resolve(dir) + path.sep)) {
-            throw new Error(`archive entry escapes its directory: ${rel}`)
-        }
+        const segments = safeSegments(rel)
+        if (!segments) throw new Error(`archive entry is not a safe relative path: ${rel}`)
+        planned.push({ target: path.join(dir, ...segments), bytes })
+    }
+    if (planned.length === 0) throw new Error('archive contains no files')
+
+    await deactivate(manifest.id)
+    fs.rmSync(dir, { recursive: true, force: true })
+    for (const { target, bytes } of planned) {
         fs.mkdirSync(path.dirname(target), { recursive: true })
         fs.writeFileSync(target, bytes)
     }

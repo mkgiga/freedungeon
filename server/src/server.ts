@@ -26,6 +26,7 @@ import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
 import { getEmbeddedClientFiles } from './embedded';
 import { refreshDependencies } from './dependencies';
 import { applyDeleteCascades } from './cascade';
+import { extensionUploadRouter } from './v2/extensions/upload';
 import { loadExtensions } from './extensions/host';
 import { FEATURES, resolveFeatureState, type FeatureKey } from '@shared/features';
 import { ensureCert } from './tls';
@@ -317,6 +318,7 @@ function exitWithPortError(err: unknown, port: number, wsPort: number): never {
 
 async function listen() {
     app.route('/uploads', uploadsRouter);
+    app.route('/extensions', extensionUploadRouter);
     app.route('/agent-rpc', agentRpcRouter);
     app.use('/trpc/*', trpcServer({ router: appRouter }));
 
