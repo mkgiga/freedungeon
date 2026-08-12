@@ -28,17 +28,73 @@ function findActor(ctx: GameStateContext, id: string):
     return null;
 }
 
-/** Moves actor into active scene, restoring from offscreen if known. Returns true if state changed. */
-function ensureActive(ctx: GameStateContext, id: string): boolean {
-    if (ctx.scene.actors.active[id]) return false;
+const idList = (ids: string[]) => `[${ids.map(id => `'${id}'`).join(', ')}]`;
+
+const roster = (ctx: GameStateContext) => idList(Object.keys(ctx.scene.actors.active));
+
+/** Moves one actor into the active scene, restoring from offscreen if known. */
+function moveIn(ctx: GameStateContext, id: string): ActorGameState {
+    const present = ctx.scene.actors.active[id];
+    if (present) return present;
+
     const restored = ctx.scene.actors.offscreen[id];
-    if (restored) {
-        ctx.scene.actors.active[id] = restored;
-        delete ctx.scene.actors.offscreen[id];
-    } else {
-        ctx.scene.actors.active[id] = { hp: DEFAULT_ACTOR_HP };
+    const entry = restored ?? { hp: DEFAULT_ACTOR_HP };
+    if (restored) delete ctx.scene.actors.offscreen[id];
+    ctx.scene.actors.active[id] = entry;
+    return entry;
+}
+
+/**
+ * Admit actors to the scene and report what the scene now looks like.
+ *
+ * Reporting lives here rather than at the call sites because an actor can join
+ * three ways — an explicit `enter_actors`, a `speech` line naming someone who
+ * isn't present, or a `set_hp` for a stranger — and only the first of those used
+ * to say so. The other two grew the cast in silence, which is how an agent ends
+ * up with actors it never noticed it created (one mistyped id spawns a whole
+ * character). Announcing from the one function that does the moving makes all
+ * three agree by construction, and a fourth path can't forget.
+ *
+ * The full roster goes out with every arrival rather than a bare delta: a scene
+ * holds a handful of actors, so it costs almost nothing, and it re-grounds an
+ * agent whose picture of the scene has drifted instead of asking it to maintain
+ * that picture by accumulating deltas correctly.
+ *
+ * `reportUnchanged` is the difference between an explicit claim about the roster
+ * and an incidental touch of it. `enter_actors` asserts something, so a call
+ * that changes nothing still deserves an answer — that is exactly the case where
+ * the agent has lost track and needs correcting. `speech` merely mentions a
+ * name, and the overwhelmingly common case is a present actor talking; reporting
+ * there would repeat the roster after every line of dialogue.
+ *
+ * It cannot distinguish an ad-hoc actor from a cast member's first entrance:
+ * `ctx` knows who is *present*, not who the chat has defined.
+ */
+function admit(
+    ctx: GameStateContext,
+    arr: string[],
+    ids: string[],
+    reportUnchanged = false,
+): ActorGameState[] {
+    const added: string[] = [];
+    const already: string[] = [];
+    const entries: ActorGameState[] = [];
+
+    for (const id of ids) {
+        const wasPresent = ctx.scene.actors.active[id] !== undefined;
+        entries.push(moveIn(ctx, id));
+        (wasPresent ? already : added).push(id);
     }
-    return true;
+
+    if (added.length > 0 || (reportUnchanged && already.length > 0)) {
+        const parts: string[] = [];
+        if (added.length > 0) parts.push(`${idList(added)} added to the scene.`);
+        if (already.length > 0) parts.push(`${idList(already)} already present in the scene.`);
+        parts.push(`New scene state: ${roster(ctx)}`);
+        arr.push(parts.join(' '));
+    }
+
+    return entries;
 }
 
 export function createScope({ ctx, arr }: ScopeBinding) {
@@ -52,7 +108,7 @@ export function createScope({ ctx, arr }: ScopeBinding) {
             //   ad-hoc:     speech(dialogue, { name })          — arg 2 is an object
             // Only the predefined form carries a customId worth tracking.
             if (typeof textOrOpts === 'string') {
-                ensureActive(ctx, customIdOrDialogue);
+                admit(ctx, arr, [customIdOrDialogue]);
             }
         },
         pause: (_seconds: number) => {},
@@ -109,28 +165,36 @@ export function createScope({ ctx, arr }: ScopeBinding) {
 
         // ── Scene management ──────────────────────────────────────────────
         enterActors: (customIds: string[]) => {
-            for (const id of customIds) {
-                if (ensureActive(ctx, id)) arr.push(`${id} entered the scene`);
-            }
+            admit(ctx, arr, customIds, true);
         },
         leaveActors: (customIds: string[]) => {
+            const left: string[] = [];
+            const absent: string[] = [];
             for (const id of customIds) {
                 const entry = ctx.scene.actors.active[id];
-                if (!entry) continue;
+                if (!entry) { absent.push(id); continue; }
                 ctx.scene.actors.offscreen[id] = entry;
                 delete ctx.scene.actors.active[id];
-                arr.push(`${id} left the scene`);
+                left.push(id);
             }
+            // Same reasoning as admit: an explicit call about the roster always
+            // gets the roster back, including the all-no-op case.
+            const parts: string[] = [];
+            if (left.length > 0) parts.push(`${idList(left)} left the scene.`);
+            if (absent.length > 0) parts.push(`${idList(absent)} were not in the scene.`);
+            parts.push(`New scene state: ${roster(ctx)}`);
+            arr.push(parts.join(' '));
         },
 
         // ── Per-actor HP ──────────────────────────────────────────────────
         setHp: (customId: string, value: number) => {
+            // findActor covers offscreen too, so setting an absent actor's HP
+            // doesn't drag them on stage. Only a completely unknown id does,
+            // and that goes through admit so it gets announced like any other
+            // arrival.
             const found = findActor(ctx, customId);
-            if (found) {
-                found.entry.hp = value;
-            } else {
-                ctx.scene.actors.active[customId] = { hp: value };
-            }
+            if (found) found.entry.hp = value;
+            else admit(ctx, arr, [customId])[0]!.hp = value;
         },
         damage: (customId: string, amount: number) => {
             const found = findActor(ctx, customId);
