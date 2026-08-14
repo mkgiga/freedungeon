@@ -26,12 +26,6 @@ export default {
             title: 'Dice Roller',
             message: `Rolled a ${value}. That is roll #${total} since installing.`,
         })
-
-        // Anything started here has to be stopped here. The host runs disposers
-        // on disable, uninstall and reload — an extension that leaks them keeps
-        // running after you switch it off.
-        const timer = setInterval(() => fd.log('still here'), 5 * 60_000)
-        fd.onDispose(() => clearInterval(timer))
     },
 
     deactivate() {
