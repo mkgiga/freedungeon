@@ -53,12 +53,14 @@ export function GameStatePanel() {
     // are answered from the message history now, so forcing the rail to change
     // under the user would take away the scene for no reason.
 
-    const resolveActorName = (customId: string) => {
-        for (const a of Object.values(state.assets.actors)) {
-            if (a.customId === customId) return a.name
-        }
-        return customId
-    }
+    // `assets.actors` is keyed by the nanoid primary key, but everything in the
+    // game state addresses actors by customId — so a lookup has to scan rather
+    // than index. Both callers below go through this; indexing the record
+    // directly with a customId silently yields undefined.
+    const actorByCustomId = (customId: string) =>
+        Object.values(state.assets.actors).find(a => a.customId === customId) ?? null
+
+    const resolveActorName = (customId: string) => actorByCustomId(customId)?.name ?? customId
 
     const playerActor = createMemo(() => {
         const id = state.userPreferences.playerCharacterId
@@ -120,8 +122,8 @@ export function GameStatePanel() {
                 const ra = recency.get(a) ?? 0
                 const rb = recency.get(b) ?? 0
                 if (ra !== rb) return rb - ra
-                const hasAvatarA = Boolean(state.assets.actors[a]?.avatarUrl?.length)
-                const hasAvatarB = Boolean(state.assets.actors[b]?.avatarUrl?.length)
+                const hasAvatarA = Boolean(actorByCustomId(a)?.avatarUrl?.length)
+                const hasAvatarB = Boolean(actorByCustomId(b)?.avatarUrl?.length)
                 if (hasAvatarA !== hasAvatarB) return hasAvatarA ? -1 : 1
                 return resolveActorName(a).localeCompare(resolveActorName(b))
             })
