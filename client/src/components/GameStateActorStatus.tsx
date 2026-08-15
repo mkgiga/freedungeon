@@ -27,8 +27,6 @@ export function GameStateActorStatus(props: Props): JSXElement {
     const maxHp = () => props.maxHp ?? 100
     const pct = () => Math.max(0, Math.min(100, (props.hp / maxHp()) * 100))
 
-    console.log(description());
-
     return (
         <div class="game-state-actor-status contents">
             <Switch>
