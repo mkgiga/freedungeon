@@ -7,6 +7,7 @@ import { state } from './server';
 import { savePreferences } from './preferences';
 import { DB_PATH, ensureDataDirs } from './paths';
 import { log } from './logger';
+import { createInitialContext } from '@shared/game-state';
 import type { Actor, Note, ChatMessage, AppState, Chat, LLMConfig, AppNotification, CurrentChatState, ImageAsset }  from '@shared/types';
 export interface DB {
     actor_expressions: {
@@ -681,7 +682,7 @@ export async function loadChatById(chatId: string) {
         messages: messagesRecord,
         // Placeholder — CurrentChat.loadChat recomputes this from messages via
         // runTurn immediately after setState('currentChat', loadedChat).
-        gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+        gameState: createInitialContext(),
         agentRehydration,
         pendingSystemNotice: '',
         createdAt: hydratedChat.createdAt,
@@ -797,7 +798,7 @@ export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences
             title: '',
             assets: { actors: [], notes: {}, images: [] },
             messages: {},
-            gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+            gameState: createInitialContext(),
             agentRehydration: null,
             pendingSystemNotice: '',
             createdAt: null,

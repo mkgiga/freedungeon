@@ -1,4 +1,5 @@
 import { createSignal } from 'solid-js';
+import { createInitialContext } from '@shared/game-state';
 import { createStore, produce, reconcile } from 'solid-js/store';
 import { io } from 'socket.io-client';
 import type { AppState, CurrentChatState } from '@shared/types';
@@ -34,7 +35,7 @@ const [state, _setState] = createStore<AppState>({
       images: [],
     },
     messages: {},
-    gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+    gameState: createInitialContext(),
     agentRehydration: null,
     createdAt: null,
     updatedAt: null,

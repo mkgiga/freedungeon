@@ -5,6 +5,7 @@ import { CurrentChat, logChat } from '../../chat'
 import { parseBlocks } from '@shared/blocks'
 import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
+import { createInitialContext } from '@shared/game-state'
 
 export const chatRouter = router({
     list: procedure
@@ -62,7 +63,7 @@ export const chatRouter = router({
                     // currentChat.assets.images was silently undefined.
                     assets: { actors: [...chat.assets.actors], notes: { ...chat.assets.notes }, images: [...chat.assets.images] },
                     messages: {},
-                    gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+                    gameState: createInitialContext(),
                     agentRehydration: null,
                     pendingSystemNotice: '',
                     createdAt: now,
@@ -282,7 +283,7 @@ export const chatRouter = router({
                     title: '',
                     assets: { actors: [], notes: {}, images: [] },
                     messages: {},
-                    gameState: { inventory: {}, itemDefs: {}, scene: { actors: { active: {}, offscreen: {} } }, flags: {} },
+                    gameState: createInitialContext(),
                     agentRehydration: null,
                     pendingSystemNotice: '',
                     createdAt: null,
