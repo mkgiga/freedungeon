@@ -1,12 +1,22 @@
 {
     "news": [
         {
+            "version": "0.0.1",
             "timestamp": "2026-04-13T00:00:00Z",
             "title": "First post",
             "content": [
                 "Almost got all the features that were implemented on /mkgiga/minerva!! Feels good"
             ],
             "tags": ["test", "update"]
+        },
+        {
+            "version": "0.5.1",
+            "timestamp": "2026-08-16T13:17:51Z",
+            "title": "First proper release",
+            "content": [
+                "It's been a good few months at this point, and I think the user experience is at a point where I feel comfortable letting other people use it.",
+                "The roleplaying agent now uses a base system prompt. This is because the application is dependent on the agent knowing how it works for it to function properly. If you want to add custom instructions, just use Notes to do it. They get added directly to the system prompt anyway at playtime."
+            ]
         }
     ]
 }
