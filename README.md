@@ -4,13 +4,17 @@ Freedungeon is a roleplaying frontend where AI is the dungeon master. It is insp
 
 ## Project Goals
 
-- Ease of use
-    * The user experience should be intuitive and hassle free.
-    * Don't overload the user with information.
-- Compatibility
-    * Support Claude, Gemini, ChatGPT, and local LLMs.
+- User Experience goals
+    * Must be easy and comfortable to use for most people.
+    * No information overload. It doesn't have to be an airplane dashboard.
+- Support Models:
+    * [x] Local AI Models (Ollama, LMStudio, llama.cpp, etc.)
+    * [x] Claude
+    * [ ] Google Gemini
+    * [x] ChatGPT
+-  
 
-## Documentation
+## Table of Contents
 - [Overview](overview.md)
 - [Install](docs/install.md)
 - [Configuration](docs/configuration.md)
