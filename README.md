@@ -12,7 +12,13 @@ Freedungeon is a roleplaying frontend where AI is the dungeon master. It is insp
     * [x] Claude
     * [ ] Google Gemini
     * [x] ChatGPT
--  
+- Interactive game state:
+    * [x] Character state
+        - Actors have their own health, and take damage if the AI calls the `damage(id, value)` tool.
+    * [x] Show nearby characters
+        - AI can manage nearby actors/objects, which shows up in the UI.
+    * [x] Player inventory
+        - AI can give you custom items, which you can drag and drop to use on nearby actors.
 
 ## Table of Contents
 - [Overview](overview.md)
