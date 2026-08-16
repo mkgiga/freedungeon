@@ -4,8 +4,9 @@ Freedungeon is a roleplaying frontend where AI is the dungeon master. It is insp
 
 ## Project Goals
 
-- User Experience goals
+- User Experience goals:
     * Must be easy and comfortable to use for most people.
+    * Mobile & Desktop UI
     * No information overload. It doesn't have to be an airplane dashboard.
 - Support Models:
     * [x] Local AI Models (Ollama, LMStudio, llama.cpp, etc.)
