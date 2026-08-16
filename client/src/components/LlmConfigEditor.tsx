@@ -6,7 +6,6 @@ import { trpc } from '../trpc'
 import { Text } from './typography/Text'
 import { Heading } from './typography/Heading'
 import { SchemaForm } from './json-ui'
-import { TextEditor } from './TextEditor'
 import { SettingsField, SettingsGroup, SettingsInput } from './settings'
 import type { SchemaField, SchemaFormHooks } from '@shared/schema-ui'
 import type { LLMProvider } from '@shared/types'
@@ -82,7 +81,6 @@ export function LlmConfigEditor(props: {
             endpoint: draft.endpoint,
             model: draft.model,
             apiKey: draft.apiKey,
-            systemPrompt: draft.systemPrompt,
             schema: JSON.stringify(draft.schema),
             values: JSON.stringify(draft.values),
         })
@@ -167,15 +165,6 @@ export function LlmConfigEditor(props: {
                         />
                     </SettingsField>
                 </Show>
-            </SettingsGroup>
-
-            <SettingsGroup>
-                <TextEditor
-                    title="System Prompt"
-                    description="Sets how the dungeon master behaves in every chat. Leave empty for the built-in one."
-                    value={() => draft.systemPrompt}
-                    onInput={(v) => setDraft('systemPrompt', v)}
-                />
             </SettingsGroup>
 
             <SettingsGroup>
@@ -307,7 +296,6 @@ function blankConfig() {
         endpoint: '',
         model: '',
         apiKey: '',
-        systemPrompt: '',
         schema: [] as SchemaField[],
         values: {} as Record<string, any>,
         createdAt: 0,
