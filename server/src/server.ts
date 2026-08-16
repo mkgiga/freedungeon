@@ -9,6 +9,7 @@ import { log, startupBanner } from './logger';
 import { DATA_DIR } from './paths';
 import pkg from '../package.json' with { type: 'json' };
 import { initDb, persistPath, loadStateFromDb, db } from './db';
+import { seedExampleContent } from './seed';
 import { sql } from 'kysely';
 import './macro.ts';
 import { loadPreferences } from './preferences';
@@ -249,6 +250,10 @@ function start() {
         seedExtensionState(loaded.extensionState);
         await logChatMessageCounts();
         backfillOnboarding();
+        // Strictly after backfillOnboarding: that function reads "has any chat"
+        // as "this install has been used before", so seeding first would make a
+        // brand-new database look established and skip the first-run overlay.
+        seedExampleContent();
         await refreshDependencies();
         await loadExtensions();
         await initProcessHandlers();
