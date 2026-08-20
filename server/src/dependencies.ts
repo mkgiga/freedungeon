@@ -26,6 +26,9 @@ import path from 'node:path'
 import os from 'node:os'
 import { DEPENDENCIES, type DependencyKey, type DependencyState } from '@shared/dependencies'
 import { NATIVE_DIR, MODELS_DIR, DATA_DIR } from './paths'
+import { unzipSync } from 'fflate'
+import { SD_BINARIES, SD_MODELS, sdTarget } from './sd/manifest'
+import { resolveSdBuild } from './sd/backend'
 import { mutate, state } from './server'
 import { log } from './logger'
 // The SDK ships the manifest of the CLI build it expects — version and
@@ -41,10 +44,24 @@ const CACHE_PATH = path.join(DATA_DIR, 'dependencies.json')
 type Expected = { sha256: string; bytes: number }
 
 type Spec = {
-    /** Absolute path the verified file ends up at. */
+    /**
+     * Absolute path that must exist for this to count as present. For a plain
+     * download it is the downloaded file; for an `unpack` spec it is a sentinel
+     * inside the unpacked tree (the executable we actually run).
+     */
     file: string
     /** Where to fetch it, plus what the bytes must hash to. */
     resolve: () => Promise<{ url: string; expected: Expected; compressed?: 'zstd' }>
+    /**
+     * Treat the download as a zip and unpack it into `dir`.
+     *
+     * `expected` then describes the *archive*, not `file` — so an unpacked tree
+     * can't be re-verified by hashing one file out of it. Instead a marker
+     * recording the archive hash is written beside the tree on success, and
+     * checked on later boots. That keeps verification offline and O(1) rather
+     * than re-hashing hundreds of megabytes of DLLs at every startup.
+     */
+    unpack?: { dir: string }
     /** Make it runnable once written (no-op on Windows). */
     executable?: boolean
     /**
@@ -61,6 +78,52 @@ function platformKey(): string {
     if (process.platform === 'darwin') return `darwin-${arch}`
     return `linux-${arch}`
 }
+
+/** Everything stable-diffusion.cpp needs lives together: Windows resolves the
+ *  CUDA DLLs relative to the executable, so they cannot be split apart. */
+const SD_DIR = path.join(NATIVE_DIR, 'sd')
+
+/**
+ * Which archive a given sd dependency pulls, resolved for this machine.
+ *
+ * Index 0 is always the sd.cpp build; index 1 exists only on the CUDA target,
+ * where the runtime DLLs ship separately. Throwing for an unsupported host —
+ * Linux with an NVIDIA card, an Intel Mac — is what surfaces as a 'failed'
+ * dependency carrying the reason, rather than a silent nothing.
+ */
+function sdArchive(index: number) {
+    const target = sdTargetForHost()
+    const artifact = SD_BINARIES[target][index]
+    if (!artifact) throw new Error(`No archive ${index} for ${target}`)
+    return artifact
+}
+
+function sdTargetForHost() {
+    const choice = sdBuildChoice
+    if (!choice || !choice.supported) {
+        throw new Error(choice ? choice.message : 'Image generation support has not been resolved yet.')
+    }
+    const target = sdTarget(process.platform, choice.backend)
+    if (!target) throw new Error(`No stable-diffusion.cpp build for ${process.platform}/${choice.backend}`)
+    return target
+}
+
+/**
+ * Resolved once at startup rather than per call: it shells out to nvidia-smi,
+ * and the answer cannot change while the process runs.
+ */
+let sdBuildChoice: Awaited<ReturnType<typeof resolveSdBuild>> | null = null
+
+export async function initSdBuildChoice(): Promise<void> {
+    sdBuildChoice = await resolveSdBuild()
+}
+
+export function getSdBuildChoice() {
+    return sdBuildChoice
+}
+
+const sdBinaryUrl = (i: number) => sdArchive(i).url
+const sdBinaryHash = (i: number) => ({ expected: { sha256: sdArchive(i).sha256, bytes: sdArchive(i).bytes } })
 
 const SPECS: Record<DependencyKey, Spec> = {
     claudeCli: {
@@ -88,6 +151,49 @@ const SPECS: Record<DependencyKey, Spec> = {
                 expected: { sha256: raw.checksum, bytes: raw.size },
             }
         },
+    },
+
+    sdServer: {
+        // Sentinel is the executable we actually spawn, not the archive: the
+        // archive is deleted after unpacking, and this is the file whose absence
+        // means "not usable".
+        file: path.join(SD_DIR, process.platform === 'win32' ? 'sd-server.exe' : 'sd-server'),
+        executable: true,
+        unpack: { dir: SD_DIR },
+        resolve: async () => ({ url: sdBinaryUrl(0), ...sdBinaryHash(0) }),
+    },
+
+    sdCudaRuntime: {
+        // Only required on Windows+NVIDIA, where upstream ships the CUDA 12.8.1
+        // runtime DLLs as their own archive. It unpacks alongside sd-server
+        // because Windows resolves DLLs from the executable's directory.
+        file: path.join(SD_DIR, 'cudart64_12.dll'),
+        unpack: { dir: SD_DIR },
+        resolve: async () => ({ url: sdBinaryUrl(1), ...sdBinaryHash(1) }),
+    },
+
+    sdDiffusionModel: {
+        file: path.join(MODELS_DIR, SD_MODELS.diffusion.file),
+        resolve: async () => ({
+            url: SD_MODELS.diffusion.url,
+            expected: { sha256: SD_MODELS.diffusion.sha256, bytes: SD_MODELS.diffusion.bytes },
+        }),
+    },
+
+    sdVae: {
+        file: path.join(MODELS_DIR, SD_MODELS.vae.file),
+        resolve: async () => ({
+            url: SD_MODELS.vae.url,
+            expected: { sha256: SD_MODELS.vae.sha256, bytes: SD_MODELS.vae.bytes },
+        }),
+    },
+
+    sdTextEncoder: {
+        file: path.join(MODELS_DIR, SD_MODELS.textEncoder.file),
+        resolve: async () => ({
+            url: SD_MODELS.textEncoder.url,
+            expected: { sha256: SD_MODELS.textEncoder.sha256, bytes: SD_MODELS.textEncoder.bytes },
+        }),
     },
 
     rmbgModel: {
@@ -311,6 +417,23 @@ export async function verifyDependency(key: DependencyKey): Promise<DependencySt
 
     if (!fs.existsSync(spec.file)) return 'missing'
 
+    // An unpacked tree can't be verified by hashing its sentinel — the pinned
+    // hash belongs to the archive. The marker written at extraction time is the
+    // record that this tree came from those exact bytes.
+    if (spec.unpack) {
+        const marker = markerPath(key, spec.unpack.dir)
+        if (!fs.existsSync(marker)) return 'corrupt'
+        const stamped = fs.readFileSync(marker, 'utf-8').trim()
+        let expectedArchive: string
+        try {
+            expectedArchive = (await spec.resolve()).expected.sha256
+        } catch {
+            // Offline: a tree that was verified once stays verified.
+            return await gateReady(spec, 'satisfied')
+        }
+        return stamped === expectedArchive ? await gateReady(spec, 'satisfied') : 'corrupt'
+    }
+
     const stat = fs.statSync(spec.file)
     const cached = readCache()[key]
     if (cached && cached.bytes === stat.size && cached.mtimeMs === stat.mtimeMs) {
@@ -393,6 +516,63 @@ const inFlight = new Map<DependencyKey, Promise<void>>()
  * patcher UI can render it. Idempotent: satisfied dependencies return
  * immediately, and concurrent callers share one download.
  */
+/**
+ * Unpack a verified zip into `dir`, flattening it.
+ *
+ * The archives are flat already — upstream zips `build/bin/*` — so any nested
+ * path is unexpected, and taking only the basename means a crafted entry can't
+ * escape `dir`. Directory entries carry no bytes and are skipped.
+ */
+function extractZip(archive: Buffer, dir: string): void {
+    const files = unzipSync(new Uint8Array(archive))
+    for (const [entry, bytes] of Object.entries(files)) {
+        if (entry.endsWith('/') || bytes.byteLength === 0) continue
+        const name = entry.split(/[\/]/).pop()
+        if (!name) continue
+        fs.writeFileSync(path.join(dir, name), bytes)
+    }
+}
+
+/** Records which archive produced an unpacked tree, so it can be re-verified. */
+function markerPath(key: DependencyKey, dir: string): string {
+    return path.join(dir, `.${key}.sha256`)
+}
+
+/**
+ * Stream a response to disk, hashing as it goes, and report progress.
+ *
+ * Streaming rather than buffering because these run to gigabytes: the diffusion
+ * model alone is 2.2 GB, and collecting chunks into an array before
+ * `Buffer.concat` would need roughly twice that in RAM at the moment of
+ * concatenation. Hashing incrementally means the bytes are never all resident.
+ */
+async function streamToFile(
+    res: Response,
+    dest: string,
+    total: number | undefined,
+    onProgress: (received: number) => void,
+): Promise<string> {
+    const hasher = new Bun.CryptoHasher('sha256')
+    const handle = fs.openSync(dest, 'w')
+    let received = 0
+    let lastStep = 0
+    try {
+        for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+            hasher.update(chunk)
+            fs.writeSync(handle, chunk)
+            received += chunk.byteLength
+            // Throttled to 1% (or 2MB when the server sends no length) — all the
+            // bar can render, and a 3GB download in 64KB chunks would otherwise
+            // emit tens of thousands of socket patches.
+            const step = total ? Math.floor((received / total) * 100) : Math.floor(received / 2_000_000)
+            if (step !== lastStep) { lastStep = step; onProgress(received) }
+        }
+    } finally {
+        fs.closeSync(handle)
+    }
+    return hasher.digest('hex')
+}
+
 export function ensureDependency(key: DependencyKey): Promise<void> {
     const existing = inFlight.get(key)
     if (existing) return existing
@@ -419,38 +599,47 @@ export function ensureDependency(key: DependencyKey): Promise<void> {
             publish(key, { total })
 
             const partial = `${spec.file}.partial`
-            const chunks: Uint8Array[] = []
-            let received = 0
-            let lastPublished = 0
+            let actual: string
 
-            for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
-                chunks.push(chunk)
-                received += chunk.byteLength
-                // Throttle: a 52MB download in 64KB chunks would otherwise emit
-                // ~800 socket patches. 1% granularity is all the bar can show.
-                const step = total ? Math.floor((received / total) * 100) : Math.floor(received / 2_000_000)
-                if (step !== lastPublished) {
-                    lastPublished = step
-                    publish(key, { received })
+            if (compressed === 'zstd') {
+                // The pinned hash is of the *decompressed* payload, so the whole
+                // artifact has to be resident to inflate it. Only the Claude CLI
+                // takes this path (~52MB); everything larger streams.
+                const chunks: Uint8Array[] = []
+                let received = 0
+                let lastStep = 0
+                for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+                    chunks.push(chunk)
+                    received += chunk.byteLength
+                    const step = total ? Math.floor((received / total) * 100) : Math.floor(received / 2_000_000)
+                    if (step !== lastStep) { lastStep = step; publish(key, { received }) }
+                }
+                publish(key, { received: total ?? received })
+                const bytes = Buffer.from(Bun.zstdDecompressSync(Buffer.concat(chunks)))
+                actual = new Bun.CryptoHasher('sha256').update(bytes).digest('hex')
+                if (actual !== expected.sha256) {
+                    throw new Error(`checksum mismatch (expected ${expected.sha256.slice(0, 12)}…, got ${actual.slice(0, 12)}…)`)
+                }
+                fs.writeFileSync(partial, bytes)
+            } else {
+                actual = await streamToFile(res, partial, total, (received) => publish(key, { received }))
+                // Verify BEFORE moving into place, so a bad download never
+                // becomes a file that later looks present.
+                if (actual !== expected.sha256) {
+                    throw new Error(`checksum mismatch (expected ${expected.sha256.slice(0, 12)}…, got ${actual.slice(0, 12)}…)`)
                 }
             }
 
-            let bytes = Buffer.concat(chunks)
-            if (compressed === 'zstd') {
-                publish(key, { received: total ?? received })
-                bytes = Buffer.from(Bun.zstdDecompressSync(bytes))
+            if (spec.unpack) {
+                fs.mkdirSync(spec.unpack.dir, { recursive: true })
+                extractZip(fs.readFileSync(partial), spec.unpack.dir)
+                fs.rmSync(partial, { force: true })
+                fs.writeFileSync(markerPath(key, spec.unpack.dir), actual)
+                if (spec.executable && process.platform !== 'win32') fs.chmodSync(spec.file, 0o755)
+            } else {
+                fs.renameSync(partial, spec.file)
+                if (spec.executable && process.platform !== 'win32') fs.chmodSync(spec.file, 0o755)
             }
-
-            // Verify BEFORE publishing to the real path, so a bad download never
-            // becomes a file that later looks present.
-            const actual = new Bun.CryptoHasher('sha256').update(bytes).digest('hex')
-            if (actual !== expected.sha256) {
-                throw new Error(`checksum mismatch (expected ${expected.sha256.slice(0, 12)}…, got ${actual.slice(0, 12)}…)`)
-            }
-
-            fs.writeFileSync(partial, bytes)
-            fs.renameSync(partial, spec.file)
-            if (spec.executable && process.platform !== 'win32') fs.chmodSync(spec.file, 0o755)
 
             const stat = fs.statSync(spec.file)
             const cache = readCache()

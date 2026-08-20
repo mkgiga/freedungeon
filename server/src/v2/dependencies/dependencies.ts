@@ -8,8 +8,13 @@ import {
     submitAuthCode,
     cancelClaudeSignIn,
 } from '../../dependencies'
+import { DEPENDENCIES, type DependencyKey } from '@shared/dependencies'
 
-const key = z.object({ key: z.enum(['claudeCli', 'rmbgModel']) })
+// Derived from the registry rather than restated, so adding a dependency can't
+// leave an endpoint that refuses to accept it.
+const key = z.object({
+    key: z.enum(Object.keys(DEPENDENCIES) as [DependencyKey, ...DependencyKey[]]),
+})
 
 export const dependenciesRouter = router({
     /** Start (or join) a download. Resolves when it settles; progress arrives

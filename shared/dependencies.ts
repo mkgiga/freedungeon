@@ -12,7 +12,14 @@
  * match a publisher-provided sha256; see server/src/dependencies.ts.
  */
 
-export type DependencyKey = 'claudeCli' | 'rmbgModel'
+export type DependencyKey =
+    | 'claudeCli'
+    | 'rmbgModel'
+    | 'sdServer'
+    | 'sdCudaRuntime'
+    | 'sdDiffusionModel'
+    | 'sdVae'
+    | 'sdTextEncoder'
 
 export type DependencyStatus =
     /** Verified against its expected hash — safe to use. */
@@ -62,6 +69,29 @@ export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string
     rmbgModel: {
         label: 'RMBG-1.4 weights',
         reason: 'Runs locally to cut backgrounds out of item icons.',
+    },
+    // Image generation. One dependency per file rather than one bundle, so the
+    // patcher shows real movement across a ~3 GB first run instead of a single
+    // bar that appears stuck for minutes at a time.
+    sdServer: {
+        label: 'Image generator',
+        reason: 'stable-diffusion.cpp runs the image model on your own machine.',
+    },
+    sdCudaRuntime: {
+        label: 'CUDA runtime',
+        reason: 'NVIDIA GPU acceleration for the image generator.',
+    },
+    sdDiffusionModel: {
+        label: 'Anima weights',
+        reason: 'The model that draws the picture.',
+    },
+    sdVae: {
+        label: 'Anima VAE',
+        reason: 'Turns what the model produces into a viewable image.',
+    },
+    sdTextEncoder: {
+        label: 'Qwen3 text encoder',
+        reason: 'Reads your prompt for the image model.',
     },
 }
 
