@@ -45,21 +45,8 @@ export const FEATURES: Record<string, FeatureSpec> = {
     imageGen: {
         key: 'imageGen',
         name: 'Image generation',
-        description: 'Needs Stable Diffusion WebUI Forge running with --api.',
-        // Not a setting: nothing renders it and the user never edits it. It is
-        // here so the bag exists and the value has a default.
-        state: {
-            /** Last checkpoint Forge reported, to skip a redundant switch. */
-            lastCheckpoint: { default: '' },
-        },
+        description: 'Draws pictures on this machine. Downloads about 3 GB the first time.',
         schema: [
-            {
-                path: ['endpoint'],
-                label: 'Forge API endpoint',
-                description: 'Base URL of the Forge server.',
-                default: 'http://localhost:7860',
-                control: { type: 'text' },
-            },
             {
                 path: ['generateItemIcons'],
                 label: 'Generate item icons',
@@ -89,13 +76,6 @@ export const FEATURES: Record<string, FeatureSpec> = {
                 control: { type: 'text' },
             },
             {
-                path: ['checkpoint'],
-                label: 'Checkpoint',
-                description: 'Blank uses whatever Forge has loaded.',
-                default: '',
-                control: { type: 'text' },
-            },
-            {
                 path: ['iconSize'],
                 label: 'Icon size (px)',
                 // No description — the label already says everything it said.
@@ -104,12 +84,10 @@ export const FEATURES: Record<string, FeatureSpec> = {
             },
         ],
         defaults: {
-            endpoint: 'http://localhost:7860',
             generateItemIcons: false,
             removeIconBackground: true,
             generateImages: false,
             stylePreference: '',
-            checkpoint: '',
             iconSize: 512,
         },
     },
@@ -120,12 +98,10 @@ export const DEFAULT_STYLE_PREFERENCE = 'anime screencap'
 
 /** Typed view of the imageGen feature's resolved values. */
 export type ImageGenConfig = {
-    endpoint: string
     generateItemIcons: boolean
     removeIconBackground: boolean
     generateImages: boolean
     stylePreference: string
-    checkpoint: string
     iconSize: number
 }
 
