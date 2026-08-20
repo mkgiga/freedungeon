@@ -96,6 +96,21 @@ export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string
 }
 
 /**
+ * One line of "here is what turning this on will download".
+ *
+ * Only ever describes dependencies that are NOT already satisfied — a plan with
+ * no items means the feature is ready and nothing needs asking.
+ */
+export type DependencyPlanItem = {
+    key: DependencyKey
+    label: string
+    reason: string
+    status: DependencyStatus
+    /** Bytes still to fetch; 0 when the size could not be determined. */
+    bytes: number
+}
+
+/**
  * A dependency blocks the UI while it is being resolved, and while it is
  * resolvable-but-not-yet-usable. 'missing' does NOT block: nothing has asked
  * for it yet, and the patcher only appears once something does.

@@ -10,6 +10,7 @@ import { DATA_DIR } from './paths';
 import pkg from '../package.json' with { type: 'json' };
 import { initDb, persistPath, loadStateFromDb, db } from './db';
 import { seedExampleContent } from './seed';
+import { initSdBuildChoice } from './sd/dependency';
 import { sql } from 'kysely';
 import './macro.ts';
 import { loadPreferences } from './preferences';
@@ -24,6 +25,7 @@ import { notification } from './notifications';
 import { nanoid } from 'nanoid';
 import { createInitialContext } from './game-state';
 import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
+import { stopSdServer } from './sd/server';
 import { getEmbeddedClientFiles } from './embedded';
 import { refreshDependencies } from './dependencies';
 import { applyDeleteCascades } from './cascade';
@@ -250,6 +252,10 @@ function start() {
         seedExtensionState(loaded.extensionState);
         await logChatMessageCounts();
         backfillOnboarding();
+        // Shells out to nvidia-smi, so it is resolved once here rather than on
+        // every dependency check. Never throws — an unsupported host resolves
+        // to a `supported: false` choice carrying the reason to show.
+        await initSdBuildChoice();
         // Strictly after backfillOnboarding: that function reads "has any chat"
         // as "this install has been used before", so seeding first would make a
         // brand-new database look established and skip the first-run overlay.
@@ -505,6 +511,8 @@ async function initProcessHandlers() {
         // persistPath. Just fold the WAL back into the main db file.
         checkpointWal()
         killAgentProcess()
+        // Holds the image weights resident, so it must not outlive us.
+        stopSdServer()
         console.log('Exiting now.')
         process.exit(0)
     }

@@ -102,22 +102,41 @@ export const SD_BINARIES: Record<SdTarget, SdArtifact[]> = {
  * notice should be shown where these are downloaded. Qwen3-0.6B-Base is
  * Apache-2.0.
  */
+/**
+ * HuggingFace repo revisions, pinned.
+ *
+ * `resolve/main/...` is a *branch*: the owner can push a commit that changes
+ * the file underneath a URL that never changed. The recorded sha256 would then
+ * stop matching and the feature would break with no version of this app having
+ * changed. A commit hash is immutable, so the bytes behind these URLs are fixed
+ * for good — which also removes the only real hazard in resuming a download
+ * days later, since there is nothing upstream that can move.
+ *
+ * Re-pin with:
+ *   curl -s https://huggingface.co/api/models/<repo> | jq -r .sha
+ */
+const HF_REV = {
+    anima: '51ddc6044dc6f2bd96979f00465284470ce5b6bc',        // Bedovyy/Anima-GGUF
+    animaVae: 'f7382c4bf9d7ffe4ceea593a0adbb470c56dd79b',     // circlestone-labs/Anima
+    qwen3: 'b8b11a6dbbb14c739e25018f3f77abac860c28f4',        // mradermacher/Qwen3-0.6B-Base-GGUF
+} as const
+
 export const SD_MODELS = {
     diffusion: {
         file: 'anima-preview3-base-Q8_0.gguf',
-        url: 'https://huggingface.co/Bedovyy/Anima-GGUF/resolve/main/anima-preview3-base-Q8_0.gguf',
+        url: `https://huggingface.co/Bedovyy/Anima-GGUF/resolve/${HF_REV.anima}/anima-preview3-base-Q8_0.gguf`,
         sha256: '8ceef6a28e3fcf1bce5eff1d61858b69afcb709cc90f43c4d6d20bdf470d7546',
         bytes: 2276712576,
     },
     vae: {
         file: 'qwen_image_vae.safetensors',
-        url: 'https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors',
+        url: `https://huggingface.co/circlestone-labs/Anima/resolve/${HF_REV.animaVae}/split_files/vae/qwen_image_vae.safetensors`,
         sha256: 'a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f',
         bytes: 253806246,
     },
     textEncoder: {
         file: 'Qwen3-0.6B-Base.Q8_0.gguf',
-        url: 'https://huggingface.co/mradermacher/Qwen3-0.6B-Base-GGUF/resolve/main/Qwen3-0.6B-Base.Q8_0.gguf',
+        url: `https://huggingface.co/mradermacher/Qwen3-0.6B-Base-GGUF/resolve/${HF_REV.qwen3}/Qwen3-0.6B-Base.Q8_0.gguf`,
         sha256: '4b088f1793f6cba9f0c2f77ab835ef6734f205c2159168698c6e1a51b7df168a',
         bytes: 639447232,
     },

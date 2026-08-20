@@ -1,33 +1,17 @@
-// image generation module — Stable Diffusion WebUI Forge provider
+// Image generation — stable-diffusion.cpp sidecar provider.
 //
-// Forge quirk: txt2img is a blocking call and the server runs one job at a
-// time. It does support per-job tracking, though: send `force_task_id` with
-// the request and poll `/internal/progress` with that id for this job's own
-// active/queued/progress/eta. There is deliberately no result-by-id endpoint —
-// the finished PNG only ever comes back on the original request's response, so
-// "async" means holding that promise, not collecting the result later.
+// Replaces a provider that talked to a Stable Diffusion WebUI Forge server the
+// user had to install, configure and run themselves. The model now arrives as a
+// managed dependency and the server is our own child process, so there is no
+// endpoint to configure and no "is it running?" for anyone to answer.
+//
+// The wire protocol is sd.cpp's native async API (`/sdcpp/v1`) rather than its
+// A1111-compatible surface. The compatibility route would have been a smaller
+// diff, but it is synchronous — and async submit-then-poll is exactly the shape
+// the old code faked with Forge's `force_task_id` and `/internal/progress`.
 
-// Runtime-configurable: the endpoint comes from the `imageGen` feature's
-// config (userPreferences), which the user can change without restarting. The
-// env var is only a boot default. Every caller goes through setForgeUrl first.
-let FORGE_URL = (process.env.FORGE_URL || 'http://localhost:7860').replace(/\/+$/, '');
-
-/**
- * Point the module at a Forge server. Changing the URL invalidates the
- * loaded-model tracking and the module/LoRA caches below — they describe one
- * specific server's state and would be silently wrong against another.
- */
-export function setForgeUrl(url: string): void {
-    const next = (url || '').trim().replace(/\/+$/, '');
-    if (!next || next === FORGE_URL) return;
-    FORGE_URL = next;
-    seeded = false;
-    appliedCheckpoint = undefined;
-    appliedPreset = undefined;
-    appliedModules = undefined;
-    moduleCache = null;
-    loraCache = null;
-}
+import { log } from './logger';
+import { SD_URL, ensureSdServer } from './sd/server';
 
 export interface GenerationOptions {
     prompt: string;
@@ -36,29 +20,17 @@ export interface GenerationOptions {
     height?: number;
     steps?: number;
     cfgScale?: number;
-    /** -1 (default) lets Forge pick a random seed */
+    /** -1 (the default) lets the sampler pick a random seed. */
     seed?: number;
     samplerName?: string;
     scheduler?: string;
-    /** images generated in one GPU pass */
-    batchSize?: number;
-    /** sequential passes (total images = batchSize * batches) */
-    batches?: number;
-    /** checkpoint name; only sent to Forge when it differs from what's loaded */
-    checkpoint?: string;
-    /** Forge UI preset (sd/xl/flux/...); only sent on change */
-    forgePreset?: string;
-    /** VAE / text-encoder module basenames or paths; only sent on change */
-    modules?: string[];
-    /** extra override_settings, e.g. { CLIP_stop_at_last_layers: 2 } */
-    overrideSettings?: Record<string, unknown>;
     /**
-     * Our own id for this job, echoed to Forge as `force_task_id` so
-     * `getTaskProgress` can ask about this generation specifically rather than
-     * about whatever the server happens to be running.
+     * Caller-supplied correlation id, so progress for *this* request can be
+     * looked up while it runs. sd-server mints its own job id, so this maps onto
+     * that one — see `jobs` below.
      */
     taskId?: string;
-    /** escape hatch: extra raw fields merged into the txt2img payload */
+    /** Escape hatch: extra raw fields merged into the request body. */
     raw?: Record<string, unknown>;
     signal?: AbortSignal;
 }
@@ -70,394 +42,144 @@ export interface GeneratedImage {
 
 export interface GenerationResult {
     images: GeneratedImage[];
-    /** generation parameters echoed by Forge (all_seeds, sampler, model hash, ...) */
+    /** Echoed generation parameters, for debugging and metadata. */
     info: Record<string, any>;
-}
-
-export interface GenerationProgress {
-    /** 0..1 */
-    progress: number;
-    etaSeconds: number;
-    currentStep: number;
-    totalSteps: number;
-}
-
-export interface LoraInfo {
-    name: string;
-    /** human-readable training output name when available */
-    alias: string;
-    path?: string;
-    /** activation words mined from training metadata; may be empty */
-    triggers: string[];
-    baseModel?: string;
-}
-
-async function forge<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(`${FORGE_URL}${path}`, {
-        headers: { 'content-type': 'application/json' },
-        ...init,
-    });
-    if (!res.ok) {
-        throw new Error(`Forge ${path} responded ${res.status}: ${await res.text()}`);
-    }
-    return res.json() as Promise<T>;
-}
-
-/** A1111-style LoRA prompt tag, e.g. `lora('rpgmaker-xp', 0.8)` -> `<lora:rpgmaker-xp:0.8>` */
-export function lora(name: string, weight = 1): string {
-    return `<lora:${name}:${weight}>`;
-}
-
-// ---------------------------------------------------------------------------
-// Loaded-model tracking. Sending sd_model_checkpoint / forge_preset /
-// forge_additional_modules in override_settings forces an expensive model
-// reload, so we only include them when they differ from what Forge already has
-// loaded (seeded once from live options). Together with
-// override_settings_restore_afterwards: false this keeps the model resident
-// between jobs instead of reloading it on every generation.
-// ---------------------------------------------------------------------------
-
-let seeded = false;
-let appliedCheckpoint: string | undefined;
-let appliedPreset: string | undefined;
-let appliedModules: string[] | undefined;
-/** module basename -> absolute path, from /sdapi/v1/sd-modules */
-let moduleCache: Map<string, string> | null = null;
-let loraCache: LoraInfo[] | null = null;
-
-async function ensureModelSeed(): Promise<void> {
-    if (seeded) return;
-    seeded = true;
-    try {
-        const o = await forge<Record<string, unknown>>('/sdapi/v1/options');
-        if (typeof o.sd_model_checkpoint === 'string') appliedCheckpoint = o.sd_model_checkpoint;
-        if (typeof o.forge_preset === 'string') appliedPreset = o.forge_preset;
-        if (Array.isArray(o.forge_additional_modules)) {
-            appliedModules = o.forge_additional_modules as string[];
-        }
-    } catch {
-        // leave unseeded values; overrides will just be sent unconditionally
-    }
-}
-
-/**
- * Resolve module basenames (e.g. "qwen_image_vae.safetensors") to the absolute
- * paths Forge wants in forge_additional_modules. Unmatched names pass through.
- */
-async function resolveModules(names: string[]): Promise<string[]> {
-    if (names.length === 0) return [];
-    if (!moduleCache) {
-        moduleCache = new Map();
-        try {
-            const list = await forge<{ filename?: string }[]>('/sdapi/v1/sd-modules');
-            for (const m of list) {
-                if (!m.filename) continue;
-                moduleCache.set(m.filename.split(/[\\/]/).pop()!, m.filename);
-            }
-        } catch {
-            // fall back to the given names below
-        }
-    }
-    return names.map((n) => moduleCache!.get(n) ?? n);
-}
-
-function sameModuleSet(a: string[], b: string[] | undefined): boolean {
-    if (!b || a.length !== b.length) return false;
-    const sa = [...a].sort();
-    const sb = [...b].sort();
-    return sa.every((x, i) => x === sb[i]);
-}
-
-async function buildOverrideSettings(opts: GenerationOptions): Promise<Record<string, unknown>> {
-    await ensureModelSeed();
-    const overrides: Record<string, unknown> = { ...opts.overrideSettings };
-    if (opts.checkpoint && opts.checkpoint !== appliedCheckpoint) {
-        overrides.sd_model_checkpoint = opts.checkpoint;
-        appliedCheckpoint = opts.checkpoint;
-    }
-    if (opts.forgePreset && opts.forgePreset !== appliedPreset) {
-        overrides.forge_preset = opts.forgePreset;
-        appliedPreset = opts.forgePreset;
-    }
-    if (opts.modules) {
-        const modules = await resolveModules(opts.modules);
-        if (!sameModuleSet(modules, appliedModules)) {
-            overrides.forge_additional_modules = modules;
-            appliedModules = modules;
-        }
-    }
-    return overrides;
-}
-
-/** Drop keys whose value is undefined, so they're absent from the JSON body. */
-function defined(fields: Record<string, unknown>): Record<string, unknown> {
-    return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
-}
-
-export async function generateImage(options: string | GenerationOptions): Promise<GenerationResult> {
-    const opts = typeof options === 'string' ? { prompt: options } : options;
-    const res = await forge<{ images?: string[]; info?: string }>('/sdapi/v1/txt2img', {
-        method: 'POST',
-        signal: opts.signal ?? null,
-        // Only fields the caller actually set are sent. Forge falls back to
-        // whatever is configured in its own UI for anything omitted, so
-        // substituting defaults here would silently override the user's
-        // settings — notably negative prompt, steps and CFG.
-        body: JSON.stringify({
-            prompt: opts.prompt,
-            ...defined({
-                negative_prompt: opts.negativePrompt,
-                width: opts.width,
-                height: opts.height,
-                steps: opts.steps,
-                cfg_scale: opts.cfgScale,
-                seed: opts.seed,
-                sampler_name: opts.samplerName,
-                scheduler: opts.scheduler,
-                batch_size: opts.batchSize,
-                n_iter: opts.batches,
-                force_task_id: opts.taskId,
-            }),
-            override_settings: await buildOverrideSettings(opts),
-            // Keep the model resident between jobs (see loaded-model tracking).
-            override_settings_restore_afterwards: false,
-            send_images: true,
-            save_images: false,
-            ...opts.raw,
-        }),
-    });
-
-    // info isn't always valid JSON; a parse failure must not fail the job
-    let info: Record<string, any> = {};
-    try {
-        info = res.info ? JSON.parse(res.info) : {};
-    } catch {
-        /* keep {} */
-    }
-    const seeds: number[] = Array.isArray(info.all_seeds) ? info.all_seeds : [];
-    return {
-        images: (res.images ?? []).map((b64, i) => ({
-            png: new Uint8Array(Buffer.from(b64, 'base64')),
-            seed: seeds[i] ?? info.seed ?? -1,
-        })),
-        info,
-    };
-}
-
-/** Progress of the currently running generation. Forge runs one job at a time. */
-export async function getProgress(): Promise<GenerationProgress> {
-    const res = await forge<any>('/sdapi/v1/progress?skip_current_image=true');
-    return {
-        progress: Math.max(0, Math.min(1, res.progress ?? 0)),
-        etaSeconds: res.eta_relative ?? 0,
-        currentStep: res.state?.sampling_step ?? 0,
-        totalSteps: res.state?.sampling_steps ?? 0,
-    };
-}
-
-/**
- * Progress of one specific job, by the id it was submitted with.
- *
- * `queued` matters: Forge runs one generation at a time, so a job fired while
- * another is running reports queued with no progress of its own. The global
- * /sdapi/v1/progress can't distinguish that from "running slowly" — it only
- * ever describes whatever is in front.
- *
- * Returns null when Forge has no opinion (unknown id, or it answered oddly);
- * callers treat that as "no news" and keep whatever they last showed.
- */
-export async function getTaskProgress(taskId: string): Promise<TaskProgress | null> {
-    try {
-        const res = await forge<any>('/internal/progress', {
-            method: 'POST',
-            body: JSON.stringify({ id_task: taskId, id_live_preview: -1, live_preview: false }),
-        });
-        return {
-            active: res.active === true,
-            queued: res.queued === true,
-            completed: res.completed === true,
-            progress: typeof res.progress === 'number' ? Math.max(0, Math.min(1, res.progress)) : null,
-            etaSeconds: typeof res.eta === 'number' ? res.eta : null,
-        };
-    } catch {
-        return null;
-    }
 }
 
 export interface TaskProgress {
     active: boolean;
     queued: boolean;
     completed: boolean;
-    /** 0..1 while active; null when queued or finished. */
+    /**
+     * Always null. sd-server reports a job's *state* and its queue position but
+     * no completion fraction — there is no per-step signal on its HTTP surface.
+     * Kept in the shape so a caller rendering a bar can show an indeterminate
+     * one, rather than every caller growing a special case.
+     */
     progress: number | null;
     etaSeconds: number | null;
 }
 
-/** Stop the currently running generation server-side. */
-export function interrupt(): Promise<unknown> {
-    return forge('/sdapi/v1/interrupt', { method: 'POST' });
+type SdJob = {
+    id: string;
+    status: 'queued' | 'generating' | 'completed' | 'failed' | 'cancelled';
+    queue_position?: number;
+    result?: { output_format?: string; images?: { index: number; b64_json: string }[] } | null;
+    error?: { code?: string; message?: string } | null;
+};
+
+/** Caller correlation id -> sd-server job id, for in-flight requests only. */
+const jobs = new Map<string, string>();
+
+async function sd(path: string, init?: RequestInit): Promise<any> {
+    const res = await fetch(`${SD_URL}${path}`, {
+        ...init,
+        headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    });
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`sd-server ${res.status} on ${path}${body ? `: ${body.slice(0, 300)}` : ''}`);
+    }
+    return res.json();
 }
 
-/** Whether the Forge server is reachable. */
+export async function generateImage(options: string | GenerationOptions): Promise<GenerationResult> {
+    const opts: GenerationOptions = typeof options === 'string' ? { prompt: options } : options;
+
+    // Lazy: the weights are only paid for once something actually asks for an
+    // image, and the first call absorbs the model load.
+    await ensureSdServer();
+
+    const body = {
+        prompt: opts.prompt,
+        negative_prompt: opts.negativePrompt ?? '',
+        width: opts.width ?? 1024,
+        height: opts.height ?? 1024,
+        seed: opts.seed ?? -1,
+        batch_count: 1,
+        sample_params: {
+            sample_steps: opts.steps ?? 20,
+            sample_method: opts.samplerName ?? 'euler',
+            scheduler: opts.scheduler ?? 'discrete',
+            guidance: { txt_cfg: opts.cfgScale ?? 6.0 },
+        },
+        output_format: 'png',
+        ...(opts.raw ?? {}),
+    };
+
+    const submitted = await sd('/sdcpp/v1/img_gen', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        signal: opts.signal,
+    }) as SdJob;
+
+    if (opts.taskId) jobs.set(opts.taskId, submitted.id);
+    try {
+        const job = await pollUntilSettled(submitted.id, opts.signal);
+        if (job.status !== 'completed') {
+            throw new Error(job.error?.message ?? `Image job ${job.status}`);
+        }
+        const images = (job.result?.images ?? []).map((img) => ({
+            png: Buffer.from(img.b64_json, 'base64'),
+            // sd-server doesn't echo a resolved seed per image. A caller that
+            // pinned one already knows it; -1 means it was never pinned.
+            seed: opts.seed ?? -1,
+        }));
+        return { images, info: { jobId: job.id, request: body } };
+    } finally {
+        if (opts.taskId) jobs.delete(opts.taskId);
+    }
+}
+
+async function pollUntilSettled(id: string, signal?: AbortSignal): Promise<SdJob> {
+    for (;;) {
+        if (signal?.aborted) {
+            void cancelJob(id);
+            throw new Error('Image generation aborted');
+        }
+        const job = await sd(`/sdcpp/v1/jobs/${id}`) as SdJob;
+        if (job.status !== 'queued' && job.status !== 'generating') return job;
+        await new Promise(r => setTimeout(r, 400));
+    }
+}
+
+/** Progress for one in-flight request, by the caller's own correlation id. */
+export async function getTaskProgress(taskId: string): Promise<TaskProgress | null> {
+    const id = jobs.get(taskId);
+    if (!id) return null;
+    try {
+        const job = await sd(`/sdcpp/v1/jobs/${id}`) as SdJob;
+        return {
+            active: job.status === 'generating',
+            queued: job.status === 'queued',
+            completed: job.status === 'completed',
+            progress: null,
+            etaSeconds: null,
+        };
+    } catch {
+        return null;
+    }
+}
+
+async function cancelJob(id: string): Promise<void> {
+    try {
+        await sd(`/sdcpp/v1/jobs/${id}/cancel`, { method: 'POST' });
+    } catch (err) {
+        log.server.warn(`Could not cancel image job ${id}: ${err instanceof Error ? err.message : err}`);
+    }
+}
+
+/** Stop whatever is generating right now. */
+export async function interrupt(): Promise<void> {
+    await Promise.all([...jobs.values()].map(cancelJob));
+}
+
+/** Whether the image server is answering. */
 export async function ping(): Promise<boolean> {
     try {
-        await forge('/sdapi/v1/options');
+        await sd('/sdcpp/v1/capabilities');
         return true;
     } catch {
         return false;
-    }
-}
-
-export async function listCheckpoints(): Promise<string[]> {
-    const res = await forge<{ title?: string; model_name?: string }[]>('/sdapi/v1/sd-models');
-    return res.map((m) => m.model_name ?? m.title ?? '').filter(Boolean);
-}
-
-export async function listSamplers(): Promise<string[]> {
-    const res = await forge<{ name?: string }[]>('/sdapi/v1/samplers');
-    return res.map((s) => s.name ?? '').filter(Boolean);
-}
-
-/** LoRAs available on the server, with aliases and mined trigger words. */
-export async function listLoras(): Promise<LoraInfo[]> {
-    if (loraCache) return loraCache;
-    const res = await forge<RawLora[]>('/sdapi/v1/loras');
-    loraCache = res
-        .map((raw): LoraInfo => {
-            const name = raw.name ?? raw.alias ?? '';
-            const meta = raw.metadata ?? {};
-            return {
-                name,
-                alias: pickAlias(raw, meta) || name,
-                path: raw.path,
-                triggers: extractTriggers(meta),
-                baseModel:
-                    typeof meta.ss_base_model_version === 'string'
-                        ? meta.ss_base_model_version
-                        : undefined,
-            };
-        })
-        .filter((l) => l.name)
-        .sort((a, b) => a.alias.localeCompare(b.alias));
-    return loraCache;
-}
-
-interface RawLora {
-    name?: string;
-    alias?: string;
-    path?: string;
-    metadata?: Record<string, unknown>;
-}
-
-/** Prefer the human training output name over the (often hashed) filename. */
-function pickAlias(raw: RawLora, meta: Record<string, unknown>): string {
-    const candidates = [meta.ss_output_name, meta['modelspec.title'], raw.alias];
-    for (const c of candidates) {
-        if (typeof c === 'string' && c.trim()) return c.trim();
-    }
-    return '';
-}
-
-// Leading-token stopwords: when a LoRA was trained on natural-language captions,
-// the first word of a caption is usually an article/preposition, not a trigger.
-const TRIGGER_STOPWORDS = new Set([
-    'a', 'an', 'the', 'and', 'of', 'in', 'on', 'with', 'to', 'is', 'are', 'at',
-    'by', 'for', 'this', 'that', 'it', 'he', 'she', 'they', 'his', 'her', 'their',
-    'viewed', 'from', 'as', 'or', 'but',
-]);
-
-/**
- * Mine activation/trigger words from a LoRA's safetensors training metadata
- * (kohya's ss_tag_frequency). Tag-trained LoRAs store short tags as keys;
- * caption-trained ones store whole sentences where the trigger is usually a
- * distinctive leading token. No dedicated trigger field exists, so extract
- * both shapes heuristically and rank by frequency. Returns at most 12.
- */
-function extractTriggers(meta: Record<string, unknown>): string[] {
-    const freq = meta.ss_tag_frequency;
-    if (!freq || typeof freq !== 'object') return [];
-
-    const whole = new Map<string, number>(); // short, clean tags
-    const lead = new Map<string, number>(); // distinctive leading tokens
-    const bump = (m: Map<string, number>, k: string, n: number) =>
-        m.set(k, (m.get(k) ?? 0) + n);
-
-    for (const dir of Object.values(freq as Record<string, unknown>)) {
-        if (!dir || typeof dir !== 'object') continue;
-        for (const [rawKey, rawCount] of Object.entries(dir as Record<string, unknown>)) {
-            const key = rawKey.trim();
-            if (!key) continue;
-            const n = typeof rawCount === 'number' ? rawCount : 1;
-            const words = key.split(/\s+/);
-            if (words.length <= 3 && key.length <= 40) {
-                bump(whole, key, n);
-            } else {
-                // Long caption: keep only a distinctive leading token (strip
-                // wrapping punctuation but preserve a leading @ / # marker).
-                const tok = (words[0] ?? '').replace(/^[^\p{L}\p{N}@#]+|[^\p{L}\p{N}]+$/gu, '');
-                if (tok.length >= 2) bump(lead, tok, n);
-            }
-        }
-    }
-
-    const ranked: { t: string; n: number }[] = [];
-    const seen = new Set<string>();
-    const push = (t: string, n: number) => {
-        const k = t.toLowerCase();
-        if (seen.has(k)) return;
-        seen.add(k);
-        ranked.push({ t, n });
-    };
-
-    for (const [t, n] of whole) push(t, n);
-    for (const [t, n] of lead) {
-        // Explicit @/# markers are almost certainly the trigger — boost them.
-        if (t.startsWith('@') || t.startsWith('#')) push(t, n + 1_000_000);
-        else if (n >= 2 && !TRIGGER_STOPWORDS.has(t.toLowerCase())) push(t, n);
-    }
-
-    return ranked
-        .sort((a, b) => b.n - a.n)
-        .slice(0, 12)
-        .map((x) => x.t);
-}
-
-export type JobStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
-
-export class ImageGenerationJob {
-    private _status: JobStatus = 'pending';
-    private controller = new AbortController();
-    result?: GenerationResult;
-    error?: unknown;
-
-    get status() {
-        return this._status;
-    }
-
-    constructor(public options: string | GenerationOptions) {}
-
-    async start(): Promise<GenerationResult> {
-        if (this._status !== 'pending') throw new Error(`job already ${this._status}`);
-        this._status = 'in_progress';
-        const opts = typeof this.options === 'string' ? { prompt: this.options } : this.options;
-        try {
-            this.result = await generateImage({ ...opts, signal: this.controller.signal });
-            this._status = 'completed';
-            return this.result;
-        } catch (err) {
-            this._status = 'failed';
-            this.error = err;
-            throw err;
-        }
-    }
-
-    progress() {
-        return getProgress();
-    }
-
-    /** Abort the request and interrupt the generation on the server. */
-    async cancel() {
-        this.controller.abort();
-        await interrupt().catch(() => {});
     }
 }

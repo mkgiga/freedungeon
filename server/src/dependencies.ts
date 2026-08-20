@@ -24,11 +24,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { DEPENDENCIES, type DependencyKey, type DependencyState } from '@shared/dependencies'
+import { DEPENDENCIES, type DependencyKey, type DependencyState, type DependencyPlanItem } from '@shared/dependencies'
 import { NATIVE_DIR, MODELS_DIR, DATA_DIR } from './paths'
 import { unzipSync } from 'fflate'
-import { SD_BINARIES, SD_MODELS, sdTarget } from './sd/manifest'
-import { resolveSdBuild } from './sd/backend'
+import { SD_MODELS } from './sd/manifest'
+import { SD_DIR, sdArchive } from './sd/dependency'
 import { mutate, state } from './server'
 import { log } from './logger'
 // The SDK ships the manifest of the CLI build it expects — version and
@@ -79,52 +79,6 @@ function platformKey(): string {
     return `linux-${arch}`
 }
 
-/** Everything stable-diffusion.cpp needs lives together: Windows resolves the
- *  CUDA DLLs relative to the executable, so they cannot be split apart. */
-const SD_DIR = path.join(NATIVE_DIR, 'sd')
-
-/**
- * Which archive a given sd dependency pulls, resolved for this machine.
- *
- * Index 0 is always the sd.cpp build; index 1 exists only on the CUDA target,
- * where the runtime DLLs ship separately. Throwing for an unsupported host —
- * Linux with an NVIDIA card, an Intel Mac — is what surfaces as a 'failed'
- * dependency carrying the reason, rather than a silent nothing.
- */
-function sdArchive(index: number) {
-    const target = sdTargetForHost()
-    const artifact = SD_BINARIES[target][index]
-    if (!artifact) throw new Error(`No archive ${index} for ${target}`)
-    return artifact
-}
-
-function sdTargetForHost() {
-    const choice = sdBuildChoice
-    if (!choice || !choice.supported) {
-        throw new Error(choice ? choice.message : 'Image generation support has not been resolved yet.')
-    }
-    const target = sdTarget(process.platform, choice.backend)
-    if (!target) throw new Error(`No stable-diffusion.cpp build for ${process.platform}/${choice.backend}`)
-    return target
-}
-
-/**
- * Resolved once at startup rather than per call: it shells out to nvidia-smi,
- * and the answer cannot change while the process runs.
- */
-let sdBuildChoice: Awaited<ReturnType<typeof resolveSdBuild>> | null = null
-
-export async function initSdBuildChoice(): Promise<void> {
-    sdBuildChoice = await resolveSdBuild()
-}
-
-export function getSdBuildChoice() {
-    return sdBuildChoice
-}
-
-const sdBinaryUrl = (i: number) => sdArchive(i).url
-const sdBinaryHash = (i: number) => ({ expected: { sha256: sdArchive(i).sha256, bytes: sdArchive(i).bytes } })
-
 const SPECS: Record<DependencyKey, Spec> = {
     claudeCli: {
         file: path.join(NATIVE_DIR, process.platform === 'win32' ? 'claude.exe' : 'claude'),
@@ -160,7 +114,7 @@ const SPECS: Record<DependencyKey, Spec> = {
         file: path.join(SD_DIR, process.platform === 'win32' ? 'sd-server.exe' : 'sd-server'),
         executable: true,
         unpack: { dir: SD_DIR },
-        resolve: async () => ({ url: sdBinaryUrl(0), ...sdBinaryHash(0) }),
+        resolve: async () => sdArchive(0),
     },
 
     sdCudaRuntime: {
@@ -169,7 +123,7 @@ const SPECS: Record<DependencyKey, Spec> = {
         // because Windows resolves DLLs from the executable's directory.
         file: path.join(SD_DIR, 'cudart64_12.dll'),
         unpack: { dir: SD_DIR },
-        resolve: async () => ({ url: sdBinaryUrl(1), ...sdBinaryHash(1) }),
+        resolve: async () => sdArchive(1),
     },
 
     sdDiffusionModel: {
@@ -472,6 +426,39 @@ async function gateReady(spec: Spec, verified: 'satisfied'): Promise<DependencyS
     return (await spec.ready(spec.file)).ok ? verified : 'unauthenticated'
 }
 
+/**
+ * What fetching `keys` would actually cost, so the user can be asked first.
+ *
+ * Generic on purpose: it reports on whatever keys it is handed, and takes each
+ * size from that dependency's own `resolve()`. Nothing here knows which feature
+ * asked or which host serves the bytes.
+ *
+ * `bytes` is what remains, not the file's full size — a dependency half-fetched
+ * before the app was closed only owes the rest, and quoting the full figure
+ * would overstate the cost and make a resumed download look stalled.
+ */
+export async function planDependencies(keys: DependencyKey[]): Promise<DependencyPlanItem[]> {
+    const items: DependencyPlanItem[] = []
+    for (const key of keys) {
+        const status = await verifyDependency(key).catch(() => 'missing' as const)
+        if (status === 'satisfied') continue
+
+        let bytes = 0
+        try {
+            const { expected } = await SPECS[key].resolve()
+            const partial = `${SPECS[key].file}.partial`
+            const have = fs.existsSync(partial) ? fs.statSync(partial).size : 0
+            bytes = Math.max(0, expected.bytes - (have < expected.bytes ? have : 0))
+        } catch {
+            // Unresolvable (an unsupported host, say). Reported with an unknown
+            // size rather than omitted — "we need this and can't size it" is
+            // information; silently dropping it is not.
+        }
+        items.push({ key, label: DEPENDENCIES[key].label, reason: DEPENDENCIES[key].reason, status, bytes })
+    }
+    return items
+}
+
 /** Whether a dependency is usable right now, without downloading anything. */
 export async function isSatisfied(key: DependencyKey): Promise<boolean> {
     try {
@@ -546,26 +533,87 @@ function markerPath(key: DependencyKey, dir: string): string {
  * `Buffer.concat` would need roughly twice that in RAM at the moment of
  * concatenation. Hashing incrementally means the bytes are never all resident.
  */
-async function streamToFile(
-    res: Response,
+export async function downloadResumable(
+    url: string,
     dest: string,
-    total: number | undefined,
-    onProgress: (received: number) => void,
+    expectedBytes: number,
+    onProgress: (received: number, total: number | undefined) => void,
 ): Promise<string> {
+    // Bytes already on disk from an attempt that was killed rather than failed.
+    let have = fs.existsSync(dest) ? fs.statSync(dest).size : 0
+    // A partial at or past the full size is not a partial — it is junk from a
+    // different build of the file. Start over rather than trying to salvage it.
+    if (have >= expectedBytes) { fs.rmSync(dest, { force: true }); have = 0 }
+
+    let res = await fetch(url, {
+        redirect: 'follow',
+        headers: have > 0 ? { Range: `bytes=${have}-` } : {},
+    })
+
+    // 416: the range is past the end of what the server now has, which means
+    // the partial belongs to a file that no longer exists upstream. Left alone
+    // this would resend the same impossible range on every retry and never
+    // recover, so the bytes are dropped and the whole file re-requested once.
+    if (res.status === 416 && have > 0) {
+        log.server.warn('Server rejected the resume range; discarding the partial file and restarting')
+        fs.rmSync(dest, { force: true })
+        have = 0
+        res = await fetch(url, { redirect: 'follow' })
+    }
+
+    if (!res.ok || !res.body) throw new Error(`${res.status} ${res.statusText}`)
+
+    // A resume counts only if the server said 206 *and* the range it sent
+    // starts exactly where we asked. A 200, a CDN that ignores Range, or a
+    // Content-Range at some other offset all mean the body is not a
+    // continuation — so the kept bytes are worthless and the file restarts.
+    // Without the offset check a mismatched range would be appended blindly and
+    // silently corrupt the result.
+    let resuming = have > 0 && res.status === 206
+    if (resuming) {
+        const start = Number(/bytes\s+(\d+)-/.exec(res.headers.get('content-range') ?? '')?.[1])
+        if (!Number.isFinite(start) || start !== have) {
+            log.server.warn(`Resume offset mismatch (asked ${have}, got ${res.headers.get('content-range')}); restarting`)
+            resuming = false
+        }
+    }
+    if (have > 0 && !resuming) have = 0
+
     const hasher = new Bun.CryptoHasher('sha256')
-    const handle = fs.openSync(dest, 'w')
-    let received = 0
-    let lastStep = 0
+    if (resuming) {
+        // The hash covers the whole file, so the kept prefix has to go through
+        // the hasher too. A disk read, not a network one — the point of the
+        // exercise is not re-fetching gigabytes.
+        const fd = fs.openSync(dest, 'r')
+        try {
+            const buf = Buffer.allocUnsafe(4 * 1024 * 1024)
+            for (let off = 0; off < have;) {
+                const n = fs.readSync(fd, buf, 0, Math.min(buf.length, have - off), off)
+                if (n <= 0) break
+                hasher.update(buf.subarray(0, n))
+                off += n
+            }
+        } finally { fs.closeSync(fd) }
+        log.server.info(`Resuming download at ${(have / 1048576).toFixed(0)}MB`)
+    }
+
+    const remaining = Number(res.headers.get('content-length') ?? 0) || undefined
+    const total = remaining ? have + remaining : expectedBytes || undefined
+
+    const handle = fs.openSync(dest, resuming ? 'a' : 'w')
+    let received = have
+    let lastStep = -1
     try {
+        onProgress(received, total)
         for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
             hasher.update(chunk)
             fs.writeSync(handle, chunk)
             received += chunk.byteLength
-            // Throttled to 1% (or 2MB when the server sends no length) — all the
-            // bar can render, and a 3GB download in 64KB chunks would otherwise
-            // emit tens of thousands of socket patches.
+            // Throttled to 1% (or 2MB with no known length) — all the bar can
+            // render, and 3GB in 64KB chunks would otherwise emit tens of
+            // thousands of socket patches.
             const step = total ? Math.floor((received / total) * 100) : Math.floor(received / 2_000_000)
-            if (step !== lastStep) { lastStep = step; onProgress(received) }
+            if (step !== lastStep) { lastStep = step; onProgress(received, total) }
         }
     } finally {
         fs.closeSync(handle)
@@ -622,10 +670,16 @@ export function ensureDependency(key: DependencyKey): Promise<void> {
                 }
                 fs.writeFileSync(partial, bytes)
             } else {
-                actual = await streamToFile(res, partial, total, (received) => publish(key, { received }))
+                actual = await downloadResumable(url, partial, expected.bytes, (received, seen) => {
+                    publish(key, { received, ...(seen ? { total: seen } : {}) })
+                })
                 // Verify BEFORE moving into place, so a bad download never
                 // becomes a file that later looks present.
                 if (actual !== expected.sha256) {
+                    // Poisoned rather than merely incomplete: resuming onto these
+                    // bytes would fail forever. This is the one case worth
+                    // discarding, so drop it and let a retry start clean.
+                    fs.rmSync(partial, { force: true })
                     throw new Error(`checksum mismatch (expected ${expected.sha256.slice(0, 12)}…, got ${actual.slice(0, 12)}…)`)
                 }
             }
@@ -653,8 +707,11 @@ export function ensureDependency(key: DependencyKey): Promise<void> {
             log.server.ok(`Dependency downloaded: ${DEPENDENCIES[key].label}${status === 'satisfied' ? '' : ' (sign-in required)'}`)
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err)
-            // Leave nothing half-written behind for the next attempt to trip on.
-            try { fs.rmSync(`${SPECS[key].file}.partial`, { force: true }) } catch { }
+            // The partial is deliberately KEPT. A dropped connection three
+            // quarters of the way through 2.2GB should cost the last quarter,
+            // not the whole thing — `downloadResumable` continues from whatever
+            // is on disk. The only bytes worth throwing away are ones that
+            // failed the hash, which is handled where that is detected.
             publish(key, { status: 'failed', error: message })
             log.server.error(`Dependency ${key} failed: ${message}`)
         }

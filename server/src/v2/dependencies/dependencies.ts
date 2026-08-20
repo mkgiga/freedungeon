@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { router, procedure } from '../../trpc'
 import {
     ensureDependency,
+    planDependencies,
     dismissDependency,
     verifyDependency,
     beginClaudeSignIn,
@@ -17,6 +18,17 @@ const key = z.object({
 })
 
 export const dependenciesRouter = router({
+    /**
+     * What turning something on would download, so it can be confirmed first.
+     *
+     * Feature-agnostic: it answers for whatever keys it is given. The caller
+     * decides which those are, because that can depend on the machine — the
+     * image generator needs a CUDA runtime on an NVIDIA box and not otherwise.
+     */
+    plan: procedure
+        .input(z.object({ keys: z.array(z.enum(Object.keys(DEPENDENCIES) as [DependencyKey, ...DependencyKey[]])) }))
+        .query(({ input }) => planDependencies(input.keys)),
+
     /** Start (or join) a download. Resolves when it settles; progress arrives
      *  over the socket, so the client doesn't need this promise's result. */
     ensure: procedure

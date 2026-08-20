@@ -13,7 +13,7 @@
 import { state } from './server'
 import { resolveFeatureConfig, featureEnabled, type ImageGenConfig } from '@shared/features'
 import { parseMacros, withItemDescription, withImagePrompt } from './macro'
-import { generateImage, getTaskProgress, setForgeUrl } from './img-gen'
+import { generateImage, getTaskProgress } from './img-gen'
 import { storeUpload } from './v2/uploads'
 import { withActivity } from './activity'
 import { nanoid } from 'nanoid'
@@ -62,7 +62,6 @@ export async function generateSceneImage(
     const cfg = imageGenConfig()
     if (!cfg) return undefined
 
-    setForgeUrl(cfg.endpoint)
 
     // Template is user-editable at server/src/prompts/GENERATE_IMAGE_VISUAL.macro
     // and reads the agent's description via the `agent_image_prompt` scope.
@@ -78,7 +77,6 @@ export async function generateSceneImage(
                 prompt,
                 width,
                 height,
-                ...(cfg.checkpoint ? { checkpoint: cfg.checkpoint } : {}),
             })
 
             const image = result.images[0]
@@ -114,7 +112,6 @@ export async function generateItemIcon(label: string, description: string, itemK
     const cfg = imageGenConfig()
     if (!cfg) return undefined
 
-    setForgeUrl(cfg.endpoint)
 
     // Our own id for this generation, so the progress we report is this icon's
     // and not whatever Forge happens to be working on. Forge runs one job at a
@@ -139,9 +136,8 @@ export async function generateItemIcon(label: string, description: string, itemK
     // on the block, so a server restart can't leave an item pending forever.
     return withActivity('generatingItemIcon', { label, key: itemKey }, async (update) => {
         try {
-            // Only size and (optionally) checkpoint are specified — steps, CFG
-            // and the negative prompt are deliberately left to whatever the
-            // user has configured in the Forge UI.
+            // Only the size is specified; steps, CFG and the negative prompt
+            // take img-gen's defaults, which are tuned for the bundled model.
             const stopPolling = pollTask(taskId, update)
             let result
             try {
@@ -150,8 +146,7 @@ export async function generateItemIcon(label: string, description: string, itemK
                     width: cfg.iconSize,
                     height: cfg.iconSize,
                     taskId,
-                    ...(cfg.checkpoint ? { checkpoint: cfg.checkpoint } : {}),
-                })
+                    })
             } finally {
                 stopPolling()
             }

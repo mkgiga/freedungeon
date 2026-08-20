@@ -14,6 +14,7 @@ import { KeybindEditor } from './KeybindEditor'
 import { ExtensionsList } from './ExtensionsList'
 import { viewport } from '../viewport'
 import { FEATURES, resolveFeatureConfig, type FeatureKey } from '@shared/features'
+import { useImageGenConsent } from './ImageGenConsent'
 import { installAvailable, isStandalone, triggerInstall } from '../pwa-install'
 import { ShowOn } from './ShowOn'
 
@@ -32,6 +33,20 @@ type SectionId = 'general' | 'interface' | 'keybinds' | 'features' | 'extensions
 export function PreferencesDialog() {
     const pickers = useAssetPickers()
     const configs = useLlmConfigs()
+    const confirmImageGen = useImageGenConsent()
+
+    /**
+     * Flip a feature, asking first where saying yes costs something.
+     *
+     * Only image generation has anything to ask about — it pulls gigabytes of
+     * weights. Everything else, and every switch-off, goes straight through.
+     * The toggle is driven from replicated state, so declining simply leaves it
+     * where it was; there is nothing to roll back.
+     */
+    const setFeatureEnabled = async (key: FeatureKey, enabled: boolean) => {
+        if (key === 'imageGen' && enabled && !(await confirmImageGen())) return
+        await trpc.preferences.setFeature.mutate({ key, enabled })
+    }
 
     const sections = (): { id: SectionId; label: string }[] => [
         { id: 'general', label: 'General' },
@@ -210,6 +225,10 @@ export function PreferencesDialog() {
                     </Section>
                 </Show>
 
+                {/* Turning image generation on downloads several gigabytes, so
+                    it asks first; everything else flips straight through. The
+                    consent step resolves false on cancel, which leaves the
+                    toggle as it was. */}
                 <Section id="features" label="Features">
                     <SettingsGroup>
                         <For each={Object.values(FEATURES)}>
@@ -221,7 +240,7 @@ export function PreferencesDialog() {
                                             label={spec.name}
                                             hint={spec.description}
                                             checked={cfg().enabled}
-                                            onChange={(enabled) => trpc.preferences.setFeature.mutate({ key: spec.key, enabled })}
+                                            onChange={(enabled) => setFeatureEnabled(spec.key as FeatureKey, enabled)}
                                         />
                                         <Show when={cfg().enabled}>
                                             <div class="settings-feature-body">

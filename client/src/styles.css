@@ -4256,6 +4256,49 @@ body.item-dragging [data-drop-actor].drop-target-hover {
   line-height: 1;
 }
 
+/* ── Download plan ──────────────────────────────────────────────────────
+   The itemised bill shown before a large download. Rows are label + size, so
+   the sizes form a column the eye can total, and the real total sits under a
+   rule at the bottom like a receipt. */
+.download-plan {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.download-plan-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+}
+
+.download-plan-row + .download-plan-row {
+  border-top: 1px solid var(--border);
+}
+
+.download-plan-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Tabular figures so the sizes line up digit for digit down the column. */
+.download-plan-size {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.download-plan-total {
+  background: color-mix(in oklch, var(--text), transparent 95%);
+  font-variant-numeric: tabular-nums;
+}
+
 /* An inspect request is the same kind of statement as a use attempt, so it
    borrows that treatment wholesale rather than inventing a second one. */
 .inspect-label {
