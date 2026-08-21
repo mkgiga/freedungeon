@@ -28,7 +28,7 @@ import { DEPENDENCIES, type DependencyKey, type DependencyState, type Dependency
 import { NATIVE_DIR, MODELS_DIR, DATA_DIR } from './paths'
 import { unzipSync } from 'fflate'
 import { SD_MODELS } from './sd/manifest'
-import { SD_DIR, sdArchive } from './sd/dependency'
+import { SD_DIR, sdArchive, getSdBuildChoice } from './sd/dependency'
 import { mutate, state } from './server'
 import { log } from './logger'
 // The SDK ships the manifest of the CLI build it expects — version and
@@ -490,8 +490,27 @@ export async function refreshDependencies(): Promise<void> {
         } catch (err) {
             log.server.warn(`Could not verify ${key}: ${err instanceof Error ? err.message : err}`)
         }
-        mutate(s => { s.dependencies[key] = { key, label: meta.label, reason: meta.reason, status, account } })
+        mutate(s => { s.dependencies[key] = {
+            key, label: meta.label, reason: meta.reason, status, account,
+            feature: meta.feature,
+            required: isRequiredHere(key),
+        } })
     }
+}
+
+/**
+ * Whether this machine needs a given dependency at all.
+ *
+ * Every key gets a state entry regardless of platform, so without this the CUDA
+ * runtime reads as a missing requirement on a Mac and would block turns there
+ * forever. Only the server can answer it — it is the side that probed the GPU.
+ */
+function isRequiredHere(key: DependencyKey): boolean {
+    if (key === 'sdCudaRuntime') {
+        const choice = getSdBuildChoice()
+        return choice?.supported === true && choice.backend === 'cuda12'
+    }
+    return true
 }
 
 // ── Download ────────────────────────────────────────────────────────────────

@@ -1,10 +1,13 @@
-import { createMemo, createSignal, For, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
+import { MdFillDownload } from 'solid-icons/md'
 import { Portal } from 'solid-js/web'
 import { state } from '../state'
 import { trpc } from '../trpc'
 import { isBlocking, type DependencyState } from '@shared/dependencies'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
+import { openPanel, registerPanel } from '../panels'
+import { useToast } from './Toast'
 
 /**
  * Blocks the app while a required external file is being fetched.
@@ -24,13 +27,124 @@ export function PatcherOverlay() {
         Object.values(state.dependencies ?? {}).filter(isBlocking),
     )
 
+    /**
+     * Whether the user has sent the download to the panel.
+     *
+     * Reset whenever nothing is in flight, so minimising applies to the run it
+     * was chosen for. A later download — a different feature, another day —
+     * starts by asking for attention again rather than inheriting a decision
+     * made about something else.
+     */
+    const toast = useToast()
+    const [minimized, setMinimized] = createSignal(false)
+    createEffect(() => { if (blocking().length === 0) setMinimized(false) })
+
+    /**
+     * Whole-job progress, for the panel button. Averaging the parts would let a
+     * finished 22MB file offset a stalled 2.2GB one, so this is a byte total:
+     * files with no known size simply don't contribute, which is honest about
+     * what is measurable rather than inventing a denominator.
+     */
+    const overall = createMemo(() => {
+        let received = 0
+        let total = 0
+        for (const dep of blocking()) {
+            if (!dep.total) continue
+            received += dep.received ?? 0
+            total += dep.total
+        }
+        return total > 0 ? Math.min(100, Math.round((received / total) * 100)) : null
+    })
+
+    // Registered only while there is something to show. The rail and the bottom
+    // bar are both driven off the registry, so an idle app carries no extra
+    // button on either.
+    createEffect(() => {
+        if (blocking().length === 0) return
+        const dispose = registerPanel({
+            id: 'downloads',
+            label: 'Downloads',
+            icon: (size = 24) => <MdFillDownload size={size} />,
+            // A failure must not keep reporting the percentage it had reached —
+            // "58%" on a download that stopped ten minutes ago is worse than no
+            // badge at all, because it reads as progress.
+            badge: () => (failed().length > 0 ? '!' : overall() === null ? null : `${overall()}%`),
+            order: 100,
+            render: () => (
+                <div class="patcher-panel-body">
+                    <For each={blocking()}>{(dep) => <PatcherRow dep={dep} />}</For>
+                </div>
+            ),
+        })
+        onCleanup(dispose)
+    })
+
+    const failed = createMemo(() => blocking().filter(d => d.status === 'failed'))
+
+    /**
+     * Tell the user when a backgrounded download breaks.
+     *
+     * Deliberately a notification rather than a dialog. Minimising was a request
+     * not to be interrupted, and everything reachable from here is by
+     * construction non-urgent — "Continue in background" is only offered when
+     * every dependency is merely downloading, so anything that needs an answer
+     * never gets backgrounded in the first place. Throwing a modal in front of
+     * someone mid-scene to report an optional download would be the app going
+     * back on the deal.
+     *
+     * It does not expire, because a toast that vanishes after six seconds is
+     * indistinguishable from never having been shown, and it carries the action
+     * that reaches the panel — which on a phone mid-conversation is otherwise
+     * unreachable, since the nav bar is hidden there.
+     *
+     * Only while minimised: with the overlay up the error is already on screen
+     * with its own Retry button, and saying it twice is noise.
+     */
+    const reported = new Set<string>()
+    createEffect(() => {
+        if (!minimized()) return
+        for (const dep of failed()) {
+            if (reported.has(dep.key)) continue
+            reported.add(dep.key)
+            toast({
+                type: 'error',
+                title: `${dep.label} failed`,
+                message: dep.error ?? 'The download stopped.',
+                duration: 0,
+                action: { label: 'Open downloads', kind: 'openDownloads' },
+            })
+        }
+        // Forget a key once it is no longer failing, so a retry that fails again
+        // is reported again rather than silently swallowed.
+        for (const key of [...reported]) {
+            if (!failed().some(d => d.key === key)) reported.delete(key)
+        }
+    })
+
+    const minimize = () => {
+        setMinimized(true)
+        openPanel('downloads')
+    }
+
     return (
-        <Show when={blocking().length > 0}>
+        <Show when={blocking().length > 0 && !minimized()}>
             <Portal>
                 <div class="patcher-overlay">
                     <div class="patcher-panel">
                         <Heading level={2}>Downloading required files</Heading>
                         <For each={blocking()}>{(dep) => <PatcherRow dep={dep} />}</For>
+
+                        {/* Only offered while things are actually downloading.
+                            A failed or unauthenticated dependency needs an
+                            answer — backgrounding it would hide the one prompt
+                            that unblocks whatever the user was trying to do. */}
+                        <Show when={blocking().every(d => d.status === 'downloading')}>
+                            <div class="patcher-actions">
+                                <button class="modal-btn modal-btn-cancel" onClick={minimize}>
+                                    Continue in background
+                                </button>
+                            </div>
+                        </Show>
                     </div>
                 </div>
             </Portal>

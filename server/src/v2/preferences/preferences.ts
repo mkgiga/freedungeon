@@ -4,6 +4,8 @@ import { mutate, state } from '../../server'
 import { ensureDependency, isSatisfied, planDependencies } from '../../dependencies'
 import { requiredSdDependencies } from '../../sd/server'
 import { getSdBuildChoice } from '../../sd/dependency'
+import { cancelAgentTurn } from '../../agent'
+import { notification } from '../../notifications'
 import { DEPENDENCIES } from '@shared/dependencies'
 
 export const preferencesRouter = router({
@@ -70,6 +72,27 @@ export const preferencesRouter = router({
             if (input.key === 'imageGen' && wantsImages && !hadImages) {
                 const choice = getSdBuildChoice()
                 if (choice && !choice.supported) throw new Error(choice.message)
+
+                // Switching this on mid-scene makes the running turn unsafe:
+                // from here until the weights land, any image tool the agent
+                // reaches for would fail. Stopping it now costs the rest of one
+                // turn; letting it continue costs tokens and leaves half a beat
+                // written before it breaks. Announced rather than done silently
+                // — the user pressed a settings toggle, not Stop.
+                if (state.isGenerating) {
+                    await cancelAgentTurn()
+                    notification({
+                        title: 'Turn stopped',
+                        content: 'Image generation was switched on, and its files are still downloading. '
+                            + 'The current turn was stopped so it could not fail partway through.',
+                        backgroundColor: '#7a5a1f',
+                        textColor: '#fff',
+                        show: true,
+                        toast: true,
+                        push: false,
+                    })
+                }
+
                 for (const dep of requiredSdDependencies()) {
                     await ensureDependency(dep)
                     if (!(await isSatisfied(dep))) {

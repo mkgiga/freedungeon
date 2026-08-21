@@ -4256,6 +4256,123 @@ body.item-dragging [data-drop-actor].drop-target-hover {
   line-height: 1;
 }
 
+/* Why the composer is inert. Above the field rather than replacing it, so a
+   half-typed message survives the wait. */
+.chat-composer-blocked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in oklch, var(--primary), transparent 92%);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.chat-composer-blocked svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.chat-input-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Side panels ────────────────────────────────────────────────────────
+   Layout, never overlay. On desktop the host is a column beside the rail, so
+   opening one narrows the content rather than sitting on top of it. On a phone
+   there is no width to give, so it takes the content area outright while the
+   bottom bar stays exactly where it was. */
+.panel-host {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 320px;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-1);
+}
+
+/* A phone has no width to give up, so the panel takes the content area whole
+   instead of narrowing it — the same move as switching tabs, not a thing
+   floating on top of your work. Absolutely positioned rather than a 100%-wide
+   flex item, which would merely squeeze <main> to nothing and leave it in the
+   layout. The bottom bar is outside .app-body, so it stays put and the way back
+   is always visible. */
+.panel-host.is-phone {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  z-index: 2;
+  border-right: none;
+  background: var(--bg);
+}
+
+.panel-host-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.panel-host-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-host-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  flex: none;
+  opacity: 0.7;
+}
+
+.panel-host-close:hover {
+  opacity: 1;
+  background-color: var(--bg-2);
+}
+
+.panel-host-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+/* Badge on a panel's nav button — a percentage while work is in flight. The
+   icon is wrapped so the badge can hang off its corner without the button's
+   own flex layout shifting when the badge appears and disappears. */
+.left-nav-panel-icon,
+.main-nav-panel {
+  position: relative;
+}
+
+.left-nav-panel-badge,
+.main-nav-panel-badge {
+  position: absolute;
+  top: -4px;
+  right: -10px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Download plan ──────────────────────────────────────────────────────
    The itemised bill shown before a large download. Rows are label + size, so
    the sizes form a column the eye can total, and the real total sits under a
@@ -4576,6 +4693,9 @@ body.item-dragging [data-drop-actor].drop-target-hover {
   display: flex;
   min-height: 0;
   min-width: 0;
+  /* Anchor for the phone panel host, which fills this box rather than sitting
+     in the flex row — see .panel-host.is-phone. */
+  position: relative;
 }
 
 menu.left-nav {

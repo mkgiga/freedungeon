@@ -12,6 +12,7 @@ import {
     MdFillStop,
     MdFillWarning,
     MdFillEdit_note,
+    MdFillDownload,
 } from 'solid-icons/md'
 import { Em } from '../typography/Em'
 import { DebugPromptButton } from './DebugPromptButton'
@@ -19,6 +20,7 @@ import { usePlayback } from './playback'
 import { useRehydrationConfirm } from './rehydration'
 import { viewport } from '../../viewport'
 import { useAction } from '../../actions'
+import { turnBlockers } from '@shared/dependencies'
 
 const latestMessageId = () => {
     const msgs = Object.values(state.currentChat.messages ?? {})
@@ -97,6 +99,25 @@ export function ChatInput(props: { hidden?: boolean }) {
         })
     }
 
+    /**
+     * Files an enabled feature is still waiting on.
+     *
+     * The same `turnBlockers` the server refuses prompts with, run against the
+     * same replicated state — so the composer cannot claim a turn is possible
+     * when the server would reject it, and the two can't drift as dependencies
+     * are added.
+     */
+    const blockers = createMemo(() =>
+        turnBlockers(state.dependencies, state.userPreferences.features))
+
+    const blockedReason = createMemo(() => {
+        const list = blockers()
+        if (list.length === 0) return null
+        const pct = (d: typeof list[number]) =>
+            d.total && d.received ? ` ${Math.round((d.received / d.total) * 100)}%` : ''
+        return `Downloading ${list.map(d => d.label + pct(d)).join(', ')}`
+    })
+
     const hasPendingNotice = createMemo(() =>
         (state.currentChat.pendingSystemNotice ?? '').trim().length > 0
     )
@@ -138,6 +159,9 @@ export function ChatInput(props: { hidden?: boolean }) {
     const handleSend = async () => {
         const text = message().trim()
         if (!text) return
+        // Refused server-side too; stopping here keeps the draft rather than
+        // clearing it into a rejected request.
+        if (blockedReason()) return
         // The send button is a Stop button while generating, but Ctrl+Enter
         // still reaches here — and with auto-skip on, the composer is live
         // throughout a turn instead of being replaced by the continue bar.
@@ -197,8 +221,23 @@ export function ChatInput(props: { hidden?: boolean }) {
         // Hidden rather than unmounted while the band shows the actors rail, so
         // an unsent draft survives closing and reopening the composer.
         <div class="chat-composer" classList={{ hidden: props.hidden }}>
+            {/* Sits above the field rather than replacing it, so a half-typed
+                message survives the wait. */}
+            <Show when={blockedReason()}>
+                {(reason) => (
+                    <div class="chat-composer-blocked">
+                        <MdFillDownload size={16} />
+                        <Text size="sm">
+                            {reason()} — a turn would fail without these. Turn image
+                            generation off in Preferences to play now.
+                        </Text>
+                    </div>
+                )}
+            </Show>
+
             <textarea
                 class="chat-input-textarea"
+                disabled={!!blockedReason()}
                 placeholder={pendingChoicePrompt() ? '…or type your own action' : 'Type a message...'}
                 value={message()}
                 onInput={(e) => setMessage(e.currentTarget.value)}
@@ -247,7 +286,7 @@ export function ChatInput(props: { hidden?: boolean }) {
                     <Show
                         when={state.isGenerating}
                         fallback={
-                            <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} title="Send">
+                            <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} disabled={!!blockedReason()} title="Send">
                                 <MdFillSend size={20} />
                             </button>
                         }

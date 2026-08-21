@@ -2,6 +2,7 @@ import { createSignal, createContext, useContext, For, onMount, Show, type JSXEl
 import { Portal } from 'solid-js/web'
 import { onNotification, state } from '../state'
 import { useLlmConfigs } from './LlmConfigsDialog'
+import { openPanel } from '../panels'
 import type { NotificationAction } from '@shared/types'
 
 // ── Types ──
@@ -63,6 +64,12 @@ export function ToastProvider(props: { children: JSXElement }) {
         switch (action.kind) {
             case 'openLlmConfig':
                 configs.open(state.userPreferences.activeLLMConfigId ?? undefined)
+                return
+            case 'openDownloads':
+                // The panel is the only place a backgrounded download can be
+                // retried, and on a phone mid-conversation the nav that would
+                // otherwise reach it is hidden — so this is the way back.
+                openPanel('downloads')
                 return
         }
     }

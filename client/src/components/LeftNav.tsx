@@ -11,6 +11,7 @@ import { ImageIcon } from './ImageIcon'
 import { NAV_ITEMS } from './nav-items'
 import { useAction } from '../actions'
 import { Text } from './typography/Text'
+import { openPanelId, registeredPanels, togglePanel } from '../panels'
 
 /**
  * Side navigation for tablet and widescreen, replacing the bottom bar.
@@ -95,6 +96,33 @@ export function LeftNav() {
                         {item.icon(26)}
                         <Show when={showLabels()}>
                             <Text>{item.label}</Text>
+                        </Show>
+                    </button>
+                )}
+            </For>
+
+            {/* Registered side panels. Empty most of the time — a panel that
+                has nothing to report unregisters itself, so the rail doesn't
+                carry a dead button around. Placed between the tabs and the
+                app-wide dialogs because that is what they are: neither a
+                destination nor a setting, but something currently going on. */}
+            <For each={registeredPanels()}>
+                {(panel) => (
+                    <button
+                        type="button"
+                        class="left-nav-panel"
+                        classList={{ active: openPanelId() === panel.id }}
+                        title={panel.label}
+                        onClick={() => togglePanel(panel.id)}
+                    >
+                        <span class="left-nav-panel-icon">
+                            {panel.icon(26)}
+                            <Show when={panel.badge?.() != null}>
+                                <span class="left-nav-panel-badge">{panel.badge!()}</span>
+                            </Show>
+                        </span>
+                        <Show when={showLabels()}>
+                            <Text>{panel.label}</Text>
                         </Show>
                     </button>
                 )}

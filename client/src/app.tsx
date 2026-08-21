@@ -12,6 +12,7 @@ import { BottomNav } from './components/BottomNav'
 import { PatcherOverlay } from './components/PatcherOverlay'
 import { OnboardingOverlay } from './components/OnboardingOverlay'
 import { LeftNav } from './components/LeftNav'
+import { PanelHost } from './components/PanelHost'
 import { ShowOn } from './components/ShowOn'
 import { activeTab, setActiveTab, chatView, type Tab } from './tab-state'
 import { guardStrayImageDrops } from './utils/imageUpload'
@@ -68,6 +69,10 @@ export function App() {
                                 <ShowOn viewport={['tablet', 'wide']}>
                                     <LeftNav />
                                 </ShowOn>
+                                {/* Between the rail and the content: a panel
+                                    narrows what you were looking at instead of
+                                    covering it. */}
+                                <PanelHost />
                                 <main>
                                     <For each={TABS}>
                                         {(tab) => (

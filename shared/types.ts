@@ -138,8 +138,11 @@ export type ActorGameState = {
  */
 export type NotificationAction = {
     label: string;
-    /** Opens the models library on the config currently in use. */
-    kind: 'openLlmConfig';
+    kind:
+        /** Opens the models library on the config currently in use. */
+        | 'openLlmConfig'
+        /** Opens the Downloads side panel. */
+        | 'openDownloads';
 }
 
 export type AppNotification = {

@@ -3,9 +3,32 @@ import { router, procedure } from '../../trpc'
 import { mutate, state } from '../../server'
 import { CurrentChat, logChat } from '../../chat'
 import { parseBlocks } from '@shared/blocks'
+import { turnBlockers } from '@shared/dependencies'
 import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
 import { createInitialContext } from '@shared/game-state'
+
+/**
+ * Refuse to start a turn while a file an enabled feature needs is still coming
+ * down.
+ *
+ * The alternative is a turn that runs and then fails partway through, because a
+ * tool the agent was told it had isn't there yet — which costs the user tokens
+ * and leaves half a scene written. Better to not start.
+ *
+ * Turning the feature back off is a legitimate way out and needs no special
+ * case: `turnBlockers` only counts dependencies whose feature is enabled, so
+ * the block lifts the moment it is switched off.
+ */
+function assertTurnAllowed(): void {
+    const blockers = turnBlockers(state.dependencies, state.userPreferences.features)
+    if (blockers.length === 0) return
+    const names = blockers.map(b => b.label).join(', ')
+    throw new Error(
+        `Still downloading ${names}. Image generation is on and needs these files, `
+        + `so a turn would fail partway through. Wait for the download, or turn the feature off.`,
+    )
+}
 
 export const chatRouter = router({
     list: procedure
@@ -305,6 +328,7 @@ export const chatRouter = router({
                 logChat(`Generation is already in progress. Exiting now.`);
                 throw new Error('Generation is already in progress. Please wait until the current generation finishes before sending a new message.');
             }
+            assertTurnAllowed();
             
             CurrentChat.prompt({ message: input.message });
         }),
@@ -317,6 +341,7 @@ export const chatRouter = router({
             if (state.isGenerating) {
                 throw new Error('Generation is already in progress. Please wait until it finishes.')
             }
+            assertTurnAllowed()
 
             const msg = currentChat.messages[input.messageId]
             if (!msg) throw new Error(`Message ${input.messageId} not found in current chat`)
@@ -359,6 +384,7 @@ export const chatRouter = router({
             if (!CurrentChat.getMessage(input.id)) {
                 throw new Error(`Message ${input.id} not found in current chat`)
             }
+            assertTurnAllowed()
             await CurrentChat.regenerateMessage(input.id)
             return { success: true }
         }),
