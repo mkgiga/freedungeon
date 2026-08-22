@@ -7,11 +7,13 @@ import { llmConfigsRouter } from './llm-configs/llm-configs'
 import { preferencesRouter } from './preferences/preferences'
 import { newsRouter } from './news/news'
 import { dependenciesRouter } from './dependencies/dependencies'
+import { notificationsRouter } from './notifications/notifications'
 import { scenarioAgentRouter } from './scenario-agent/scenario-agent'
 import { extensionsRouter } from './extensions/extensions'
 
 export const appRouter = router({
     dependencies: dependenciesRouter,
+    notifications: notificationsRouter,
     scenarioAgent: scenarioAgentRouter,
     extensions: extensionsRouter,
     actors: actorsRouter,

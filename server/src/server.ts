@@ -72,7 +72,7 @@ export const [state, _setState] = createStore({
     isGenerating: false,
     activities: {},
     dependencies: {},
-    notifications: [],
+    notifications: {},
     extensionState: {},
     extensions: {},
     userPreferences: {

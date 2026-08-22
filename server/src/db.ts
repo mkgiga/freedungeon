@@ -4,7 +4,7 @@ import { Kysely, sql, type Generated } from 'kysely';
 import { BunSqliteDialect } from 'kysely-bun-sqlite';
 import { nanoid } from 'nanoid';
 import { state } from './server';
-import { savePreferences } from './preferences';
+import { savePreferences, loadPreferences } from './preferences';
 import { DB_PATH, ensureDataDirs } from './paths';
 import { log } from './logger';
 import { createInitialContext } from '@shared/game-state';
@@ -122,6 +122,7 @@ export interface DB {
         show: Generated<number>;
         push: Generated<number>;
         created_at: Generated<number>;
+        action: string | null;
     };
     extension_state: {
         extension: string;
@@ -377,7 +378,15 @@ export async function initDb() {
         .addColumn('show', 'integer', (col) => col.notNull().defaultTo(1))
         .addColumn('push', 'integer', (col) => col.notNull().defaultTo(0))
         .addColumn('created_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
+        .addColumn('action', 'text')
         .execute();
+
+    // The table predates any use of it, so an existing install has it without
+    // the action column. Additive, nullable — nothing to backfill.
+    const notifCols = await sql<{ name: string }>`PRAGMA table_info(notifications)`.execute(db);
+    if (!notifCols.rows.some(r => r.name === 'action')) {
+        await db.schema.alterTable('notifications').addColumn('action', 'text').execute();
+    }
 
     // ── One-time TTS teardown ──
     // The DramaBox voice-acting feature was removed; drop its columns and strip
@@ -498,6 +507,29 @@ export function dehydrateLLMConfig(config: LLMConfig): Omit<Selectable<DB['llm_c
     };
 }
 
+export function saveNotification(n: AppNotification) {
+    const row = {
+        title: n.title,
+        content: n.content,
+        background_color: n.backgroundColor,
+        text_color: n.textColor,
+        show: n.show ? 1 : 0,
+        push: n.push ? 1 : 0,
+        // Stored as JSON so the fix-it button survives a restart — a
+        // notification you can still act on is most of the value of keeping it.
+        action: n.action ? JSON.stringify(n.action) : null,
+        created_at: n.createdAt,
+    };
+    db.insertInto('notifications')
+        .values({ id: n.id, ...row })
+        .onConflict((oc) => oc.column('id').doUpdateSet(row))
+        .execute();
+}
+
+export function deleteNotification(id: string) {
+    db.deleteFrom('notifications').where('id', '=', id).execute();
+}
+
 export function hydrateNotification(row: NotificationRow): AppNotification {
     return {
         id: row.id,
@@ -507,8 +539,15 @@ export function hydrateNotification(row: NotificationRow): AppNotification {
         textColor: row.text_color,
         show: row.show === 1,
         push: row.push === 1,
+        // A stored action whose target is gone is harmless: every kind resolves
+        // against current client state rather than an id saved with it.
+        action: row.action ? safeJson(row.action) : undefined,
         createdAt: row.created_at,
     };
+}
+
+function safeJson<T>(raw: string): T | undefined {
+    try { return JSON.parse(raw) as T } catch { return undefined }
 }
 
 export function hydrateImage(row: Selectable<DB['images']>): ImageAsset {
@@ -801,8 +840,37 @@ export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences
             updatedAt: null,
         },
         isGenerating: false,
-        notifications: [],
+        // Unseen only, rebuilt from the log against the user's last-seen stamp,
+        // so closing the app doesn't quietly mark everything read.
+        notifications: await loadUnseenNotifications(),
     };
+}
+
+/**
+ * Notifications newer than the user's last-seen stamp.
+ *
+ * `show: false` entries are excluded: those are diagnostic log lines, and a
+ * badge that counts things the user is never shown is a badge they cannot
+ * clear.
+ */
+export async function loadUnseenNotifications(): Promise<Record<string, AppNotification>> {
+    const seenAt = loadPreferences().notificationsSeenAt ?? 0;
+    const rows = await db.selectFrom('notifications')
+        .selectAll()
+        .where('show', '=', 1)
+        .where('created_at', '>', seenAt)
+        .orderBy('created_at', 'desc')
+        .limit(200)
+        .execute();
+    return Object.fromEntries(rows.map(row => [row.id, hydrateNotification(row)]));
+}
+
+/** Trim the log to the newest `keep` rows. */
+export function pruneNotifications(keep: number) {
+    db.deleteFrom('notifications')
+        .where('id', 'not in',
+            db.selectFrom('notifications').select('id').orderBy('created_at', 'desc').limit(keep))
+        .execute();
 }
 
 // ── Delete helpers ──

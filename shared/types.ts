@@ -37,7 +37,19 @@ export type AppState = {
      * renders the true on-disk state rather than a remembered one.
      */
     dependencies: Partial<Record<DependencyKey, DependencyState>>;
-    notifications: AppNotification[];
+    /**
+     * Notifications the user has not seen yet, keyed by id.
+     *
+     * Only the *unseen* ones. That set is bounded by construction — opening the
+     * Notifications view clears it — which is what makes it a legitimate state
+     * root, whereas the full log is not: history grows without limit, so
+     * replicating it would mean a complete copy pushed at every boot.
+     *
+     * The history lives in the `notifications` table and is queried on demand.
+     * Keeping the unseen ones here rather than a bare count means the badge and
+     * the list cannot disagree, and there is no counter to drift.
+     */
+    notifications: Record<string, AppNotification>;
     userPreferences: UserPreferences;
     /**
      * State owned by extensions (today: built-in features), keyed by extension
@@ -412,6 +424,14 @@ export type UserPreferences = {
      * backfillOnboarding in server.ts.
      */
     onboardingCompletedAt?: number | null;
+    /**
+     * When the user last looked at their notifications, as ms epoch.
+     *
+     * A single stamp rather than a read flag per notification: clearing the
+     * badge is then one action instead of one click per row, and the unseen set
+     * can be recomputed from the log after a restart instead of being lost.
+     */
+    notificationsSeenAt?: number;
     /** Per-feature config keyed by feature key (see shared/features.ts).
      *  Stores only what the user changed; registry defaults are merged on read
      *  via resolveFeatureConfig. */
