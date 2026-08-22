@@ -1,8 +1,8 @@
 import { createResource, createSignal, For, Show } from 'solid-js'
-import { MdFillNotifications } from 'solid-icons/md'
 import { state } from '../state'
 import { trpc } from '../trpc'
-import { registerPanel } from '../panels'
+import { useModal } from './Modal'
+import { useNotificationActions } from '../notification-actions'
 import { Text } from './typography/Text'
 import { Em } from './typography/Em'
 import type { AppNotification, NotificationAction } from '@shared/types'
@@ -91,19 +91,21 @@ export function NotificationsPanel(props: { onAction: (a: NotificationAction) =>
 }
 
 /**
- * Register the panel once, for the app's lifetime.
+ * Open the notification log.
  *
- * Unlike Downloads this is always present: the log exists whether or not
- * anything is happening, and a notifications button that comes and goes would
- * be a worse place to look than one that is simply always there.
+ * A dialog, not a side panel. Reading a log is something you go and do and then
+ * leave — unlike a download, which you want to glance at while carrying on. And
+ * every other entry in the system menu (Preferences, Documentation, the models
+ * library) is already a dialog, so this is the shape the app already speaks.
  */
-export function registerNotificationsPanel(onAction: (a: NotificationAction) => void): () => void {
-    return registerPanel({
-        id: 'notifications',
-        label: 'Notifications',
-        icon: (size = 24) => <MdFillNotifications size={size} />,
-        badge: () => (unseenCount() > 0 ? unseenCount() : null),
-        order: 10,
-        render: () => <NotificationsPanel onAction={onAction} />,
-    })
+export function useNotifications() {
+    const modal = useModal()
+    const runAction = useNotificationActions()
+
+    return {
+        open: () => modal.open({
+            title: 'Notifications',
+            content: () => <NotificationsPanel onAction={(a) => { modal.close(); runAction(a) }} />,
+        }),
+    }
 }

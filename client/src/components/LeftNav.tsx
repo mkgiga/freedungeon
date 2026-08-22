@@ -11,7 +11,6 @@ import { ImageIcon } from './ImageIcon'
 import { NAV_ITEMS } from './nav-items'
 import { useAction } from '../actions'
 import { Text } from './typography/Text'
-import { openPanelId, registeredPanels, togglePanel } from '../panels'
 import { useSystemMenu } from './SystemMenu'
 
 /**
@@ -102,34 +101,6 @@ export function LeftNav() {
                     </button>
                 )}
             </For>
-
-            {/* Registered side panels. Empty most of the time — a panel that
-                has nothing to report unregisters itself, so the rail doesn't
-                carry a dead button around. Placed between the tabs and the
-                app-wide dialogs because that is what they are: neither a
-                destination nor a setting, but something currently going on. */}
-            <For each={registeredPanels()}>
-                {(panel) => (
-                    <button
-                        type="button"
-                        class="left-nav-panel"
-                        classList={{ active: openPanelId() === panel.id }}
-                        title={panel.label}
-                        onClick={() => togglePanel(panel.id)}
-                    >
-                        <span class="left-nav-panel-icon">
-                            {panel.icon(26)}
-                            <Show when={panel.badge?.() != null}>
-                                <span class="left-nav-panel-badge">{panel.badge!()}</span>
-                            </Show>
-                        </span>
-                        <Show when={showLabels()}>
-                            <Text>{panel.label}</Text>
-                        </Show>
-                    </button>
-                )}
-            </For>
-
             {/* Kept in the rail where it has always been, but it opens a dialog
                 rather than switching tabs — so it never costs you the screen you
                 were on. Outside NAV_ITEMS because that list is the set of tabs,
@@ -143,10 +114,10 @@ export function LeftNav() {
                 title="Menu"
                 onClick={systemMenu.open}
             >
-                <span class="left-nav-panel-icon">
+                <span class="nav-badge-anchor">
                     <MdFillSettings size={26} />
                     <Show when={systemMenu.unseen() > 0}>
-                        <span class="left-nav-panel-badge">{systemMenu.unseen()}</span>
+                        <span class="nav-badge">{systemMenu.unseen()}</span>
                     </Show>
                 </span>
                 <Show when={showLabels()}>

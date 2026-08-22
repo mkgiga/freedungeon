@@ -6,7 +6,7 @@ import { trpc } from '../trpc'
 import { isBlocking, type DependencyState } from '@shared/dependencies'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
-import { openPanel, registerPanel } from '../panels'
+import { useModal } from './Modal'
 import { useToast } from './Toast'
 
 /**
@@ -56,29 +56,6 @@ export function PatcherOverlay() {
         return total > 0 ? Math.min(100, Math.round((received / total) * 100)) : null
     })
 
-    // Registered only while there is something to show. The rail and the bottom
-    // bar are both driven off the registry, so an idle app carries no extra
-    // button on either.
-    createEffect(() => {
-        if (blocking().length === 0) return
-        const dispose = registerPanel({
-            id: 'downloads',
-            label: 'Downloads',
-            icon: (size = 24) => <MdFillDownload size={size} />,
-            // A failure must not keep reporting the percentage it had reached —
-            // "58%" on a download that stopped ten minutes ago is worse than no
-            // badge at all, because it reads as progress.
-            badge: () => (failed().length > 0 ? '!' : overall() === null ? null : `${overall()}%`),
-            order: 100,
-            render: () => (
-                <div class="patcher-panel-body">
-                    <For each={blocking()}>{(dep) => <PatcherRow dep={dep} />}</For>
-                </div>
-            ),
-        })
-        onCleanup(dispose)
-    })
-
     const failed = createMemo(() => blocking().filter(d => d.status === 'failed'))
 
     /**
@@ -121,10 +98,7 @@ export function PatcherOverlay() {
         }
     })
 
-    const minimize = () => {
-        setMinimized(true)
-        openPanel('downloads')
-    }
+    const minimize = () => setMinimized(true)
 
     return (
         <Show when={blocking().length > 0 && !minimized()}>
@@ -275,4 +249,47 @@ function SignInFlow(props: { dep: DependencyState }) {
 function mb(bytes: number | undefined): string {
     if (!bytes) return '0 MB'
     return `${(bytes / 1e6).toFixed(1)} MB`
+}
+
+/**
+ * Live progress for a backgrounded download, opened from the system menu.
+ *
+ * A dialog rather than a side rail panel: on a wide screen the nav is already a
+ * 200px column, and a second one beside it puts 520px of chrome in front of the
+ * content. Exported as a hook so the menu can also read whether there is
+ * anything to show, and label its own row with the percentage.
+ */
+export function useDownloads() {
+    const modal = useModal()
+    const blocking = createMemo(() =>
+        Object.values(state.dependencies ?? {}).filter(isBlocking))
+
+    const overall = () => {
+        let received = 0, total = 0
+        for (const dep of blocking()) {
+            if (!dep.total) continue
+            received += dep.received ?? 0
+            total += dep.total
+        }
+        return total > 0 ? Math.min(100, Math.round((received / total) * 100)) : null
+    }
+
+    return {
+        active: () => blocking().length > 0,
+        /** A failure must not keep reporting the percentage it stopped at. */
+        summary: () => blocking().some(d => d.status === 'failed')
+            ? 'failed'
+            : overall() === null ? null : `${overall()}%`,
+        open: () => modal.open({
+            title: 'Active downloads',
+            content: () => (
+                <div class="patcher-panel-body">
+                    <For each={blocking()}>{(dep) => <PatcherRow dep={dep} />}</For>
+                    <Show when={blocking().length === 0}>
+                        <Text size="sm" class="settings-hint">Nothing downloading.</Text>
+                    </Show>
+                </div>
+            ),
+        }),
+    }
 }

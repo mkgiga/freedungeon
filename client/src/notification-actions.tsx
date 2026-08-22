@@ -1,6 +1,6 @@
 import { state } from './state'
 import { useLlmConfigs } from './components/LlmConfigsDialog'
-import { openPanel } from './panels'
+import { useDownloads } from './components/PatcherOverlay'
 import type { NotificationAction } from '@shared/types'
 
 /**
@@ -18,6 +18,7 @@ import type { NotificationAction } from '@shared/types'
  */
 export function useNotificationActions() {
     const configs = useLlmConfigs()
+    const downloads = useDownloads()
 
     return (action: NotificationAction): void => {
         switch (action.kind) {
@@ -25,7 +26,7 @@ export function useNotificationActions() {
                 configs.open(state.userPreferences.activeLLMConfigId ?? undefined)
                 return
             case 'openDownloads':
-                openPanel('downloads')
+                downloads.open()
                 return
         }
     }

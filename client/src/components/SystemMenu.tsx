@@ -5,8 +5,8 @@ import {
 import { useModal } from './Modal'
 import { usePreferences } from './PreferencesDialog'
 import { useHelp } from './HelpDialog'
-import { openPanel, registeredPanels } from '../panels'
-import { unseenCount } from './NotificationsPanel'
+import { unseenCount, useNotifications } from './NotificationsPanel'
+import { useDownloads } from './PatcherOverlay'
 import { isDesktopApp, quitDesktopApp } from '../desktop'
 import { Text } from './typography/Text'
 
@@ -31,6 +31,8 @@ export function useSystemMenu() {
     const modal = useModal()
     const preferences = usePreferences()
     const help = useHelp()
+    const notifications = useNotifications()
+    const downloads = useDownloads()
 
     const entries = (): SystemMenuEntry[] => {
         const list: SystemMenuEntry[] = [
@@ -39,17 +41,18 @@ export function useSystemMenu() {
                 label: 'Notifications',
                 icon: <MdFillNotifications size={22} />,
                 badge: unseenCount() || undefined,
-                onClick: () => openPanel('notifications'),
+                onClick: notifications.open,
             },
         ]
 
-        // Downloads registers itself only while something is in flight, so this
-        // entry follows the same rule rather than offering an empty screen.
-        if (registeredPanels().some(p => p.id === 'downloads')) {
+        // Only while something is in flight — an "Active downloads" row that
+        // opens an empty screen is worse than no row. The percentage rides on
+        // the label so the menu itself is the status readout.
+        if (downloads.active()) {
             list.push({
-                label: 'Active downloads',
+                label: `Active downloads${downloads.summary() ? ` — ${downloads.summary()}` : ''}`,
                 icon: <MdFillDownload size={22} />,
-                onClick: () => openPanel('downloads'),
+                onClick: downloads.open,
             })
         }
 
