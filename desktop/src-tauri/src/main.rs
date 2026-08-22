@@ -214,6 +214,17 @@ use std::os::windows::process::CommandExt as _;
 
 struct Backend(Mutex<Option<Child>>);
 
+/// Quit from the app's own UI.
+///
+/// Exposed as a command rather than letting the page call `window.close()`,
+/// which is unreliable in a webview. Closing the window is the entire shutdown
+/// path — the Destroyed handler below takes the backend and the agent with it —
+/// so this deliberately does not try to stop anything itself.
+#[tauri::command]
+fn quit_app(window: tauri::Window) {
+    let _ = window.close();
+}
+
 fn main() {
     let exe = match extract_backend() {
         Ok(p) => p,
@@ -246,6 +257,7 @@ fn main() {
 
     tauri::Builder::default()
         .manage(backend)
+        .invoke_handler(tauri::generate_handler![quit_app])
         .setup(move |app| {
             let url = format!("http://127.0.0.1:{base}");
             // Show the splash immediately, then swap to the real client once

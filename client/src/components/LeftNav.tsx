@@ -12,6 +12,7 @@ import { NAV_ITEMS } from './nav-items'
 import { useAction } from '../actions'
 import { Text } from './typography/Text'
 import { openPanelId, registeredPanels, togglePanel } from '../panels'
+import { useSystemMenu } from './SystemMenu'
 
 /**
  * Side navigation for tablet and widescreen, replacing the bottom bar.
@@ -26,6 +27,7 @@ export function LeftNav() {
     const pickers = useAssetPickers()
     const configs = useLlmConfigs()
     const preferences = usePreferences()
+    const systemMenu = useSystemMenu()
     const help = useHelp()
     const showLabels = () => viewport() === 'wide'
 
@@ -132,15 +134,23 @@ export function LeftNav() {
                 rather than switching tabs — so it never costs you the screen you
                 were on. Outside NAV_ITEMS because that list is the set of tabs,
                 and this is no longer one. */}
+            {/* One button, several destinations. The pill mirrors the one on
+                the Notifications entry inside, so an unread notification is
+                visible without the menu being open. */}
             <button
                 type="button"
                 class="left-nav-preferences"
-                title="Preferences"
-                onClick={preferences.open}
+                title="Menu"
+                onClick={systemMenu.open}
             >
-                <MdFillSettings size={26} />
+                <span class="left-nav-panel-icon">
+                    <MdFillSettings size={26} />
+                    <Show when={systemMenu.unseen() > 0}>
+                        <span class="left-nav-panel-badge">{systemMenu.unseen()}</span>
+                    </Show>
+                </span>
                 <Show when={showLabels()}>
-                    <Text>Preferences</Text>
+                    <Text>Menu</Text>
                 </Show>
             </button>
 

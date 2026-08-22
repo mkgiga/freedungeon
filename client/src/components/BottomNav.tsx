@@ -2,7 +2,7 @@ import { MdFillChat, MdFillHouse, MdFillNote, MdFillPerson, MdFillSettings } fro
 import { For, Show } from 'solid-js'
 import type { Tab } from '../tab-state'
 import { openPanelId, registeredPanels, togglePanel } from '../panels'
-import { usePreferences } from './PreferencesDialog'
+import { useSystemMenu } from './SystemMenu'
 
 export type { Tab }
 
@@ -16,14 +16,19 @@ export type { Tab }
  * were doing, so it never has an active state here.
  */
 export function BottomNav(props: { activeTab: Tab; onChange: (t: Tab) => void }) {
-    const preferences = usePreferences()
+    const systemMenu = useSystemMenu()
     return (
         <menu id="main-nav">
             <button type="button" onClick={() => props.onChange('home')}   classList={{ active: props.activeTab === 'home' }}>   <MdFillHouse size={32} /></button>
             <button type="button" onClick={() => props.onChange('actors')} classList={{ active: props.activeTab === 'actors' }}> <MdFillPerson size={32} /></button>
             <button type="button" onClick={() => props.onChange('chat')}   classList={{ active: props.activeTab === 'chat' }}>   <MdFillChat size={32} /></button>
             <button type="button" onClick={() => props.onChange('notes')}  classList={{ active: props.activeTab === 'notes' }}>  <MdFillNote size={32} /></button>
-            <button type="button" onClick={preferences.open}><MdFillSettings size={32} /></button>
+            <button type="button" class="main-nav-panel" onClick={systemMenu.open} title="Menu">
+                <MdFillSettings size={32} />
+                <Show when={systemMenu.unseen() > 0}>
+                    <span class="main-nav-panel-badge">{systemMenu.unseen()}</span>
+                </Show>
+            </button>
 
             {/* Registered panels append here. This does crowd five slots into
                 six or more — accepted because a panel only exists while it has

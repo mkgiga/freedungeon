@@ -4278,6 +4278,101 @@ body.item-dragging [data-drop-actor].drop-target-hover {
   cursor: not-allowed;
 }
 
+/* ── System menu ────────────────────────────────────────────────────────
+   The settings button opens a list of destinations rather than one screen, the
+   way a game's system menu does. Rows are full-width targets so the whole line
+   is clickable, not just the label. */
+.system-menu {
+  display: flex;
+  flex-direction: column;
+  margin: -4px 0;
+}
+
+.system-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 8px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.system-menu-item + .system-menu-item {
+  border-top: 1px solid var(--border);
+}
+
+.system-menu-item:hover {
+  background-color: color-mix(in oklch, var(--text), transparent 92%);
+}
+
+.system-menu-item.is-danger {
+  color: var(--danger);
+}
+
+.system-menu-icon {
+  display: flex;
+  flex: none;
+  opacity: 0.75;
+}
+
+.system-menu-label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Same pill as the nav badge, so the count reads as the same object whether
+   it's on the button or on the row it refers to. */
+.system-menu-badge {
+  flex: none;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--bg);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Notification log ── */
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The coloured left edge carries the notification's own severity colour, which
+   is the only styling the server sends. */
+.notification-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--border);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in oklch, var(--text), transparent 96%);
+}
+
+.notification-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notification-when {
+  flex: none;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.notification-body {
+  opacity: 0.85;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ── Side panels ────────────────────────────────────────────────────────
    Layout, never overlay. On desktop the host is a column beside the rail, so
    opening one narrows the content rather than sitting on top of it. On a phone

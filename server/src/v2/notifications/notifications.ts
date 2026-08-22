@@ -13,7 +13,17 @@ export const notificationsRouter = router({
      */
     list: procedure
         .input(z.object({
-            before: z.number().optional(),
+            /**
+             * Keyset cursor: the last row of the previous page.
+             *
+             * Both halves are needed. Several notifications can share a
+             * millisecond — anything raised in a loop does — and a bare
+             * `created_at <` cursor then skips every row tied with the boundary,
+             * silently losing them from the middle of the list. Pairing the
+             * timestamp with the id gives a total order, so no row can hide in a
+             * tie.
+             */
+            before: z.object({ createdAt: z.number(), id: z.string() }).optional(),
             limit: z.number().int().min(1).max(100).default(50),
         }))
         .query(async ({ input }) => {
@@ -23,8 +33,15 @@ export const notificationsRouter = router({
                 // recorded for support, not for reading.
                 .where('show', '=', 1)
                 .orderBy('created_at', 'desc')
+                .orderBy('id', 'desc')
                 .limit(input.limit)
-            if (input.before !== undefined) q = q.where('created_at', '<', input.before)
+            const cursor = input.before
+            if (cursor) {
+                q = q.where((eb) => eb.or([
+                    eb('created_at', '<', cursor.createdAt),
+                    eb.and([eb('created_at', '=', cursor.createdAt), eb('id', '<', cursor.id)]),
+                ]))
+            }
             return (await q.execute()).map(hydrateNotification)
         }),
 

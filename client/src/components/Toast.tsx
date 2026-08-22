@@ -2,7 +2,7 @@ import { createSignal, createContext, useContext, For, onMount, Show, type JSXEl
 import { Portal } from 'solid-js/web'
 import { onNotification, state } from '../state'
 import { useLlmConfigs } from './LlmConfigsDialog'
-import { openPanel } from '../panels'
+import { useNotificationActions } from '../notification-actions'
 import type { NotificationAction } from '@shared/types'
 
 // ── Types ──
@@ -51,28 +51,9 @@ export function ToastProvider(props: { children: JSXElement }) {
     const [toasts, setToasts] = createSignal<ToastEntry[]>([])
     const configs = useLlmConfigs()
 
-    /**
-     * Run a notification's fix-it action. The target is resolved here rather
-     * than sent with the notification: by the time anyone clicks, the active
-     * config may not be the one that was active when the turn failed, and
-     * opening the config they're no longer using would be worse than useless.
-     *
-     * Opening the library on that config mounts its editor fresh, at the top of
-     * the pane — which is where ClaudeAuthNotice and its Sign in button are.
-     */
-    const runAction = (action: NotificationAction) => {
-        switch (action.kind) {
-            case 'openLlmConfig':
-                configs.open(state.userPreferences.activeLLMConfigId ?? undefined)
-                return
-            case 'openDownloads':
-                // The panel is the only place a backgrounded download can be
-                // retried, and on a phone mid-conversation the nav that would
-                // otherwise reach it is hidden — so this is the way back.
-                openPanel('downloads')
-                return
-        }
-    }
+    // Shared with the notification log, so acting on something you missed
+    // behaves exactly like acting on it live.
+    const runAction = useNotificationActions()
 
     const dismiss = (id: string) => {
         setToasts((prev) => prev.map((t) => t.id === id ? { ...t, exiting: true } : t))
