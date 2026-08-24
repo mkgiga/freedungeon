@@ -1,6 +1,6 @@
 import { Show, type JSXElement } from 'solid-js'
 import {
-    MdFillSettings, MdFillNotifications, MdFillDownload, MdFillMenu_book, MdFillLogout,
+    MdFillSettings, MdFillNotifications, MdFillDownload, MdFillHelp, MdFillLogout,
 } from 'solid-icons/md'
 import { useModal } from './Modal'
 import { usePreferences } from './PreferencesDialog'
@@ -56,7 +56,7 @@ export function useSystemMenu() {
             })
         }
 
-        list.push({ label: 'Documentation', icon: <MdFillMenu_book size={22} />, onClick: () => help.open() })
+        list.push({ label: 'Documentation', icon: <MdFillHelp size={22} />, onClick: () => help.open() })
 
         // Hidden in a browser tab: a page cannot close a tab it did not open,
         // so the entry would be present and inert.
