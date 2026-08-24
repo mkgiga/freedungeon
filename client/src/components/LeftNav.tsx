@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js'
-import { MdFillHelp, MdFillSettings, MdFillSmart_toy } from 'solid-icons/md'
+import { MdFillSettings, MdFillSmart_toy } from 'solid-icons/md'
 import { state } from '../state'
 import { activeTab, setActiveTab } from '../tab-state'
 import { viewport } from '../viewport'
@@ -34,6 +34,8 @@ export function LeftNav() {
     // owner of the two app-wide actions. Both are dialogs — they open over
     // whatever you were doing rather than navigating away from it.
     useAction('app.preferences', preferences.open)
+    // No Help row any more — the docs live in the system menu. The rail still
+    // owns the shortcut, since it's what's mounted for the whole session.
     useAction('app.help', () => help.open())
 
     const player = () => {
@@ -122,18 +124,6 @@ export function LeftNav() {
                 </span>
                 <Show when={showLabels()}>
                     <Text>Menu</Text>
-                </Show>
-            </button>
-
-            <button
-                type="button"
-                class="left-nav-preferences"
-                title="Help"
-                onClick={() => help.open()}
-            >
-                <MdFillHelp size={26} />
-                <Show when={showLabels()}>
-                    <Text>Help</Text>
                 </Show>
             </button>
         </menu>
