@@ -3736,6 +3736,9 @@ menu#main-nav {
    signal, which is why it's an opaque well rather than the portrait showing
    through.
 
+   Bottom-left, not a top corner: a portrait is framed on its subject's face,
+   so anything in the upper half lands on it.
+
    The red is sandwiched between two 1px rings of the app background: the outer
    one lifts it off whatever the portrait happens to be, the inner one keeps a
    full orb from merging into its own ring. The inner ring is a `border` rather
@@ -3745,8 +3748,8 @@ menu#main-nav {
    fill no room to climb. */
 .hp-orb {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  bottom: 2px;
+  left: 2px;
   /* Border-box, so this is 8px of well inside the 1px inner ring; the two
      shadows put the drawn size at 14px. */
   width: 10px;
