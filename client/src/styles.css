@@ -1975,7 +1975,6 @@ button {
      gap + a 17px sliver of the next row — one row for reading room, with just
      enough of row two showing that a crowded scene doesn't look like it ends
      there. The rail scrolls for the rest. Also the composer's floor. */
-  --chat-band-h: 156px;
 }
 
 .chat-messages {
@@ -2647,9 +2646,13 @@ button {
    bottom edge. */
 /* Occupies the composer's slot while blocks are unread, so the row doesn't
    collapse and the advance control lands where the send button was. */
+/* Stands in for the textarea, inside the composer — so it matches the field's
+   min-height: the band must not jump shorter every time a scene starts playing
+   and taller again when it finishes. */
 .continue-bar {
-  flex: 1;
+  flex: none;
   min-width: 0;
+  min-height: 96px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2689,20 +2692,73 @@ button {
 }
 
 .chat-composer {
-  flex: 1;
+  flex: none;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
-/* Out-of-character tools left, turn-driving actions right. Each side is its own
-   group so `space-between` opens a gap only between the groups, never between
-   two neighbouring buttons. */
+/* The rail, above the field: [ ⋯ | HUD | turn actions ]. The HUD is the only
+   flexible column, so it absorbs every pixel the two button groups leave and
+   the buttons never move as the scene gains actors or items. No gaps and no
+   padding at the ends — the buttons are full-height and sit flush. */
 .chat-composer-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex: none;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Actors and carried items, side by side. Scrolls sideways rather than wrapping
+   or growing: the rail is one row tall and stays that way. */
+.chat-composer-hud {
+  flex: 1;
+  min-width: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.chat-composer-hud::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-hud-actors,
+.chat-hud-items {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.chat-hud-divider {
+  flex: none;
+  width: 1px;
+  height: 28px;
+  background: var(--border-strong);
+}
+
+/* Real-box wrapper around each portrait so auto-animate can measure it for FLIP
+   (GameStateActorStatus's own root is display:contents, which has no box).
+   A transparent border rather than an inset outline: the portrait fills this
+   box edge to edge, and a child's background paints over the parent's outline
+   — the ring simply vanished. Every actor reserves the same 2px so marking one
+   as the player doesn't resize it. */
+.chat-hud-actor {
+  display: flex;
+  flex: none;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+
+/* "This is your character" tell. */
+.chat-hud-actor.is-player {
+  border-color: color-mix(in oklch, var(--primary), transparent 30%);
 }
 
 .chat-composer-actions-group {
@@ -2765,8 +2821,6 @@ button {
   max-height: 45dvh;
   field-sizing: content;
   padding: 10px 12px;
-  /* Clear of the mode toggle sitting in the band's top-right corner. */
-  padding-right: 56px;
   background: var(--bg);
   border: none;
   color: var(--text);
@@ -3637,6 +3691,85 @@ menu#main-nav {
   pointer-events: none;
 }
 
+/* Square portrait with the health orb pinned in its corner. */
+.game-state-actor-micro {
+  position: relative;
+  display: block;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+
+  & .image-icon {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+  }
+
+  /* The player slot with nobody in it. Same box, so picking a character
+     doesn't move the rest of the row. */
+  &.is-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    background: color-mix(in oklch, var(--text), transparent 92%);
+    opacity: 0.55;
+    transition: opacity 120ms, background-color 120ms;
+
+    &:hover {
+      opacity: 1;
+      background: var(--bg-2);
+    }
+  }
+}
+
+/* A Diablo orb flattened to a dot in the corner: the red ring is the actor's
+   full health and is always drawn, the fill is what's left of it and rises from
+   the bottom. Ring and fill are the same red, so a healthy actor reads as one
+   solid disc and only a wounded one shows a boundary — the empty part is the
+   signal, which is why it's an opaque well rather than the portrait showing
+   through.
+
+   The red is sandwiched between two 1px rings of the app background: the outer
+   one lifts it off whatever the portrait happens to be, the inner one keeps a
+   full orb from merging into its own ring. The inner ring is a `border` rather
+   than another shadow because the fill is positioned against the padding box —
+   the border is what insets it; its colour matches the well by design. The two
+   outward rings are `box-shadow`, which paints outside the box and so costs the
+   fill no room to climb. */
+.hp-orb {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  /* Border-box, so this is 8px of well inside the 1px inner ring; the two
+     shadows put the drawn size at 14px. */
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--bg);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow:
+    0 0 0 1px var(--color-red-400),
+    0 0 0 2px var(--bg);
+  pointer-events: none;
+}
+
+.hp-orb-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-red-400);
+  transition: height 200ms ease;
+}
+
 .game-state-actor-presentation {
   display: flex;
   flex-direction: column;
@@ -3644,288 +3777,27 @@ menu#main-nav {
   padding: 4px 0;
 }
 
-/* ── Game-state bottom panel (persistent band below the feed) ──
-   Laid out as [ actors | inventory ]: a wide, horizontally-scrolling row of
-   actor cards on the left, a narrow 2-column inventory grid (scrolls down) on
-   the right. */
-
-/* One band, two faces (actors rail / composer). `min-height` rather than a fixed
-   height: the composer's auto-sizing textarea grows the whole band, and the
-   message feed above it (flex-1) gives up the space. Named as an anchor so the
-   inventory dock can hang off its top edge wherever that lands. */
+/* ── Game-state bottom band (below the feed) ──
+   A column: the state/action rail, then the text field. It has no height of its
+   own — the rail is a fixed row and the auto-sizing textarea grows the band,
+   with the message feed above (flex-1) giving up the space. */
 .chat-status-panel {
   position: relative;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   flex: none;
-  min-height: var(--chat-band-h);
   max-height: 60dvh;
   background: var(--bg);
   border-top: 1px solid var(--border-strong);
-  anchor-name: --chat-bottom-ui;
 }
 
-.chat-status-actors {
-  flex: 1;
-  min-width: 0;
-  /* Fixed, not content-sized: a scene with a dozen actors scrolls the rail
-     rather than growing the band. */
-  height: var(--chat-band-h);
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  align-content: flex-start;
-  gap: 8px;
-  padding: 8px;
-  /* Room for the absolutely-positioned mode toggle in the top-right corner. */
-  padding-right: 56px;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-/* Both faces stay mounted (the composer keeps unsent drafts, the rail keeps its
-   scroll and auto-animate state); only one is displayed. Spelled out because
-   these rules come after Tailwind's `hidden` utility and would otherwise win. */
-.chat-status-actors.hidden,
-.chat-composer.hidden {
-  display: none;
-}
-
-/* 💬 / ✕ — flips the band between the actors rail and the composer. */
-.chat-status-toggle {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  opacity: 0.65;
-  transition: opacity 120ms, background-color 120ms;
-
-  &:hover {
-    opacity: 1;
-    background-color: var(--bg-2);
-  }
-}
-
-.chat-status-actors::-webkit-scrollbar {
-  display: none;
-}
-
-/* Real-box wrapper around each card so auto-animate can measure it for FLIP
-   (GameStateActorStatus's own root is display:contents, which has no box). */
-.chat-status-card {
-  display: flex;
-  flex-shrink: 0;
-  border-radius: 8px;
-}
-
-/* "This is your character" tell. */
-.chat-status-card.is-player {
-  outline: 2px solid color-mix(in oklch, var(--primary), transparent 30%);
-  outline-offset: -2px;
-}
-
-.chat-status-set-player,
-.chat-status-player-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  opacity: 0.65;
-  cursor: pointer;
-  transition: opacity 120ms, background-color 120ms;
-}
-
-.chat-status-set-player:hover,
-.chat-status-player-avatar:hover {
-  opacity: 1;
-  background: var(--bg-2);
-}
-
-.chat-status-player-avatar .image-icon {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 6px;
-}
-
-/* A small vertical actor card (GameStateActorStatus variant="small"). */
-.game-state-actor-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 84px;
-  flex-shrink: 0;
-  padding: 4px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 120ms;
-}
-
-.game-state-actor-card:hover {
-  background: var(--bg-2);
-}
-
-.game-state-actor-card .image-icon {
-  width: 64px;
-  height: 64px;
-  aspect-ratio: 1 / 1;
-  border-radius: 6px;
-}
-
-.game-state-actor-card-name {
-  max-width: 100%;
-}
-
-.game-state-actor-card .hp-bar-horizontal {
-  width: 100%;
-}
-
-.game-state-actor-card-hp {
-  font-size: 10px;
-  line-height: 1;
-  opacity: 0.7;
-}
-
-/* ── Inventory dock ──
-   Handle + drawer, hanging off the top edge of the bottom band and overlaying
-   the message feed (the feed never reflows when it opens). Positioned with CSS
-   anchor positioning against the band: `top span-all` puts it in the row above
-   the anchor, and `anchor-size(width)` stretches it to the band's width —
-   `position-area` alone sizes a spanning element to max-content. So it keeps
-   tracking the band's top edge as the composer grows the band taller.
-
-   The bare insets are the pre-anchor-positioning fallback, pinning the dock one
-   band-min-height up from the bottom of .chat-main; they must be reset inside
-   the @supports block, because once `position-area` applies, inset properties
-   are re-interpreted as offsets from the grid region. */
-.chat-inventory-dock {
-  position: absolute;
-  bottom: var(--chat-band-h);
-  left: 0;
-  right: 0;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  /* The dock is mostly empty space over the feed; only its own controls take
-     pointer events, so the messages behind it stay scrollable/selectable. */
-  pointer-events: none;
-}
-
-@supports (position-area: top span-all) {
-  .chat-inventory-dock {
-    position-anchor: --chat-bottom-ui;
-    position-area: top span-all;
-    width: anchor-size(width);
-    inset: auto;
-  }
-}
-
-.chat-inventory-handle {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 96px;
-  height: 42px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--border-strong);
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  transition: opacity 120ms, background-color 120ms;
-
-  &:hover {
-    opacity: 1;
-    background-color: var(--bg-2);
-  }
-}
-
-.chat-inventory-drawer {
-  pointer-events: auto;
-  width: 100%;
-  max-height: 40dvh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  border-top: 1px solid var(--border-strong);
-  box-shadow: 0 -16px 32px rgba(0, 0, 0, 0.35);
-  animation: chat-inventory-drawer-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* Holds the collapse button, which the open drawer takes in rather than leaving
-   it floating over the feed. Costs a row of width to keep the button on a solid
-   background. */
-.chat-inventory-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  height: 32px;
-}
-
-.chat-inventory-collapse {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 96px;
-  height: 100%;
-  opacity: 0.65;
-  transition: opacity 120ms, background-color 120ms;
-
-  &:hover {
-    opacity: 1;
-    background-color: var(--bg-2);
-  }
-}
-
-.chat-inventory-grid {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 44px);
-  grid-auto-rows: 44px;
-  gap: 4px;
-  align-content: start;
-  padding: 8px;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.chat-inventory-grid::-webkit-scrollbar {
-  display: none;
-}
-
-@keyframes chat-inventory-drawer-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.chat-status-inventory-empty {
-  grid-column: 1 / -1;
-  align-self: center;
-  text-align: center;
-  font-size: var(--text-sm);
-  opacity: 0.4;
-  padding: 0 4px;
-}
-
+/* ── Inventory ──
+   Item slots, sized to sit in the composer rail beside the actor portraits. */
 .chat-inventory-slot {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;

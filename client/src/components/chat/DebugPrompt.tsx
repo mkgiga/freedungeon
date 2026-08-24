@@ -1,5 +1,4 @@
 import { For, Show } from 'solid-js'
-import { MdFillBug_report } from 'solid-icons/md'
 import { state } from '../../state'
 import { useModal } from '../Modal'
 import { Text } from '../typography/Text'
@@ -92,20 +91,12 @@ function DebugPromptView() {
     )
 }
 
-export function DebugPromptButton() {
+export function useDebugPrompt() {
     const modal = useModal()
 
-    return (
-        <button
-            class="chat-input-btn"
-            title="Inspect the prompt last sent to the provider"
-            onClick={() => modal.open({
-                title: 'Prompt sent to provider',
-                fullscreen: true,
-                content: () => <DebugPromptView />,
-            })}
-        >
-            <MdFillBug_report size={20} />
-        </button>
-    )
+    return () => modal.open({
+        title: 'Prompt sent to provider',
+        fullscreen: true,
+        content: () => <DebugPromptView />,
+    })
 }

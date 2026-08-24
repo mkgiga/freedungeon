@@ -1,4 +1,4 @@
-import { createMemo, createSignal, Show } from 'solid-js'
+import { createMemo, createSignal, Show, type JSXElement } from 'solid-js'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { parseBlocks } from './blocks'
@@ -13,9 +13,13 @@ import {
     MdFillWarning,
     MdFillEdit_note,
     MdFillDownload,
+    MdFillMore_horiz,
+    MdFillBug_report,
 } from 'solid-icons/md'
 import { Em } from '../typography/Em'
-import { DebugPromptButton } from './DebugPromptButton'
+import { AnchoredMenu, type DropdownItem } from '../Dropdown'
+import { useDebugPrompt } from './DebugPrompt'
+import { ContinueBar } from './ContinueBar'
 import { usePlayback } from './playback'
 import { useRehydrationConfirm } from './rehydration'
 import { viewport } from '../../viewport'
@@ -57,10 +61,16 @@ export function createPendingChoicePrompt() {
     })
 }
 
-export function ChatInput(props: { hidden?: boolean }) {
+export function ChatInput(props: {
+    /** The live game state — actors and inventory — rendered inline in the
+     *  rail. Passed in rather than built here: it belongs to GameStatePanel,
+     *  which owns the replayed state and the drag/drop wiring. */
+    hud?: JSXElement
+}) {
     const [message, setMessage] = createSignal('')
     const modal = useModal()
     const playback = usePlayback()
+    const openDebugPrompt = useDebugPrompt()
     const withRehydrationConfirm = useRehydrationConfirm()
 
     const openDirectorNote = () => {
@@ -217,10 +227,46 @@ export function ChatInput(props: { hidden?: boolean }) {
     // that. The composer stays the escape hatch for typing your own action.
     const pendingChoicePrompt = createPendingChoicePrompt()
 
+    // Everything that isn't a turn action. They were three icons squatting on
+    // the left of the rail; the rail now has a HUD to fit, and these are all
+    // things you reach for occasionally and never mid-sentence.
+    const overflowItems = createMemo<DropdownItem[]>(() => {
+        const items: DropdownItem[] = [{
+            label: hasPendingNotice() ? "Director's note (pending)" : "Director's note",
+            icon: <MdFillEdit_note size={18} />,
+            onClick: openDirectorNote,
+            title: hasPendingNotice()
+                ? "Director's note pending — will attach to next turn"
+                : 'A private note for your next turn',
+        }]
+        if (state.userPreferences.debug) {
+            items.push({
+                label: 'Inspect last prompt',
+                icon: <MdFillBug_report size={18} />,
+                onClick: openDebugPrompt,
+                title: 'Inspect the prompt last sent to the provider',
+            })
+        }
+        const rehydration = state.currentChat.agentRehydration
+        if (rehydration) {
+            items.push({
+                label: 'Agent has no live session',
+                icon: <MdFillWarning size={18} />,
+                onClick: openRehydrationInfo,
+                title: `Next turn will inject ${rehydration.messageCount} prior messages `
+                    + `(~${rehydration.estimatedTokens.toLocaleString()} input tokens) to rebuild context.`,
+            })
+        }
+        return items
+    })
+
+    // The menu is folded shut, so whatever it holds has to be tellable from the
+    // outside — otherwise a pending note or a dead session becomes invisible.
+    const [menuOpen, setMenuOpen] = createSignal(false)
+    let menuAnchor: HTMLButtonElement | undefined
+
     return (
-        // Hidden rather than unmounted while the band shows the actors rail, so
-        // an unsent draft survives closing and reopening the composer.
-        <div class="chat-composer" classList={{ hidden: props.hidden }}>
+        <div class="chat-composer">
             {/* Sits above the field rather than replacing it, so a half-typed
                 message survives the wait. */}
             <Show when={blockedReason()}>
@@ -235,46 +281,34 @@ export function ChatInput(props: { hidden?: boolean }) {
                 )}
             </Show>
 
-            <textarea
-                class="chat-input-textarea"
-                disabled={!!blockedReason()}
-                placeholder={pendingChoicePrompt() ? '…or type your own action' : 'Type a message...'}
-                value={message()}
-                onInput={(e) => setMessage(e.currentTarget.value)}
-                ref={(el) => { composerEl = el }}
-            />
-
-            {/* Turn actions along the bottom edge: out-of-character tools on the
-              * left, the ones that actually drive a turn on the right. Each side
-              * is its own group so the row's justify-content can't put space
-              * between neighbouring buttons. */}
+            {/* Above the field, not below it. It carries the HUD now, and a
+              * field that grows line by line would drag a bottom rail down the
+              * screen while you type — the buttons would never sit still. */}
             <div class="chat-composer-actions">
-                <div class="chat-composer-actions-group">
-                    <button
-                        class="chat-input-btn"
-                        classList={{ 'is-active-notice': hasPendingNotice() }}
-                        onClick={openDirectorNote}
-                        title={hasPendingNotice()
-                            ? "Director's note pending — will attach to next turn"
-                            : "Director's note for next turn"}
-                    >
-                        <MdFillEdit_note size={20} />
-                    </button>
-                    <Show when={state.userPreferences.debug}>
-                        <DebugPromptButton />
-                    </Show>
-                    <Show when={state.currentChat.agentRehydration}>
-                        {(r) => (
-                            <button
-                                class="chat-input-btn text-emphasis-warning"
-                                title={`Agent has no live session — next turn will inject ${r().messageCount} prior messages (~${r().estimatedTokens.toLocaleString()} input tokens) to rebuild context. Click for details.`}
-                                onClick={openRehydrationInfo}
-                            >
-                                <MdFillWarning size={20} />
-                            </button>
-                        )}
-                    </Show>
-                </div>
+                <button
+                    ref={menuAnchor}
+                    class="chat-input-btn"
+                    classList={{
+                        'is-active-notice': hasPendingNotice(),
+                        'text-emphasis-warning': !hasPendingNotice() && !!state.currentChat.agentRehydration,
+                    }}
+                    onClick={() => setMenuOpen(o => !o)}
+                    title="More"
+                >
+                    <MdFillMore_horiz size={20} />
+                </button>
+                <Show when={menuOpen() && menuAnchor}>
+                    {(anchor) => (
+                        <AnchoredMenu
+                            anchor={anchor()}
+                            items={overflowItems()}
+                            onClose={() => setMenuOpen(false)}
+                        />
+                    )}
+                </Show>
+
+                {/* Takes whatever width the two button groups leave. */}
+                <div class="chat-composer-hud">{props.hud}</div>
 
                 <div class="chat-composer-actions-group">
                     <button class="chat-input-btn" onClick={handleContinue} title="Fast forward">
@@ -297,6 +331,24 @@ export function ChatInput(props: { hidden?: boolean }) {
                     </Show>
                 </div>
             </div>
+
+            {/* The field is taken away entirely while blocks are unread — a text
+              * box is an invitation to type, and a tester did, straight through
+              * a scene that was still playing. The rail stays: the HUD is state
+              * to read, not an invitation. */}
+            <Show
+                when={!playback.hasUnread()}
+                fallback={<ContinueBar />}
+            >
+                <textarea
+                    class="chat-input-textarea"
+                    disabled={!!blockedReason()}
+                    placeholder={pendingChoicePrompt() ? '…or type your own action' : 'Type a message...'}
+                    value={message()}
+                    onInput={(e) => setMessage(e.currentTarget.value)}
+                    ref={(el) => { composerEl = el }}
+                />
+            </Show>
         </div>
     )
 }

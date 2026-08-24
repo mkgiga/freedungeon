@@ -4,7 +4,7 @@ import { ImageIcon } from './ImageIcon'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
 
-type Variant = 'compact' | 'small' | 'presentation'
+type Variant = 'compact' | 'presentation' | 'micro'
 
 type Props = {
     customId: string
@@ -18,10 +18,6 @@ type Props = {
 export function GameStateActorStatus(props: Props): JSXElement {
     const actor = () => Object.values(state.assets.actors).find(a => a.customId === props.customId) ?? null
     const displayName = () => actor()?.name ?? props.customId
-    // The card variants are only ~84px wide, where "Arnold Castus au Victoria"
-    // truncates to an ellipsis and tells you nothing. Show the first name and
-    // keep the full one on the tooltip / accessible name.
-    const shortName = () => displayName().trim().split(/\s+/)[0] || displayName()
     const avatarUrl = () => actor()?.avatarUrl
     const description = () => actor()?.description ?? ''
     const maxHp = () => props.maxHp ?? 100
@@ -47,14 +43,23 @@ export function GameStateActorStatus(props: Props): JSXElement {
                     </button>
                 </Match>
 
-                <Match when={props.variant === 'small'}>
-                    <button type="button" class="game-state-actor-card" onClick={props.onClick} title={displayName()}>
-                        <ImageIcon url={avatarUrl()} size={props.avatarSize ?? 64} />
-                        <Text size="sm" class="game-state-actor-card-name truncate">{shortName()}</Text>
-                        <div class="hp-bar hp-bar-horizontal">
-                            <div class="hp-bar-fill" style={{ width: `${pct()}%` }} />
-                        </div>
-                        <span class="game-state-actor-card-hp">{props.hp}/{maxHp()}</span>
+                {/* Square avatar, nothing else — it sits in the composer rail
+                  * beside the inventory, where a name and a numeric HP would
+                  * cost more width than the whole rail has. The orb carries the
+                  * health: outline always drawn so the actor's full capacity
+                  * stays visible, fill rising from the bottom. */}
+                <Match when={props.variant === 'micro'}>
+                    <button
+                        type="button"
+                        class="game-state-actor-micro"
+                        onClick={props.onClick}
+                        title={`${displayName()} — HP ${props.hp}/${maxHp()}`}
+                        aria-label={`${displayName()} — HP ${props.hp}/${maxHp()}`}
+                    >
+                        <ImageIcon url={avatarUrl()} size={props.avatarSize ?? 40} />
+                        <span class="hp-orb">
+                            <span class="hp-orb-fill" style={{ height: `${pct()}%` }} />
+                        </span>
                     </button>
                 </Match>
 
