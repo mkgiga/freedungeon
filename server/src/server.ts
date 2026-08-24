@@ -21,7 +21,6 @@ import { appRouter } from './v2/router';
 import { uploadsRouter } from './v2/uploads';
 import type { AppState, CurrentChatState } from '@shared/types';
 import { z } from 'zod';
-import { notification } from './notifications';
 import { nanoid } from 'nanoid';
 import { createInitialContext } from './game-state';
 import { agentRpcRouter, spawnAgentProcess, killAgentProcess } from './agent';
@@ -458,16 +457,6 @@ async function initWebSocket() {
         log.server.info(`New WebSocket connection: ${socket.id}`);
         activeSockets.add(socket);
         socket.emit('init', JSON.parse(JSON.stringify(state)));
-        setTimeout(() => {
-            notification({
-                title: 'Welcome to RPApp!',
-                content: 'Test',
-                backgroundColor: '#333',
-                textColor: '#fff',
-                show: true,
-                push: false,
-            });
-        }, 1000);
 
         socket.on('disconnect', () => {
             log.server.info(`WebSocket disconnected: ${socket.id}`);

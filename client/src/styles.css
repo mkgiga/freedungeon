@@ -4218,10 +4218,16 @@ body.item-dragging [data-drop-actor].drop-target-hover {
 }
 
 /* The coloured left edge carries the notification's own severity colour, which
-   is the only styling the server sends. */
+   is the only styling the server sends.
+
+   `flex: none` is load-bearing: the global `* { min-height: 0 }` reset strips
+   the automatic minimum size off every flex item, so without it a full log
+   shrinks each row to a fraction of its content height instead of overflowing,
+   and the title, timestamp and body pile up on one line. The modal scrolls. */
 .notification-row {
   display: flex;
   flex-direction: column;
+  flex: none;
   gap: 4px;
   padding: 8px 10px;
   border-left: 3px solid var(--border);
