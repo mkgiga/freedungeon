@@ -77,6 +77,9 @@ export async function generateSceneImage(
                 prompt,
                 width,
                 height,
+                scheduler: "ER-SDE",
+                steps: 30,
+                negativePrompt: "score_1, score_2, score_3, worst quality, low quality, blurry, censored",
             })
 
             const image = result.images[0]
