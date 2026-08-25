@@ -4,12 +4,12 @@ An Actor is a character sheet that describes a character in your adventures. Act
 
 ## Table of Contents
 
-- [ID](#id)
-- [Name](#name)
-- [Description](#description)
-- [Expressions](#expressions)
-
-
+- [Player Actor](#player-actor)
+- [Actor Properties](#actor-properties)
+  - [ID](#id)
+  - [Name](#name)
+  - [Description](#description)
+  - [Expressions](#expressions)
 
 ## Actor Properties
 

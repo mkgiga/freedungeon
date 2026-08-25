@@ -10,17 +10,17 @@ Macros are magic words that transform into something else when the AI looks at t
 
 - Player actor's name
     ```
-    {{ @Player.name }} never loses and everybody loves them.
+    {{ player.name }} never loses and everybody loves them.
     ```
 - Player actor's first name and last name
     ```
-    First name: {{ @Player.firstName }}
-    Last name: {{ @Player.lastName }}
+    First name: {{ player.firstName }}
+    Last name: {{ player.lastName }}
     ```
 - Player actor's ID
     ```
     Instruction for the AI:
-    {{ @Player.id }} is mute and cannot talk.
+    {{ player.id }} is mute and cannot talk.
     ```
 
 (TODO better examples)

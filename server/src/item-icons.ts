@@ -43,7 +43,7 @@ export async function generateSceneImage(
     if (!cfg) return undefined
 
     const prompt = withImagePrompt(description, () =>
-        parseMacros('{{ @GENERATE_IMAGE_VISUAL() }}').parsed.trim(),
+        parseMacros('{{ GENERATE_IMAGE_VISUAL() }}').parsed.trim(),
     )
 
     const { width, height } = ASPECT_DIMENSIONS[aspect]
@@ -92,7 +92,7 @@ export async function generateItemIcon(label: string, description: string, itemK
     const taskId = `freedungeon-icon-${nanoid(8)}`
 
     const prompt = withItemDescription(description, () =>
-        parseMacros('{{ @GENERATE_ITEM_ICON_PROMPT() }}').parsed.trim(),
+        parseMacros('{{ GENERATE_ITEM_ICON_PROMPT() }}').parsed.trim(),
     )
 
     return withActivity('generatingItemIcon', { label, key: itemKey }, async (update) => {

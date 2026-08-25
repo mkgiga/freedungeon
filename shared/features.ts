@@ -78,7 +78,7 @@ export const FEATURES: Record<string, FeatureSpec> = {
     },
 }
 
-/** Style injected for `{{ @user_style_preference }}` when the user left it blank. */
+/** Style injected for `{{ user_style_preference }}` when the user left it blank. */
 export const DEFAULT_STYLE_PREFERENCE = 'anime screencap'
 
 export type ImageGenConfig = {

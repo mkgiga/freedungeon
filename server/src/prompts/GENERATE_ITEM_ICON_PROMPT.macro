@@ -3,9 +3,9 @@ score_9, masterpiece, best quality, game cg, item icon, 1:1, from above, three q
 This is a high-quality RPG game icon:
 
 \\<description\>
-{{ @mcp_item_description }}
+{{ mcp_item_description }}
 \\</description\>
 
 \\<visual-style\>
-{{ @user_style_preference }}
+{{ user_style_preference }}
 \\</visual-style\>

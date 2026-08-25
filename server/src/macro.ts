@@ -123,7 +123,16 @@ type ScopeBuilder = () => unknown
 
 const scopeBuilders = new Map<string, ScopeBuilder>()
 
-scopeBuilders.set('Player', () => {
+/** Middle segments are dropped: "Ada B. Lovelace" -> Ada, Lovelace. */
+function splitName(name: string): { firstName: string; lastName: string } {
+    const parts = name.trim().split(/\s+/).filter(p => p.length > 0)
+    return {
+        firstName: parts[0] ?? '',
+        lastName: parts.length > 1 ? parts[parts.length - 1]! : '',
+    }
+}
+
+scopeBuilders.set('player', () => {
     const playerCharacterId = state.userPreferences.playerCharacterId
     if (playerCharacterId === null) return null
     const pc = state.assets.actors[playerCharacterId]
@@ -131,6 +140,7 @@ scopeBuilders.set('Player', () => {
     return {
         id: pc.customId || pc.id,
         name: pc.name,
+        ...splitName(pc.name),
         description: pc.description,
         expressions: Object.keys(pc.expressions),
     }
@@ -256,27 +266,22 @@ function evaluate(text: string, ctx: EvalContext): string {
 
 function evaluateMacroCall(inner: string, ctx: EvalContext): string {
     const trimmed = inner.trim()
-
-    if (!trimmed.startsWith('@')) {
-        return `{{${inner}}}`
-    }
-
     const parenIdx = trimmed.indexOf('(')
 
     if (parenIdx === -1) {
-        return evaluateScopeAccess(trimmed.slice(1), ctx)
+        return evaluateScopeAccess(trimmed, inner, ctx)
     }
 
     if (!trimmed.endsWith(')')) {
         throw new Error(`Malformed macro call: ${trimmed}`)
     }
 
-    const name = trimmed.slice(1, parenIdx).trim()
+    const name = trimmed.slice(0, parenIdx).trim()
     const argsText = trimmed.slice(parenIdx + 1, -1).trim()
 
     const entry = registry.get(name)
     if (!entry) {
-        throw new Error(`Macro not found: @${name}`)
+        throw new Error(`Macro not found: ${name}`)
     }
 
     ctx.features[name] = true
@@ -305,18 +310,20 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
     }
 }
 
-function evaluateScopeAccess(pathExpr: string, ctx: EvalContext): string {
+/**
+ * An unknown name is left verbatim rather than throwing. Note and description
+ * text is expanded through here, so any `{{ ... }}` a user happens to write
+ * would otherwise fail their whole turn. A misspelt *call* still throws - prose
+ * rarely contains `name()` inside braces, so there the typo is worth surfacing.
+ */
+function evaluateScopeAccess(pathExpr: string, raw: string, ctx: EvalContext): string {
     const parts = pathExpr.split('.').map(p => p.trim()).filter(p => p.length > 0)
     const [head, ...rest] = parts
-    if (head === undefined) {
-        throw new Error(`Empty scope reference: @`)
-    }
+    if (head === undefined) return `{{${raw}}}`
 
     if (!(head in ctx.scopes)) {
         const builder = scopeBuilders.get(head)
-        if (!builder) {
-            throw new Error(`Scope not found: @${head}`)
-        }
+        if (!builder) return `{{${raw}}}`
         ctx.scopes[head] = builder()
     }
 

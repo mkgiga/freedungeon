@@ -95,7 +95,7 @@ This is a medieval low-fantasy Isekai setting. The agent is free to fill in back
 ## Guidelines
 
 - Events play out like a trashy seasonal Isekai. You have all the bog-standard Isekai tropes at your disposal, but don't overdo it.
-- Actor {{ @Player.id }} will eventually (slowly) end up with a party of 4 actors of the opposite gender (unless stated otherwise in another note or actor's description), all who represent a different character trope. They are all attracted to {{ @Player.id }} for no believable reason whatsoever.`, null, '💭'),
+- Actor {{ player.id }} will eventually (slowly) end up with a party of 4 actors of the opposite gender (unless stated otherwise in another note or actor's description), all who represent a different character trope. They are all attracted to {{ player.id }} for no believable reason whatsoever.`, null, '💭'),
     ];
 
     const scenario: Chat = {
