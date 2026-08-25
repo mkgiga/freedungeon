@@ -11,13 +11,6 @@ function slugify(label: string): string {
     return /^[a-z]/.test(slug) ? slug : `img_${slug}`
 }
 
-/**
- * Pick images for a chat from the library, or upload a new one into it.
- *
- * Uploading is two steps by necessity: the file goes to /uploads (which only
- * knows about bytes), then the returned URL is registered as a library row with
- * the key the agent will use to ask for it.
- */
 export function ImagePicker(props: {
     selected: () => string[]
     onToggle: (image: ImageAsset) => void

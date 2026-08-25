@@ -7,13 +7,6 @@ import { ActorCardGrid } from '../chat/ActorCardGrid'
 import { NoteList } from '../notes'
 import type { Actor, Note } from '@shared/types'
 
-/**
- * A Scenario's cast and notes, read-only.
- *
- * Shown in the right drawer on the mobile collaborator screen — the same place
- * a normal chat keeps its actors and notes, so the gesture carries over. It
- * reflects what the agent just did; editing still happens in the editor.
- */
 export function ScenarioAssetsPanel(props: { scenarioId: string }) {
     const scenario = () => state.assets.chats?.[props.scenarioId]
 

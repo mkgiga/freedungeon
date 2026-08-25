@@ -6,11 +6,8 @@ import { rpcExec, rpcQuery } from './rpc';
 import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProducedMessageId } from './bridge-state';
 
 /**
- * Build the MCP server for one user prompt. Handlers close over the chatId, so
- * a fresh server per prompt makes acting on the wrong chat impossible.
- *
- * Names become `mcp__game_state__<tool>` once registered under `game_state`;
- * that pattern goes to `allowedTools` so calls skip permission prompts.
+ * One server per prompt: handlers close over the chatId, which makes acting on
+ * the wrong chat impossible.
  */
 export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableSceneImages = false, enableItemIcons = false) {
     const writeTools = commandEntries(enableSceneImages).map(([key, spec]) => {

@@ -31,10 +31,6 @@ const AGENT_URL = `http://127.0.0.1:${AGENT_PORT}`;
 
 let agentProcess: ChildProcess | null = null;
 
-/**
- * Spawn the agent as a child of the server, so it dies with the server and is
- * restarted on crash-loop. It listens on AGENT_PORT and is called over HTTP.
- */
 export async function spawnAgentProcess() {
     if (agentProcess) return;
 
@@ -66,9 +62,8 @@ export async function spawnAgentProcess() {
 }
 
 /**
- * Restart the agent so it picks up a newly-downloaded CLI. The path is passed
- * through the environment at spawn time, so a process started before the
- * download would otherwise keep running without it.
+ * The CLI path is passed through the environment at spawn time, so a process
+ * started before the download keeps running without it until restarted.
  */
 export async function restartAgentProcess() {
     killAgentProcess();
@@ -176,13 +171,6 @@ function handleSdkUuid(req: SdkUuidRequest) {
     return { ok: true };
 }
 
-/**
- * Execute one command against the current chat: validate args, build + apply its
- * Block, persist the resulting ChatMessage, and return the effect text the agent
- * sees as the tool result. This is the single execution path shared by the agent
- * RPC handler (Claude subprocess) and the in-process AI SDK loop — both routes
- * call this so they cannot diverge on validation, state mutation, or persistence.
- */
 export async function execCommand(
     chatId: string,
     command: CommandName,
@@ -304,11 +292,6 @@ function describeNoOp(command: string, args: any, ctxBefore: any, ctxAfter: any)
     return `${command} accepted. args: ${JSON.stringify(args)}`;
 }
 
-/**
- * Run one read-only query against the current chat and return its textual
- * result. Shared by the agent RPC handler and the in-process AI SDK loop (same
- * rationale as execCommand).
- */
 export function runQuery(chatId: string, query: QueryName, args: Record<string, unknown>) {
     const spec = QUERIES[query];
     if (!spec) return { error: `unknown_query: ${query}` };
@@ -394,11 +377,9 @@ async function writeFlagsSnapshot(chatId: string, flags: Record<string, unknown>
 }
 
 /**
- * Reset a chat's flags snapshot to the current state. Call after
- * destructive ops (regen, rewind) that re-replay history and change
- * what the agent's "last visible state" should be — without this, the
- * next prompt's delta would compare against a snapshot from a now-
- * pruned reality and produce noise.
+ * Call after any destructive op (regen, rewind) that re-replays history -
+ * otherwise the next prompt's delta compares against a snapshot of a pruned
+ * reality and produces noise.
  */
 export async function resetFlagsSnapshotToCurrent(chatId: string) {
     if (state.currentChat.id !== chatId) return;
@@ -712,11 +693,9 @@ export async function cancelAgentTurn() {
 }
 
 /**
- * Drop a chat's SDK session and arm rehydration: the next prompt injects the
- * full message history as a preamble into a fresh session.
- *
- * The fork-failure / no-anchor fallback. If the chat is the loaded one and has
- * messages, sets the rehydration flag so the next send warns and confirms cost.
+ * Arms rehydration: the next prompt injects the full history as a preamble. If
+ * the chat is the loaded one and has messages, flags it so the next send warns
+ * and confirms the cost.
  */
 export async function invalidateAgentSession(chatId: string) {
     await db.updateTable('chats')
@@ -817,15 +796,9 @@ export async function forkAgentSession(args: {
 }
 
 /**
- * Fork the source chat's SDK session onto `targetChatId`, so branch / clone /
- * saveAsTemplate inherit the agent's memory.
- *
- * `fullCopy` takes the whole session. `untilMessage` forks at the turn-closer
- * anchor at or before `keepUntilMessageId`, resolved against `sourceMessages`
- * (which must still hold the pre-clone ids).
- *
- * Null on no session, no anchor, or a failed fork - the derived chat then
- * starts fresh.
+ * `untilMessage` resolves its anchor against `sourceMessages`, which must still
+ * hold the pre-clone ids. Null on no session, no anchor, or a failed fork - the
+ * derived chat then starts fresh.
  */
 export async function forkAgentSessionForChat(
     args:

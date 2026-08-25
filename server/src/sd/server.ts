@@ -13,7 +13,6 @@ const SD_PORT = Number(process.env.FREEDUNGEON_SD_PORT) || 8077
 
 export const SD_URL = `http://${SD_HOST}:${SD_PORT}`
 
-/** Files that must be present before the sidecar can start. */
 export function requiredSdDependencies(): DependencyKey[] {
     const keys: DependencyKey[] = ['sdServer', 'sdDiffusionModel', 'sdVae', 'sdTextEncoder']
     const choice = getSdBuildChoice()
@@ -110,11 +109,8 @@ export function ensureSdServer(): Promise<void> {
 }
 
 /**
- * Stop the sidecar, releasing the weights it is holding resident.
- *
- * Called when the feature is switched off and on shutdown. The process holds
- * gigabytes for as long as it lives, so leaving it running "just in case" is
- * not free the way an idle HTTP server would be.
+ * The process holds gigabytes resident for as long as it lives, so leaving it
+ * running "just in case" is not free the way an idle HTTP server is.
  */
 export function stopSdServer(): void {
     if (!child) return

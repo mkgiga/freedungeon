@@ -10,13 +10,6 @@ export type Choice = {
     onClick: () => void
 }
 
-/**
- * A fork between two ways of doing the same thing.
- *
- * For where an "add" is ambiguous - adding a character to a Scenario can mean
- * writing a new one or pulling one from the library. Naming both paths makes
- * the second discoverable rather than assumed.
- */
 export function ChoiceDialog(props: { choices: Choice[] }) {
     return (
         <div class="choice-dialog">

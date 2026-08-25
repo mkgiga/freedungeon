@@ -1,11 +1,6 @@
 import { z } from 'zod';
 import type { GameStateContext } from '../types';
 
-/**
- * Read-only MCP tools for inspecting current state. Pure reads against the
- * server's authoritative state; never produce a ChatMessage. The model uses
- * them to check state before mutating it, or to disambiguate an actor id.
- */
 export type QueryDeps = {
     ctx: GameStateContext;
     actors: Array<{

@@ -14,11 +14,8 @@ import { Text } from './typography/Text'
 import { useSystemMenu } from './SystemMenu'
 
 /**
- * Side navigation for tablet and widescreen, replacing the bottom bar. Wide
- * shows icon plus label; tablet collapses to icons.
- *
- * The label leaves the DOM rather than being hidden with CSS, so screen readers
- * and find-in-page can't reach it. `title` carries the name instead.
+ * On tablet the label leaves the DOM rather than being hidden with CSS, so
+ * screen readers and find-in-page can't reach it. `title` carries the name.
  */
 export function LeftNav() {
     const pickers = useAssetPickers()

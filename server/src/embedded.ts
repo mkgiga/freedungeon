@@ -10,7 +10,6 @@ export function setEmbeddedAssets(assets: {
     clientFiles = assets.clientFiles
 }
 
-/** True when running as a compiled binary rather than from source. */
 export function isEmbedded(): boolean {
     return clientFiles !== null
 }

@@ -49,10 +49,7 @@ function toPort(raw: string | undefined, flag: string): number | undefined {
     return n
 }
 
-/**
- * Parse launch options. Throws on malformed input rather than guessing — a
- * typo'd flag that silently did nothing would be worse than a startup error.
- */
+/** Throws on malformed input rather than guessing at a typo'd flag. */
 export function parseLaunchOptions(argv?: string[]): LaunchOptions {
     const { values } = parseArgs({
         args: argv,
@@ -85,8 +82,8 @@ export function parseLaunchOptions(argv?: string[]): LaunchOptions {
 }
 
 /**
- * Publish the options that later modules read at import time. This must run
- * before those modules are imported; see the note at the top of the file.
+ * Must run before the modules that read these at import time; see the note at
+ * the top of the file.
  */
 export function applyLaunchOptions(opts: LaunchOptions): void {
     if (opts.dataDir) process.env.FREEDUNGEON_DATA_DIR = opts.dataDir

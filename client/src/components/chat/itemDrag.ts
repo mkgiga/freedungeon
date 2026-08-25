@@ -1,12 +1,3 @@
-/**
- * Pointer-based drag-and-drop for inventory items. Not HTML5 DnD - no styling
- * control over the native ghost, no touch support.
- *
- * Past a small move threshold: a fixed-position clone follows the pointer, the
- * source gets `.drag-source-ghost`, <body> gets `.item-dragging` (CSS reveals
- * every `[data-drop-actor]`), and each move marks the nearest one
- * `.drop-target-hover`. Release over a target calls `onDrop(actorId)`.
- */
 export function startItemDrag(
     down: PointerEvent,
     sourceEl: HTMLElement,

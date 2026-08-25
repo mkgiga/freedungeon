@@ -58,10 +58,6 @@ export const log = {
 
 log.db.info('Logger initialized');
 
-/**
- * Startup banner. console.log rather than a ComfyLogger so it isn't prefixed
- * per line and reads as one block.
- */
 export function startupBanner(info: {
     version: string
     host: string

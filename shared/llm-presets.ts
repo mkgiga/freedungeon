@@ -146,7 +146,6 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
     },
 }
 
-/** Build default values from a schema */
 export function defaultValuesFromSchema(schema: SchemaField[]): Record<string, any> {
     const values: Record<string, any> = {}
     for (const field of schema) {

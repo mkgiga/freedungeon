@@ -53,11 +53,8 @@ function offer(side: TooltipPlacement, anchor: DOMRect, box: { width: number; he
 }
 
 /**
- * Pick a side that fits, then keep the box on screen.
- *
- * Fit is judged on the measured box, so a tooltip near an edge flips rather
- * than being shoved over its trigger. If no side fits, the preferred one is
- * clamped - overlapping the trigger beats hanging off the screen.
+ * Fit is judged on the measured box, so a tooltip near an edge flips. If no
+ * side fits, the preferred one is clamped rather than moved off screen.
  */
 export function placeTooltip(
     anchor: DOMRect,
@@ -155,12 +152,6 @@ export function TooltipProvider(props: { children: JSXElement }) {
     )
 }
 
-/**
- * An ⓘ that explains something on hover, and stays put when clicked.
- *
- * Hover alone is unusable on a touchscreen and awkward if the text is long
- * enough to want re-reading, so a click pins the tooltip until it's dismissed.
- */
 export function InfoTooltip(props: {
     children: JSXElement
     placement?: TooltipPlacement

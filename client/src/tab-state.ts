@@ -1,16 +1,12 @@
 import { createSignal } from 'solid-js'
 
-/** Preferences is deliberately absent: it's a dialog, not a destination, so it
- *  can be opened over whatever you were doing and closed back onto it. */
 export type Tab = 'home' | 'scenarios' | 'actors' | 'chat' | 'notes'
 
 export const [activeTab, setActiveTab] = createSignal<Tab>('home')
 
 /**
- * Which of the two things the chat tab is showing. It lives here rather than
- * inside /chat because switching to the tab isn't always enough — playing a
- * Scenario has to land on the conversation it just created, not on whatever
- * the tab happened to be showing last.
+ * Outside /chat because switching to the tab isn't always enough - playing a
+ * Scenario has to land on the conversation it just created.
  */
 export type ChatView = 'list' | 'conversation'
 

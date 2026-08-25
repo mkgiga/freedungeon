@@ -1,9 +1,6 @@
 /**
- * Authoring types for the freedungeon extension host.
- *
- * Types only - the real object is handed to `activate` at runtime, since an
- * extension loads from wherever you put it and a bare `import` would have
- * nothing to resolve against. Copy this next to your source for autocomplete.
+ * Types only - the real object is handed to `activate` at runtime. Copy this
+ * next to your source for autocomplete.
  */
 export type ExtensionStore = {
     readonly values: Record<string, unknown>

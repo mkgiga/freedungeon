@@ -2,11 +2,8 @@ import { splitProps, type JSX, type JSXElement } from 'solid-js'
 import styles from './Toolbar.module.css'
 
 /**
- * Extends all intrinsic `<div>` attributes; anything you'd put on a raw div
- * passes through to the outer container.
- *
- * `class` merges with `styles.toolbar` and `style` merges with the `height`
- * defaults, so passthrough doesn't clobber the baseline appearance.
+ * `class` merges with `styles.toolbar` and `style` with the `height` defaults,
+ * so passthrough doesn't clobber the baseline appearance.
  */
 export interface ToolbarProps extends JSX.HTMLAttributes<HTMLDivElement> {
     height?: string;

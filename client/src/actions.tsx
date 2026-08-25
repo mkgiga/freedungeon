@@ -6,10 +6,6 @@ import { featureEnabled, type FeatureKey } from '@shared/features'
 
 type Handler = () => void
 
-/**
- * Conditions on a registration — everything that can't be said in the shared
- * registry, because it isn't shared state.
- */
 export type ActionOptions = {
     enabled?: () => boolean
     whileTyping?: boolean
@@ -33,10 +29,8 @@ export function useActions(): ActionsApi {
 }
 
 /**
- * Claim an action for as long as the calling component is alive.
- *
  * Later registrations win, so a screen mounted over another takes the binding
- * while it's up and hands it back on cleanup - no z-order tracking needed.
+ * and hands it back on cleanup. No z-order tracking.
  */
 export function useAction(id: ActionId, handler: Handler, options?: ActionOptions): void {
     const actions = useActions()
@@ -129,10 +123,6 @@ export function ActionsProvider(props: { children: JSXElement }) {
     )
 }
 
-/**
- * The binding for an action, for display. Reads reactively, so a rebind
- * updates any hint showing it without the component knowing it happened.
- */
 export function keybindLabel(id: ActionId): string | null {
     return resolveKeybind(id, state.userPreferences.keybinds)
 }

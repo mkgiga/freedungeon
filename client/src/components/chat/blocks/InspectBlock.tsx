@@ -4,10 +4,7 @@ import type { InspectBlock as InspectBlockType } from '../blocks'
 import { state } from '../../../state'
 
 /**
- * A user's request to look closer at an actor, from the "Inspect" option on a
- * speech portrait. Styled like TryUseBlock - no container, weight alone.
- *
- * Stores the actor's customId so a rename still resolves; an unknown id renders
+ * Stores the actor's customId so a rename still resolves. An unknown id renders
  * verbatim rather than blank, so a broken ref stays visible.
  */
 export function InspectBlock(props: {

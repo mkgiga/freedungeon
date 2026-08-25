@@ -3,12 +3,9 @@ import type { Block } from '../blocks';
 import type { GameStateContext } from '../types';
 
 /**
- * An MCP tool that produces exactly one Block when the agent calls it. The
- * Block is the unit of persistence (one Block ↔ one ChatMessage), state
- * mutation (applyBlockToCtx during replay), and display.
- *
- * The MCP server and the RPC handler both read this registry, so they can't
- * disagree on the arg shape.
+ * One call produces exactly one Block, which is the unit of persistence (one
+ * Block ↔ one ChatMessage), state mutation and display. The MCP server and the
+ * RPC handler both read this registry, so they can't disagree on arg shape.
  */
 export type CommandSpec<S extends z.ZodTypeAny = z.ZodTypeAny> = {
     name: string;
@@ -291,7 +288,6 @@ export const COMMANDS = {
 
 export type CommandName = keyof typeof COMMANDS;
 
-/** Optional features that change what a command accepts. */
 export type CommandFeatures = { itemIcons?: boolean };
 
 /**

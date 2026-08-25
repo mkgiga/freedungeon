@@ -37,11 +37,7 @@ const latestMessageId = () => {
     return latest.id
 }
 
-/**
- * The latest message, if it's an unanswered choice menu and the setting is on.
- * Only drives the composer's placeholder - the options themselves render inline
- * in the history.
- */
+/** Only drives the placeholder - the options render inline in the history. */
 export function createPendingChoicePrompt() {
     const playback = usePlayback()
     return createMemo(() => {

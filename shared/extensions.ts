@@ -1,12 +1,7 @@
 /**
- * What an extension declares about itself.
- *
- * Split from the code: the host reads every manifest at boot but only executes
- * enabled ones, so a disabled extension can be listed, described and toggled
- * without ever having run.
- *
- * Everything else - settings, state defaults, actions, tools - is registered
- * from inside `activate` against the injected host.
+ * Split from the code so a disabled extension can be listed, described and
+ * toggled without ever having run. Everything else - settings, state defaults,
+ * actions, tools - is registered from inside `activate`.
  */
 export type ExtensionManifest = {
     id: string
@@ -37,11 +32,9 @@ export type ExtensionInfo = {
 const ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)+$/
 
 /**
- * Validate a parsed manifest, returning an error string or null.
- *
- * Strict about `id` because it is a storage key and a filesystem-adjacent
- * name; lax about everything else, since a manifest from a newer version of
- * the app should degrade rather than fail to install.
+ * Strict about `id` - it is a storage key and a filesystem-adjacent name. Lax
+ * about the rest, so a manifest from a newer version degrades rather than
+ * failing to install.
  */
 export function validateManifest(value: unknown): string | null {
     if (!value || typeof value !== 'object') return 'manifest is not an object'
@@ -57,7 +50,6 @@ export function validateManifest(value: unknown): string | null {
     return null
 }
 
-/** The file the host loads for the server half. */
 export function backgroundEntry(m: ExtensionManifest): string {
     return m.background ?? m.main
 }

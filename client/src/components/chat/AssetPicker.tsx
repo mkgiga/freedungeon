@@ -61,9 +61,8 @@ export function ActorPicker(props: {
 }
 
 /**
- * Single-select picker for the user's player character. Unlike the chat
- * actors/notes pickers (which toggle membership and stay open), this one
- * commits the selection on click. Includes a "None" row to clear the setting.
+ * Commits on click, unlike the chat actors/notes pickers, which toggle
+ * membership and stay open.
  */
 export function PlayerCharacterPicker(props: { onPick?: () => void }) {
     const [query, setQuery] = createSignal('')
@@ -150,13 +149,6 @@ export function NotePicker(props: {
     )
 }
 
-/**
- * Opens the session pickers in a modal. The left rail and Preferences both
- * change the player character and share this, so they can't drift apart.
- *
- * No model picker here - both entry points open the models library directly.
- * See useLlmConfigs in components/LlmConfigsDialog.
- */
 export function useAssetPickers() {
     const modal = useModal()
     return {

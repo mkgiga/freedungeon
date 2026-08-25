@@ -98,10 +98,8 @@ registry.set('GAME_STATE', { kind: 'fn', fn: () => {
 } });
 
 /**
- * Instructions teaching the agent about the optional `choice_prompt` tool.
- * Exported so the auto-append fallback (agent.ts) and the macro share one
- * source of truth. The macro and the agent-side tool are both gated on
- * `enableChoicePrompts`, so awareness and capability stay in lockstep.
+ * Gated on `enableChoicePrompts`, same as the tool itself, so the agent is
+ * never told about a capability it doesn't have.
  */
 export const MULTICHOICE_PROMPT_INSTRUCTIONS = `# 【Choice Prompts】
 
@@ -111,12 +109,6 @@ registry.set('MULTICHOICE_PROMPT_INSTRUCTIONS', { kind: 'fn', fn: () => {
     return featureEnabled(state.userPreferences, 'choicePrompts') ? MULTICHOICE_PROMPT_INSTRUCTIONS : ''
 } });
 
-/**
- * Instructions for the optional `generate_image` tool. Same contract as the
- * choice-prompt block above: the macro expands to nothing unless the tool is
- * actually exposed, so a prompt can carry the macro unconditionally and the
- * agent is never told about a capability it doesn't have.
- */
 export const IMAGE_GENERATION_INSTRUCTIONS = `# 【Generated Images】
 
 You can render an image into the story with \`generate_image\`. Pass a \`description\` written for an image model — subject and action, setting, framing and camera angle, lighting, mood, colour, in concrete visual nouns; it knows nothing of the story, so name what is in frame rather than who it is to the plot. Pass an \`aspect\` of "landscape" (establishing shots, vistas), "portrait" (a figure, a tall space) or "square", and optionally \`caption\` text to sit beneath the image.
@@ -178,7 +170,6 @@ scopeBuilders.set('user_style_preference', () => {
     return style || DEFAULT_STYLE_PREFERENCE
 })
 
-/** Loads .macro files from the prompts dir into the registry as template entries. */
 export function loadMacroFiles() {
     const embedded = getEmbeddedPrompts()
     if (embedded) {
@@ -208,7 +199,6 @@ export type MacroResult = {
     features: Record<string, unknown>
 }
 
-/** Parse and expand all macros + variable substitutions in the given text. */
 export function parseMacros(raw: string): MacroResult {
     const ctx = new EvalContext()
     const parsed = evaluate(raw, ctx)

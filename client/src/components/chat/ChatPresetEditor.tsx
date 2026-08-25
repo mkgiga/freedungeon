@@ -22,11 +22,6 @@ import { viewport } from '../../viewport'
 import { ScenarioCollaborator } from '../scenario/ScenarioCollaborator'
 import { visible } from '@shared/visibility'
 
-/**
- * Editor for a chat or a Scenario — they are the same record, distinguished by
- * `isTemplate`. Shared by /chat/$id and /scenarios/$id so the two screens can't
- * drift; the route supplies the id, the flag, and where "done" goes.
- */
 export function ChatPresetEditor(props: {
     id: string
     isTemplate: boolean

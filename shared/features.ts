@@ -1,13 +1,9 @@
 import type { SchemaField } from './schema-ui'
 
 /**
- * A toggleable, user-configurable feature. Code-defined (like the command
- * registry) so the client renders its params via SchemaForm and the server
- * reads the resolved config from one source of truth.
- *
- * `schema` uses a FLAT value namespace (single-element field paths) so the
- * resolve-on-read merge below is a trivial shallow merge — newly-added params
- * pick up their defaults without a nested deep-merge.
+ * `schema` uses a FLAT value namespace (single-element field paths), so the
+ * resolve-on-read merge stays a shallow merge and newly-added params pick up
+ * their defaults without a deep merge.
  */
 export type FeatureSpec = {
     key: string
@@ -18,7 +14,6 @@ export type FeatureSpec = {
     state?: Record<string, { default: unknown }>
 }
 
-/** Per-feature stored config (in userPreferences.features[key]). */
 export type FeatureConfig = {
     enabled: boolean
     values: Record<string, unknown>
@@ -86,7 +81,6 @@ export const FEATURES: Record<string, FeatureSpec> = {
 /** Style injected for `{{ @user_style_preference }}` when the user left it blank. */
 export const DEFAULT_STYLE_PREFERENCE = 'anime screencap'
 
-/** Typed view of the imageGen feature's resolved values. */
 export type ImageGenConfig = {
     generateItemIcons: boolean
     removeIconBackground: boolean
@@ -98,9 +92,8 @@ export type ImageGenConfig = {
 export type FeatureKey = keyof typeof FEATURES
 
 /**
- * Resolve a feature's effective config: defaults from the registry overlaid
- * with whatever the user has stored. Defaults are applied on READ so old
- * persisted blobs forward-compat onto newly-added params. Disabled by default.
+ * Defaults are applied on READ, so old persisted blobs forward-compat onto
+ * newly-added params. Disabled by default.
  */
 export function resolveFeatureConfig(
     key: FeatureKey,
@@ -114,11 +107,8 @@ export function resolveFeatureConfig(
 }
 
 /**
- * A feature's state, defaults applied on read.
- *
- * Same resolve-on-read rule as settings, for the same reason: a variable added
- * in a later version has to arrive with its default for installs that never
- * stored one, without a migration.
+ * Same resolve-on-read rule as settings: a variable added later arrives with
+ * its default on installs that never stored one, without a migration.
  */
 export function resolveFeatureState(
     key: FeatureKey,

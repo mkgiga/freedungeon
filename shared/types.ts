@@ -133,12 +133,9 @@ export type LLMConfig = {
 }
 
 /**
- * A user-curated image attached to a chat - preset scenery the agent can bring
- * on screen by `key`.
- *
  * Agent-generated images never land here. A registry row would outlive the
- * message block that a rewind deletes, leaving the agent able to summon an
- * image for a scene that no longer happened; those stay a URL in their block.
+ * message block a rewind deletes, leaving the agent able to summon an image for
+ * a scene that no longer happened; those stay a URL in their block.
  */
 export type ImageAsset = {
     id: string;
@@ -167,7 +164,6 @@ export type Chat = {
     updatedAt: number;
 }
 
-/** The in-memory, hydrated version of a chat that's been loaded from the database. */
 export type CurrentChatState = {
     id: string | null;
     title: string;

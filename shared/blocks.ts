@@ -71,10 +71,8 @@ export type Block =
     | InspectBlock
 
 /**
- * Block types that pause the playback queue. The frontend renders blocks one
- * at a time during the initial play of a newly-arrived assistant turn; on
- * encountering a blocking block it stops until the user advances. All other
- * block types apply their effects and let playback continue.
+ * Block types that pause the playback queue until the user advances. Everything
+ * else applies its effect and lets playback continue.
  */
 export const BLOCKING_BLOCK_TYPES = new Set<Block['type']>(['text', 'speech', 'pause'])
 

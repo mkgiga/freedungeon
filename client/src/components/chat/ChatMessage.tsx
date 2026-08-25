@@ -36,7 +36,6 @@ const SILENT_BLOCK_TYPES = new Set<Block['type']>([
 
 export const isRenderedBlock = (block: Block) => !SILENT_BLOCK_TYPES.has(block.type)
 
-/** The last block of `content` that actually renders, if any. */
 export function lastRenderedBlock(content: string): Block | undefined {
     const blocks = parseBlocks(content)
     for (let i = blocks.length - 1; i >= 0; i--) {

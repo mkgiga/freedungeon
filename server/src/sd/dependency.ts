@@ -21,13 +21,9 @@ export function getSdBuildChoice(): SdBuildChoice | null {
 }
 
 /**
- * The archive a given sd dependency pulls, resolved for this machine, in the
- * shape the dependency layer expects.
- *
- * Index 0 is always the sd.cpp build; index 1 exists only on the CUDA target,
- * where the runtime DLLs ship separately. Throwing on an unsupported host —
- * Linux with an NVIDIA card, an Intel Mac — is what surfaces as a 'failed'
- * dependency carrying the reason, instead of a silent nothing.
+ * Index 0 is always the sd.cpp build; index 1 exists only on CUDA, where the
+ * runtime DLLs ship separately. Throwing on an unsupported host is what
+ * surfaces as a 'failed' dependency carrying the reason.
  */
 export function sdArchive(index: number) {
     if (!choice) throw new Error('Image generation support has not been resolved yet.')

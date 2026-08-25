@@ -10,10 +10,9 @@ const CARD_WIDTH = 320
 const GAP = 8
 
 /**
- * Detail card for an inventory item. Positioned `fixed` against the slot's
- * viewport rect rather than nested in the slot, so the surrounding panel's
- * overflow can never clip it. `pointer-events: none` (in CSS) keeps it inert:
- * it can't steal the drag gesture or swallow the outside-tap that dismisses it.
+ * `fixed` against the slot's viewport rect rather than nested in it, so the
+ * panel's overflow can't clip it. `pointer-events: none` keeps it from stealing
+ * the drag gesture or swallowing the outside-tap that dismisses it.
  */
 export function ItemCard(props: {
     item: ItemDefinition & { qty: number }

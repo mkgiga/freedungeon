@@ -1,6 +1,5 @@
 import { createSignal } from 'solid-js'
 
-/** POST a file to /uploads. Resolves to the stored URL, or null on failure. */
 export async function uploadImage(file: File): Promise<string | null> {
     const formData = new FormData()
     formData.append('file', file)
@@ -8,7 +7,6 @@ export async function uploadImage(file: File): Promise<string | null> {
     return res.ok ? ((await res.json()).url as string) : null
 }
 
-/** Prompt for a file and upload it. Resolves to the stored URL, or null. */
 export function pickImage(): Promise<string | null> {
     return new Promise((resolve) => {
         const input = document.createElement('input')
@@ -29,11 +27,8 @@ const carriesImage = (transfer: DataTransfer | null) =>
     Array.from(transfer?.items ?? []).some(i => i.kind === 'file' && i.type.startsWith('image/'))
 
 /**
- * Makes an element accept an image dropped from the desktop.
- *
- * Returns handlers to spread and an `over` signal for the hover state. Only
- * reacts to drags actually carrying an image, so dragging text or one of the
- * app's own items across an avatar doesn't light it up.
+ * Only reacts to drags actually carrying an image, so dragging text or one of
+ * the app's own items across an avatar doesn't light it up.
  */
 export function createImageDrop(onUrl: (url: string) => void, enabled?: () => boolean) {
     const [over, setOver] = createSignal(false)
@@ -66,11 +61,8 @@ export function createImageDrop(onUrl: (url: string) => void, enabled?: () => bo
 }
 
 /**
- * Stop a near-miss from navigating away.
- *
  * Dropping a file anywhere the page doesn't handle makes the browser open it,
- * discarding whatever was on screen — including an unsaved editor. Now that
- * things invite dragging, that misfire is easy to hit.
+ * discarding whatever was on screen - including an unsaved editor.
  */
 export function guardStrayImageDrops() {
     const swallow = (e: DragEvent) => {

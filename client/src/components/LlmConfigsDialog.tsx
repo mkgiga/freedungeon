@@ -10,13 +10,6 @@ import { Em } from './typography/Em'
 import { LLM_PRESETS } from '@shared/llm-presets'
 import type { LLMConfig } from '@shared/types'
 
-/**
- * The library of LLM configs. Preferences keeps only the picker for which one
- * is active; managing the set happens here.
- *
- * List-and-detail. On a phone exactly one is mounted - the list until you pick
- * something, then the editor with a back button.
- */
 export function LlmConfigsDialog(props: { initialId?: string | null }) {
     const modal = useModal()
     const [activeId, setActiveId] = createSignal<string | null>(props.initialId ?? null)
@@ -166,11 +159,6 @@ export function LlmConfigsDialog(props: { initialId?: string | null }) {
     )
 }
 
-/**
- * The "start from a preset" fork, shared by everything that can mint a config —
- * the library's own New button and the model picker's. Creation is one flow
- * wherever you enter it, and the caller decides where the new config lands.
- */
 export function useLlmConfigCreate() {
     const modal = useModal()
     return (onCreated: (id: string) => void) => {
@@ -203,10 +191,6 @@ export function useLlmConfigCreate() {
     }
 }
 
-/**
- * Opens the configs library. `id` jumps straight to one — used by onboarding,
- * which hands the user into the config it just created.
- */
 export function useLlmConfigs() {
     const modal = useModal()
     return {

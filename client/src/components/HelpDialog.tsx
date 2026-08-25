@@ -5,13 +5,6 @@ import { useModal } from './Modal'
 import { Text } from './typography/Text'
 import { DOCS, findDoc, parseDocRef, renderDoc, type DocRef } from '../docs'
 
-/**
- * The help browser: the `/docs` folder, rendered. List-and-detail, like the
- * models library.
- *
- * Opening it can target a page and heading, so a label anywhere in the app can
- * point at the paragraph explaining it (see DocLink).
- */
 export function HelpDialog(props: { initial?: DocRef }) {
     const initial = () => parseDocRef(props.initial ?? DOCS[0]?.slug ?? '')
 
@@ -131,7 +124,6 @@ export function HelpDialog(props: { initial?: DocRef }) {
     )
 }
 
-/** Opens the help browser, optionally at a page and heading. */
 export function useHelp() {
     const modal = useModal()
     return {
@@ -143,12 +135,7 @@ export function useHelp() {
     }
 }
 
-/**
- * A term that explains itself: renders its own text as a quiet link into the
- * docs, the way a wiki links a word the reader may not know.
- *
- * `to` is a page slug with an optional heading — `"notes"`, `"actors#description"`.
- */
+/** `to` is a page slug with an optional heading: `"actors#description"`. */
 export function DocLink(props: { to: DocRef; children: JSXElement }) {
     const help = useHelp()
 

@@ -4,13 +4,6 @@ import { useAction, keybindLabel } from '../../actions'
 import { Text } from '../typography/Text'
 import { ShowOn } from '../ShowOn'
 
-/**
- * Stands in for the composer while blocks are still unread.
- *
- * A visible text box is an invitation to type through a scene that is still
- * playing. Removing it and putting the advance control in its place makes
- * reading on the only move.
- */
 export function ContinueBar() {
     const playback = usePlayback()
 

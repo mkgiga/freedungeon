@@ -1,10 +1,4 @@
 /**
- * External files the app needs but doesn't ship - third-party binaries and
- * model weights, fetched on demand into the data dir.
- *
- * Declared rather than hardcoded per call site, so a feature can state what it
- * needs and the client renders one patcher UI for all of them.
- *
  * Presence on disk is NOT readiness: an interrupted download leaves a file that
  * exists but is unusable. Readiness means the bytes match a publisher sha256.
  */
@@ -69,7 +63,6 @@ export function turnBlockers(
     })
 }
 
-/** Static descriptions; the live status lives in `state.dependencies`. */
 export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string; feature?: string }> = {
     claudeCli: {
         label: 'Claude Code',
@@ -108,10 +101,8 @@ export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string
 }
 
 /**
- * One line of "here is what turning this on will download".
- *
- * Only ever describes dependencies that are NOT already satisfied — a plan with
- * no items means the feature is ready and nothing needs asking.
+ * Only ever describes dependencies that are NOT already satisfied - an empty
+ * plan means the feature is ready and nothing needs asking.
  */
 export type DependencyPlanItem = {
     key: DependencyKey

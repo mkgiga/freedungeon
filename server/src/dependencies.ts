@@ -153,7 +153,6 @@ async function claudeAuthStatus(file: string, force = false): Promise<AuthStatus
     return value
 }
 
-/** Whether the given Claude CLI has a usable login, and whose it is. */
 export async function checkClaudeAuth(file: string, force = false): Promise<{ ok: boolean; account?: string }> {
     const status = await claudeAuthStatus(file, force)
     const account = [status.email, status.subscriptionType].filter(Boolean).join(' · ')
@@ -169,9 +168,8 @@ type LoginProcess = {
 let loginProc: LoginProcess | null = null
 
 /**
- * Start the CLI's own OAuth flow and surface its URL through app state. The
- * CLI opens a browser itself; if that fails the user can visit `authUrl`. It
- * then waits on stdin for a pasted code, which `submitAuthCode` supplies.
+ * The CLI opens a browser itself and then waits on stdin for a pasted code,
+ * which `submitAuthCode` supplies. `authUrl` is the fallback if it can't.
  */
 export async function beginClaudeSignIn(): Promise<void> {
     const file = SPECS.claudeCli.file
@@ -218,7 +216,6 @@ export async function beginClaudeSignIn(): Promise<void> {
         })()
 }
 
-/** Feed the browser-provided code to the waiting CLI. */
 export function submitAuthCode(code: string): void {
     if (!loginProc) throw new Error('No sign-in is in progress.')
     loginProc.stdin.write(`${code.trim()}\n`)
@@ -259,9 +256,8 @@ function publish(key: DependencyKey, patch: Partial<DependencyState>): void {
 }
 
 /**
- * Re-derive a dependency's status from what is actually on disk. Trusts the
- * verification cache only when size and mtime still match what was verified;
- * anything else gets re-hashed.
+ * Trusts the verification cache only while size and mtime still match what was
+ * verified; anything else gets re-hashed.
  */
 export async function verifyDependency(key: DependencyKey): Promise<DependencyState['status']> {
     const spec = SPECS[key]
@@ -348,7 +344,6 @@ export async function planDependencies(keys: DependencyKey[]): Promise<Dependenc
     return items
 }
 
-/** Whether a dependency is usable right now, without downloading anything. */
 export async function isSatisfied(key: DependencyKey): Promise<boolean> {
     try {
         return (await verifyDependency(key)) === 'satisfied'
@@ -357,14 +352,12 @@ export async function isSatisfied(key: DependencyKey): Promise<boolean> {
     }
 }
 
-/** Absolute path to a verified dependency, or null if it isn't usable. */
 export async function dependencyPath(key: DependencyKey): Promise<string | null> {
     if (!(await isSatisfied(key))) return null
     if (key === 'claudeCli') return resolveClaudeCli()?.file ?? null
     return SPECS[key].file
 }
 
-/** Re-check everything against disk. Called once at startup. */
 export async function refreshDependencies(): Promise<void> {
     for (const key of Object.keys(SPECS) as DependencyKey[]) {
         const meta = DEPENDENCIES[key]
@@ -569,7 +562,6 @@ export function ensureDependency(key: DependencyKey): Promise<void> {
     return run
 }
 
-/** Clear a failed dependency so the patcher stops blocking the UI. */
 export async function dismissDependency(key: DependencyKey): Promise<void> {
     if (state.dependencies[key]?.status !== 'failed') return
     publish(key, { status: await verifyDependency(key).catch(() => 'missing' as const), error: undefined })

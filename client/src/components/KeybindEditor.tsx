@@ -6,13 +6,6 @@ import { Text } from './typography/Text'
 import { ACTIONS, conflictsFor, keybindFromEvent, resolveKeybind } from '@shared/actions'
 import { featureEnabled, type FeatureKey } from '@shared/features'
 
-/**
- * Rebinding UI for every declared action.
- *
- * Driven entirely off the ACTIONS registry, so a feature that declares a new
- * action gets a row here without touching this file — the same property the
- * feature schemas have in the settings form.
- */
 export function KeybindEditor() {
     const [capturing, setCapturing] = createSignal<string | null>(null)
 

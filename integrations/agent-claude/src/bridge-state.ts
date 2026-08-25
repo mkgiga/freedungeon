@@ -43,10 +43,9 @@ export function setLastTrailingWrapperUuid(uuid: string, sessionId: string | und
 }
 
 /**
- * Snapshot and reset per-turn state. Called when the SDK stream emits
- * its terminal `result` message — by then all wrapper UUIDs for this
- * turn have been observed and all tool calls have produced their
- * ChatMessages.
+ * Call only on the SDK stream's terminal `result` message - by then every
+ * wrapper UUID has been observed and every tool call has produced its
+ * ChatMessage.
  */
 export function consumeTurnState(): {
     producedMessageIds: string[];

@@ -48,11 +48,8 @@ const RULES: Record<string, (id: string, state: Store, apply: Apply) => void> = 
 }
 
 /**
- * Run the cascades for `path`, if it names an asset. Called from deleteState
- * before the entity is removed.
- *
- * Only `['assets', <root>, <id>]` triggers rules — deleting a nested field
- * (an expression, a note ref) is not an entity deletion and has no cascade.
+ * Only `['assets', <root>, <id>]` triggers rules - deleting a nested field is
+ * not an entity deletion. Called from deleteState before the entity goes.
  */
 export function applyDeleteCascades(path: string[], state: Store, apply: Apply): void {
     if (path.length !== 3 || path[0] !== 'assets') return

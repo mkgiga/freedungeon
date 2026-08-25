@@ -113,7 +113,6 @@ async function pollUntilSettled(id: string, signal?: AbortSignal): Promise<SdJob
     }
 }
 
-/** Progress for one in-flight request, by the caller's own correlation id. */
 export async function getTaskProgress(taskId: string): Promise<TaskProgress | null> {
     const id = jobs.get(taskId);
     if (!id) return null;
@@ -139,12 +138,10 @@ async function cancelJob(id: string): Promise<void> {
     }
 }
 
-/** Stop whatever is generating right now. */
 export async function interrupt(): Promise<void> {
     await Promise.all([...jobs.values()].map(cancelJob));
 }
 
-/** Whether the image server is answering. */
 export async function ping(): Promise<boolean> {
     try {
         await sd('/sdcpp/v1/capabilities');

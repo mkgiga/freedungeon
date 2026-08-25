@@ -178,11 +178,8 @@ export function createScope({ ctx, arr }: ScopeBinding) {
 }
 
 /**
- * Apply one parsed Block's effect to a context. The client calls it per block
- * during playback to keep `effectiveGameState` in sync without re-evaluating
- * through `new Function`. Display-only blocks are no-ops.
- *
- * Routes through `createScope` so per-command logic is declared once.
+ * Display-only blocks are no-ops. Routes through `createScope` so per-command
+ * logic is declared once.
  */
 export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string[]): void {
     const scope = createScope({ ctx, arr });

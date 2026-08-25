@@ -4,11 +4,6 @@ import { state } from '../../../state'
 import { pickEmojiForItem } from '../inventory/itemEmoji'
 import { resolveItem } from '../inventory/resolveItem'
 
-/**
- * A drag-and-drop use attempt, rendered as a plain stated fact rather than a
- * chip - this is something the player already did, not something offered. The
- * agent's answering useItem / narration blocks carry what came of it.
- */
 export function TryUseBlock(props: {
     block: TryUseBlockType
     onUpdate: (block: TryUseBlockType) => void

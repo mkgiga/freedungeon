@@ -12,11 +12,8 @@ import type { LLMConfig } from '@shared/types'
 const MAX_STEPS = 24
 
 /**
- * The user's instructions if they've written any, otherwise the shipped file.
- *
- * Absent rather than seeded-on-first-run deliberately: an untouched install
- * keeps following SCENARIO_AGENT.md, so improvements to it reach everyone who
- * never opened the settings dialog.
+ * Absent rather than seeded on first run, so an untouched install keeps
+ * following SCENARIO_AGENT.md and picks up improvements to it.
  */
 export function effectiveSystemPrompt(): string {
     const override = state.userPreferences.scenarioAgent?.systemPrompt
@@ -49,10 +46,7 @@ export type ScenarioTurnResult = {
     toolCalls: ScenarioToolCall[]
 }
 
-/**
- * One exchange with the collaborator. `history` is the panel's conversation so
- * far; the caller owns it, since none of this is persisted.
- */
+/** The caller owns `history` - none of this is persisted. */
 export async function runScenarioTurn(args: {
     chatId: string
     userMessage: string
@@ -133,7 +127,6 @@ async function runViaClaude(args: {
     }
 }
 
-/** The config the collaborator runs on — the user's active one. */
 export function activeLlmConfig(): LLMConfig {
     const id = state.userPreferences.activeLLMConfigId
     const cfg = id ? state.assets.llmConfigs[id] : null

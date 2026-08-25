@@ -72,7 +72,6 @@ function signature(sf: ts.SourceFile): string[] {
     return out
 }
 
-/** JSDoc sitting directly on an exported declaration — what shows on hover. */
 function exportedDocRanges(sf: ts.SourceFile, text: string): Set<string> {
     const keep = new Set<string>()
     if (stripExportDocs) return keep

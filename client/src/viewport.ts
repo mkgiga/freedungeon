@@ -31,16 +31,10 @@ if (typeof window !== 'undefined') {
 
 export { viewport }
 
-/** True when the viewport is any of the given sizes. */
 export function isViewport(...sizes: Viewport[]): boolean {
     return sizes.includes(viewport())
 }
 
-/**
- * Subscribe to an arbitrary media query. Not used by the breakpoints above —
- * this is for one-off queries a component owns, and it cleans up with the
- * component.
- */
 export function createMediaQuery(query: string): () => boolean {
     const mql = window.matchMedia(query)
     const [matches, setMatches] = createSignal(mql.matches)

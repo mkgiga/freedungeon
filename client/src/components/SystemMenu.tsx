@@ -18,11 +18,6 @@ export type SystemMenuEntry = {
     danger?: boolean
 }
 
-/**
- * The settings button as a menu of destinations rather than a shortcut to
- * Preferences. Notifications, Downloads and Documentation each need somewhere
- * to live and none earns a slot in a five-item nav bar.
- */
 export function useSystemMenu() {
     const modal = useModal()
     const preferences = usePreferences()

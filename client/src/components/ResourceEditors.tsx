@@ -5,11 +5,8 @@ import { NoteEditor } from './NoteEditor'
 import type { Actor, Note } from '@shared/types'
 
 /**
- * Opens an actor or a note in a modal.
- *
- * For the Scenario editor, which can't navigate away without discarding its
- * draft, and the chat sidebar, where reading a note shouldn't cost you the
- * conversation. Shared so the two can't drift.
+ * A modal because the callers can't navigate: the Scenario editor would discard
+ * its uncommitted draft.
  */
 export function useResourceEditors() {
     const modal = useModal()

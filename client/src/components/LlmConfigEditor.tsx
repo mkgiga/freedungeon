@@ -12,12 +12,6 @@ import type { LLMProvider } from '@shared/types'
 import { LLM_PRESETS } from '@shared/llm-presets'
 import { pendingConfigEdit, setPendingConfigEdit } from '../pending-nav'
 
-/**
- * Editor for one LLM config, sitting in the configs dialog's detail pane.
- *
- * No view/edit split - you opened it by clicking the thing you want to change,
- * so fields are always live and Save is explicit.
- */
 export function LlmConfigEditor(props: {
     id: string
     onSaved?: (id: string) => void

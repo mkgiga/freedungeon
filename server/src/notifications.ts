@@ -4,11 +4,9 @@ import { mutate, io, state } from "./server";
 import { saveNotification, pruneNotifications } from "./db";
 
 /**
- * An error that knows how the user can fix it.
- *
- * Thrown deep (where the condition is actually detectable) and caught shallow
- * (where notifications are raised), so the fix travels with the message instead
- * of the catch site having to re-diagnose it from string matching.
+ * Thrown deep, where the condition is detectable, and caught shallow, where
+ * notifications are raised - so the catch site doesn't re-diagnose by string
+ * matching.
  */
 export class ActionableError extends Error {
     constructor(message: string, readonly action: NotificationAction) {
@@ -40,11 +38,8 @@ export const notification = (notification: Omit<AppNotification, 'id' | 'created
 }
 
 /**
- * Mark everything currently unseen as seen.
- *
- * One stamp rather than a read flag per notification, so clearing the badge is
- * a single action instead of one click per row — and after a restart the unseen
- * set is recomputed from the log against this stamp rather than being lost.
+ * One stamp rather than a per-row read flag, so the unseen set survives a
+ * restart by being recomputed from the log against it.
  */
 export function markNotificationsSeen(): void {
     mutate(s => { s.userPreferences.notificationsSeenAt = Date.now() });

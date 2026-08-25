@@ -5,11 +5,6 @@ import { AddNewCard } from '../AddNew'
 import { Text } from '../typography/Text'
 import type { Actor } from '@shared/types'
 
-/**
- * The cast of a chat or Scenario, as portrait cards. The set is small and
- * hand-picked and what matters is recognising faces, so this trades the Actors
- * screen's sorting and density for portraits.
- */
 export function ActorCardGrid(props: {
     actors: Actor[]
     onRemove?: (actor: Actor) => void

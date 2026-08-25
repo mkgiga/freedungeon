@@ -2,15 +2,7 @@ import { Show } from 'solid-js'
 import { MdFillAdd } from 'solid-icons/md'
 import { Text } from './typography/Text'
 
-/**
- * The create affordance, as the first item in a list rather than an icon in a
- * corner - the first slot is where the eye lands, and it says what the screen
- * is for.
- *
- * `AddNewCard` for grids, `AddNewRow` for `.resource-table` lists.
- */
 
-/** Where the affordance sits relative to the existing items. */
 export type AddNewPosition = 'start' | 'end'
 
 export type AddNew = {
@@ -29,9 +21,8 @@ export function AddNewCard(props: { label: string; onClick: () => void }) {
 }
 
 /**
- * Built from the same row and cell classes as a real item, so its height can't
- * drift from the rows around it. Only the bottom rule differs - dashed rather
- * than solid, to read as an empty slot.
+ * Uses the real row/cell classes rather than a box spanning the table, so its
+ * height can't drift from the rows around it.
  */
 export function AddNewRow(props: {
     label: string

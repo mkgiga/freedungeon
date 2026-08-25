@@ -44,11 +44,8 @@ function ToolCallList(props: { calls: ToolCall[] }) {
 }
 
 /**
- * The Scenario collaborator conversation. One component for both layouts - the
- * desktop panel and the mobile screen wrap it in different chrome.
- *
- * Lives in its own chat row (`kind: 'collaborator'`), so it survives reloads
- * and stays out of the recent-chats list.
+ * Lives in its own chat row (`kind: 'collaborator'`), so it survives reloads and
+ * stays out of the recent-chats list.
  */
 export function ScenarioCollaborator(props: {
     scenarioId: string

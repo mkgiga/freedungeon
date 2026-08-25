@@ -6,13 +6,7 @@ import { Text } from './typography/Text'
 import { SettingsToggle } from './settings'
 import type { ExtensionInfo } from '@shared/extensions'
 
-/**
- * Installed extensions, with a switch each. The list is replicated state - the
- * server scans the directory and publishes what it found, so this only issues
- * verbs.
- *
- * Nothing is executed until switched on; until then these are manifests.
- */
+/** Nothing is executed until switched on; until then these are manifests. */
 export function ExtensionsList() {
     const [busy, setBusy] = createSignal<string | null>(null)
 

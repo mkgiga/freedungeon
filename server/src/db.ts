@@ -553,9 +553,8 @@ export function dehydrateChatMessage(msg: ChatMessage): Omit<Selectable<DB['chat
 }
 
 /**
- * Dehydrates a CurrentChatState into its chat row + actor/note refs for persistence.
- * Messages are NOT included — use `dehydrateChatMessage` per-message instead.
- * `createdAt` / `updatedAt` fall back to now for brand-new (unsaved) chats.
+ * Messages are NOT included - use `dehydrateChatMessage` per message.
+ * `createdAt`/`updatedAt` fall back to now for unsaved chats.
  */
 export function dehydrateCurrentChat(chat: CurrentChatState) {
     const now = Date.now();
@@ -579,10 +578,6 @@ export function listChats({ offset = 0, limit = 20 }) {
         .execute();
 }
 
-/**
- * Loads all messages for a given chat, hydrated into a record keyed by message id.
- * Matches the shape of `CurrentChatState.messages`.
- */
 export async function getMessagesByChatId(chatId: string): Promise<Record<string, ChatMessage>> {
     const rows = await db.selectFrom('chat_messages')
         .selectAll()
@@ -682,10 +677,7 @@ export async function loadAssetLibraryImages() {
     return hydrated;
 }
 
-/**
- * Loads all chats as lightweight metadata: id, title, timestamps, and asset ref IDs.
- * Does NOT load messages. Matches the shape of the `Chat` type used in `state.assets.chats`.
- */
+/** Metadata only - does NOT load messages. */
 export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
     const chatRows = await db.selectFrom('chats').selectAll().execute();
     const actorRefs = await db.selectFrom('chat_actor_refs').selectAll().execute();
@@ -716,9 +708,8 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
 }
 
 /**
- * Everything the database holds. Not the whole AppState: preferences come from
- * preferences.json and the transient roots are rebuilt at boot, so the return
- * type says so rather than pretending to produce a complete state.
+ * Not the whole AppState - preferences come from preferences.json and the
+ * transient roots are rebuilt at boot.
  */
 export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences'>> {
     const actors = await loadAssetLibraryActors();
@@ -763,11 +754,8 @@ export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences
 }
 
 /**
- * Notifications newer than the user's last-seen stamp.
- *
- * `show: false` entries are excluded: those are diagnostic log lines, and a
- * badge that counts things the user is never shown is a badge they cannot
- * clear.
+ * `show: false` entries are excluded - they are diagnostic log lines, and a
+ * badge counting things never shown is a badge that can't be cleared.
  */
 export async function loadUnseenNotifications(): Promise<Record<string, AppNotification>> {
     const seenAt = loadPreferences().notificationsSeenAt ?? 0;
@@ -781,7 +769,6 @@ export async function loadUnseenNotifications(): Promise<Record<string, AppNotif
     return Object.fromEntries(rows.map(row => [row.id, hydrateNotification(row)]));
 }
 
-/** Trim the log to the newest `keep` rows. */
 export function pruneNotifications(keep: number) {
     db.deleteFrom('notifications')
         .where('id', 'not in',
@@ -809,7 +796,6 @@ export function deleteLLMConfig(id: string) {
     db.deleteFrom('llm_configs').where('id', '=', id).execute()
 }
 
-/** Inserts or updates a single chat message row. */
 export function saveMessage(msg: ChatMessage) {
     db.insertInto('chat_messages')
         .values({ id: msg.id, ...dehydrateChatMessage(msg) })
@@ -817,11 +803,6 @@ export function saveMessage(msg: ChatMessage) {
         .execute()
 }
 
-/**
- * Persists a single chat's row, actor/note refs, and optionally its messages.
- * Called by `persistPath` (without messages, on every chat mutation) and by
- * branch/clone (with messages, for bulk copies).
- */
 export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
     const row = {
         title: chat.title,
@@ -870,7 +851,6 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
     }
 }
 
-/** Upserts a single actor row and rewrites its expressions. */
 export function saveActor(actor: Actor) {
     db.insertInto('actors')
         .values({ id: actor.id, ...dehydrateActor(actor) })
@@ -883,7 +863,6 @@ export function saveActor(actor: Actor) {
     }
 }
 
-/** Upserts a single image row. */
 export function saveImage(image: ImageAsset) {
     db.insertInto('images')
         .values({ id: image.id, ...dehydrateImage(image) })
@@ -891,7 +870,6 @@ export function saveImage(image: ImageAsset) {
         .execute()
 }
 
-/** Upserts a single note row. */
 export function saveNote(note: Note) {
     db.insertInto('notes')
         .values({ id: note.id, ...dehydrateNote(note) })
@@ -899,7 +877,6 @@ export function saveNote(note: Note) {
         .execute()
 }
 
-/** Upserts a single LLM config row. */
 export function saveLLMConfig(config: LLMConfig) {
     db.insertInto('llm_configs')
         .values({ id: config.id, ...dehydrateLLMConfig(config) })
@@ -921,7 +898,6 @@ function saveExtensionValue(extension: string, name: string, value: unknown): vo
         .execute()
 }
 
-/** Drop everything an extension stored. For uninstall. */
 export function clearExtensionState(extension: string): Promise<unknown> {
     return db.deleteFrom('extension_state').where('extension', '=', extension).execute()
 }

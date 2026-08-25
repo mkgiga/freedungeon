@@ -163,14 +163,12 @@ export async function rescanExtensions(): Promise<ExtensionInfo[]> {
     return results
 }
 
-/** Scan, then activate everything currently enabled. Called once at startup. */
 export async function loadExtensions(): Promise<void> {
     const results = await rescanExtensions()
     const active = results.filter(r => r.status === 'active').length
     if (results.length) log.server.info(`Extensions: ${active} active of ${results.length} installed`)
 }
 
-/** Turn one on or off, applying it immediately rather than at next boot. */
 export async function setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
     mutate(s => {
         const bag = (s.userPreferences.extensions ??= {})
@@ -190,8 +188,8 @@ export async function setExtensionEnabled(id: string, enabled: boolean): Promise
 }
 
 /**
- * Install from a zip containing `manifest.json` at its root (or inside a single
- * top-level folder, which is what most archive tools produce).
+ * The zip needs `manifest.json` at its root, or inside a single top-level
+ * folder - which is what most archive tools produce.
  */
 export async function installFromZip(zipPath: string): Promise<ExtensionInfo> {
     return installFromZipBytes(new Uint8Array(fs.readFileSync(zipPath)))
@@ -210,10 +208,6 @@ function safeSegments(entry: string): string[] | null {
     return segments
 }
 
-/**
- * Same, from bytes — what an upload delivers. A browser hands over a File, not
- * a path, so the drop zone posts the archive rather than naming one.
- */
 export async function installFromZipBytes(bytes: Uint8Array): Promise<ExtensionInfo> {
     const files = Object.fromEntries(
         Object.entries(unzipSync(bytes)).map(([name, data]) => [normalizeEntry(name), data]),
@@ -258,7 +252,6 @@ export async function installFromZipBytes(bytes: Uint8Array): Promise<ExtensionI
     return info
 }
 
-/** Deactivate, delete the folder, and drop the extension's stored state. */
 export async function uninstallExtension(id: string): Promise<void> {
     await deactivate(id)
     const info = state.extensions?.[id]

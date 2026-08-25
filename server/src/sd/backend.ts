@@ -3,13 +3,6 @@ import { promisify } from 'node:util'
 
 const run = promisify(execFile)
 
-/**
- * Which stable-diffusion.cpp build this machine should run.
- *
- * The project ships one prebuilt archive per (OS, accelerator) pair, so the
- * choice is made here once and everything downstream — which asset to fetch,
- * how big the download is, what to tell the user — follows from it.
- */
 export type SdBackend = 'cuda12' | 'vulkan' | 'metal'
 
 export type SdBuildChoice =

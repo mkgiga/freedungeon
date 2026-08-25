@@ -247,8 +247,6 @@ export function PreferencesDialog() {
     )
 }
 
-/** Opens Preferences. The one entry point — nav rails, the home screen and the
- *  bottom bar all route here rather than to a tab. */
 export function usePreferences() {
     const modal = useModal()
     return {

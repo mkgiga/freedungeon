@@ -48,11 +48,8 @@ function safeJson(v: unknown): string {
 }
 
 /**
- * Flatten an AI-SDK `ModelMessage` into a single readable `{ role, content }`
- * string for the debug view. `content` is `string | part[]`; parts are text,
- * tool calls, or tool results (assistant/tool turns). Structured parts are
- * rendered as `[tool-call name(args)]` / `[tool-result name: output]` so the
- * agent's actual tool interactions are visible in the history dump.
+ * `content` is `string | part[]`. Structured parts render as
+ * `[tool-call name(args)]` / `[tool-result name: output]`.
  */
 export function normalizeModelMessage(m: ModelMessage): LastPromptMessage {
     const role = String(m.role);

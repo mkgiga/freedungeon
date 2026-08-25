@@ -8,11 +8,6 @@ import {
     rescanExtensions,
 } from '../../extensions/host'
 
-/**
- * Managing extensions. Reads come from replicated state rather than these
- * endpoints — `state.extensions` is already on the client — so this is only
- * the verbs.
- */
 export const extensionsRouter = router({
     rescan: procedure
         .mutation(async () => ({ found: (await rescanExtensions()).length })),

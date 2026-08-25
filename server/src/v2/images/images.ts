@@ -4,15 +4,6 @@ import { mutate, state } from '../../server'
 import { nanoid } from 'nanoid'
 import type { ImageAsset } from '@shared/types'
 
-/**
- * The curated image library. Rows here are images a user attached to a chat
- * (typically a template) for the agent to bring on screen by `key` — see
- * ImageAsset for why agent-generated images deliberately stay out.
- *
- * This router owns the library itself. Which images a given chat carries is set
- * through `chat.update`'s `images` array, the same way its actors are — see
- * v2/chat/chat.ts.
- */
 export const imagesRouter = router({
     list: procedure
         .query(() => Object.values(state.assets.images)),

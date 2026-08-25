@@ -1,13 +1,7 @@
 import { For } from 'solid-js'
 import type { ChoicePromptBlock as ChoicePromptBlockType } from '../blocks'
 
-/**
- * The agent's optional end-of-turn choice menu, rendered and answered inline in
- * the history.
- *
- * `interactive` - latest message, unanswered, setting on - makes the options
- * clickable. Otherwise the chosen one is highlighted and the rest dimmed.
- */
+/** `interactive` means: latest message, unanswered, and the setting is on. */
 export function ChoicePromptBlock(props: {
     block: ChoicePromptBlockType
     chosenIndex?: number

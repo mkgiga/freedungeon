@@ -44,9 +44,8 @@ function getSession(): Promise<ortTypes.InferenceSession> {
 }
 
 /**
- * Return `png` with its background made transparent. Throws on failure —
- * callers decide whether a failed matte should sink the surrounding operation
- * (for item icons it does not; see item-icons.ts).
+ * Throws on failure - callers decide whether a failed matte should sink the
+ * surrounding operation. For item icons it does not.
  */
 export async function removeBackground(png: Uint8Array): Promise<Uint8Array> {
     const session = await getSession()

@@ -15,11 +15,9 @@ export type Doc = {
 }
 
 /**
- * GitHub's heading-anchor rules: lowercase, drop punctuation, spaces to
- * hyphens. Matching them matters because the docs link to each other with
- * anchors like `actors.md#description`, and those same links have to work when
- * the folder is rendered by GitHub or a static site — one slug scheme, three
- * renderers.
+ * GitHub's heading-anchor rules: lowercase, drop punctuation, spaces to hyphens.
+ * Must match - the same `actors.md#description` links have to resolve when the
+ * folder is rendered by GitHub or a static site.
  */
 export function slugify(text: string): string {
     return text.trim().toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-')
@@ -62,15 +60,10 @@ marked.use({
     },
 })
 
-/** Markdown to HTML. Content is first-party and ships with the build. */
 export function renderDoc(markdown: string): string {
     return marked.parse(markdown, { async: false })
 }
 
-/**
- * A pointer into the docs: `"notes"` or `"actors#description"`.
- * Used by the help dialog and by any label that links into it.
- */
 export type DocRef = string
 
 export function parseDocRef(ref: DocRef): { slug: string; anchor?: string } {

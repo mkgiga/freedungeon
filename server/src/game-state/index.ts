@@ -26,10 +26,6 @@ function sortMessages(messages: ChatMessage[]): ChatMessage[] {
     );
 }
 
-/**
- * Server wrapper around the shared turn replay: extends the shared result with
- * the two transient prompt-injection strings the macro system consumes.
- */
 export function runTurn(messages: ChatMessage[]): TurnResult {
     const shared = runTurnShared(messages);
     const { systemPromptGameState, mostRecentUserMessageState } = formatGameStateAsString(shared.ctx);

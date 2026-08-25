@@ -7,7 +7,6 @@ import { Text } from './typography/Text'
 import { Em } from './typography/Em'
 import type { AppNotification, NotificationAction } from '@shared/types'
 
-/** Unseen count, straight off replicated state — no counter to drift. */
 export const unseenCount = () => Object.keys(state.notifications ?? {}).length
 
 const when = (ms: number) => {
@@ -20,11 +19,8 @@ const when = (ms: number) => {
 }
 
 /**
- * The notification log. Reads history through `notifications.list` - the log is
- * unbounded and only unseen ones are replicated.
- *
- * Opening it marks everything seen in one stamp, so the badge clears by being
- * looked at rather than per row.
+ * Queries rather than reading state: the log is unbounded and only the unseen
+ * ones are replicated. Opening it marks everything seen in one stamp.
  */
 export function NotificationsPanel(props: { onAction: (a: NotificationAction) => void }) {
     const [cursor, setCursor] = createSignal<{ createdAt: number; id: string } | undefined>(undefined)
@@ -87,7 +83,6 @@ export function NotificationsPanel(props: { onAction: (a: NotificationAction) =>
     )
 }
 
-/** Open the notification log. */
 export function useNotifications() {
     const modal = useModal()
     const runAction = useNotificationActions()

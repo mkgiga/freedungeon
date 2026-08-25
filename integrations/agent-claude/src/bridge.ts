@@ -203,8 +203,7 @@ export type ScenarioPromptResult =
     | { ok: false; error: string };
 
 /**
- * One collaborator exchange through the Claude SDK. No session resume, fork
- * anchors or produced-message bookkeeping - the collaborator writes directly to
+ * No session resume or fork anchors - the collaborator writes directly to
  * actors and notes rather than emitting blocks, so there is no transcript to
  * keep in sync. History is replayed as plain text each turn.
  */

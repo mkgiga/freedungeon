@@ -41,12 +41,6 @@ export async function rpcRecordSdkUuid(
     return rpcCall({ kind: 'sdk_uuid', chatId, messageId, sdkUuid }) as Promise<{ ok: true } | { error: string }>;
 }
 
-/**
- * Stamp metadata.sdkTurnCloserUuid on a batch of ChatMessages — the
- * userMessageId that initiated the turn plus every assistant block the
- * agent produced during it. Called once per turn after the SDK loop
- * settles on a `result` message.
- */
 export async function rpcAnnounceTurnClosed(
     chatId: string,
     messageIds: string[],
@@ -79,10 +73,6 @@ export type ServerScenarioResponse =
     | { result: string }
     | { error: string };
 
-/**
- * Execute one Scenario collaborator tool. The subprocess holds no scenario
- * state of its own — the server owns the scoped deps, so every call goes back.
- */
 export async function rpcScenarioTool(
     chatId: string,
     tool: string,

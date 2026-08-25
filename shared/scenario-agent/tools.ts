@@ -1,13 +1,10 @@
 import { z } from 'zod'
 
 /**
- * Tools for the Scenario collaborator - the agent that authors a Scenario,
- * not the roleplaying agent that plays one.
- *
- * A separate registry from game-state COMMANDS/QUERIES: that agent writes
- * blocks into a message log and can never touch an actor definition; this one
- * does direct CRUD and produces no messages. `deps` is built per call from one
- * Scenario's attachments, so scoping comes from the data, not per-tool filters.
+ * Separate from game-state COMMANDS/QUERIES: the roleplaying agent writes
+ * blocks into a message log and can never touch an actor definition, while
+ * these do direct CRUD and produce no messages. `deps` is built per call from
+ * one Scenario's attachments, so scoping comes from the data.
  */
 
 export type ScenarioAgentDeps = {

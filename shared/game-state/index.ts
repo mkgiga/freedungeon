@@ -17,12 +17,8 @@ function sortMessages(messages: ChatMessage[]): ChatMessage[] {
 }
 
 /**
- * Replay every message's command calls from a fresh ctx. Pure - same input,
- * same output. In shared/ so the client can replay a partial message tail
- * during playback.
- *
- * Goes through parseBlocks (cached per content string) + applyBlockToCtx rather
- * than eval: content is always pure block-call JS written via serializeBlocks.
+ * Pure - same input, same output. In shared/ so the client can replay a partial
+ * message tail during playback.
  */
 export function runTurn(messages: ChatMessage[]): SharedTurnResult {
     const sorted = sortMessages(messages);

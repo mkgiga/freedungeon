@@ -9,19 +9,16 @@ import { nanoid } from 'nanoid'
 import { removeBackground } from './bg-removal'
 import { log } from './logger'
 
-/** Resolved imageGen config, or null when the feature is off. */
 export function imageGenConfig(): ImageGenConfig | null {
     if (!featureEnabled(state.userPreferences, 'imageGen')) return null
     const cfg = resolveFeatureConfig('imageGen', state.userPreferences.features?.['imageGen'])
     return cfg.values as ImageGenConfig
 }
 
-/** Whether the agent should be offered the define_item icon workflow. */
 export function itemIconsEnabled(): boolean {
     return imageGenConfig()?.generateItemIcons === true
 }
 
-/** Whether the agent should be offered the generate_image tool. */
 export function sceneImagesEnabled(): boolean {
     return imageGenConfig()?.generateImages === true
 }
@@ -35,9 +32,8 @@ const ASPECT_DIMENSIONS = {
 export type ImageAspect = keyof typeof ASPECT_DIMENSIONS
 
 /**
- * Generate an inline scene image and return its /uploads URL, or undefined if
- * generation failed. Unlike item icons, the caller treats undefined as a failed
- * tool call — an image block with no src is nothing but a broken image.
+ * Unlike item icons, the caller treats undefined as a failed tool call - an
+ * image block with no src is just a broken image.
  */
 export async function generateSceneImage(
     description: string,
@@ -85,11 +81,9 @@ export async function generateSceneImage(
 }
 
 /**
- * Generate an icon for an item and return its /uploads URL.
- *
- * Returns undefined rather than throwing: a Forge server that is down or slow
- * must not fail the agent's tool call — the item is still defined, just
- * without an icon, and the agent can redefine it later to retry.
+ * Returns undefined rather than throwing - a slow or absent image backend must
+ * not fail the agent's tool call. The item is still defined, and redefining it
+ * retries.
  */
 export async function generateItemIcon(label: string, description: string, itemKey?: string): Promise<string | undefined> {
     const cfg = imageGenConfig()
@@ -161,11 +155,9 @@ function pollTask(taskId: string, update: (patch: Record<string, unknown>) => vo
 }
 
 /**
- * Start an icon generation and hand the URL back when it lands.
- *
- * Fire-and-forget: an item is usable without an icon, so the turn continues
- * immediately rather than blocking `define_item` on the image model. `onDone`
- * runs only on success; a failure just leaves the item as it is.
+ * Fire-and-forget - an item is usable without an icon, so the turn continues
+ * rather than blocking `define_item` on the image model. `onDone` runs only on
+ * success.
  */
 export function queueItemIcon(label: string, description: string, itemKey: string, onDone: (url: string) => void): void {
     void generateItemIcon(label, description, itemKey)

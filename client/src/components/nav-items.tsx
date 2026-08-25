@@ -2,10 +2,6 @@ import type { JSXElement } from 'solid-js'
 import { MdFillAuto_stories, MdFillChat, MdFillHouse, MdFillNote, MdFillPerson } from 'solid-icons/md'
 import type { Tab } from '../tab-state'
 
-/**
- * The app's destinations, in nav order. Shared so BottomNav, LeftNav and
- * NavDrawer can't drift apart on which tabs exist or what they're called.
- */
 export const NAV_ITEMS: { tab: Tab; label: string; icon: (size?: number) => JSXElement }[] = [
     { tab: 'home', label: 'Home', icon: (size = 24) => <MdFillHouse size={size} /> },
     { tab: 'scenarios', label: 'Scenarios', icon: (size = 24) => <MdFillAuto_stories size={size} /> },

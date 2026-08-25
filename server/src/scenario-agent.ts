@@ -194,15 +194,13 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
 }
 
 /**
- * Returned when the active provider has no web access. Written as guidance to
- * the model rather than a bare error, so it tells the user what to do instead
- * of retrying or inventing page content.
+ * Guidance to the model rather than a bare error, so it relays what to do
+ * instead of retrying or inventing page content.
  */
 export const WEB_FETCH_UNAVAILABLE =
     'Web fetch is not available with the currently selected model. Only Anthropic (Claude) models can browse. '
     + 'Tell the user this, and ask them to paste the relevant text if they need it.'
 
-/** Execute one collaborator tool. Shared by both agent paths. */
 /**
  * One tool the collaborator ran, for showing the user what it did.
  *
@@ -218,7 +216,6 @@ export type ScenarioToolCall = {
 
 const recorders = new Map<string, ScenarioToolCall[]>()
 
-/** Collect the calls made while `run` executes, for one scenario's turn. */
 export async function recordingToolCalls<T>(
     chatId: string,
     run: () => Promise<T>,

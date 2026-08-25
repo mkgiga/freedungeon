@@ -42,9 +42,6 @@ export const io = new Server(httpServer, {
     }
 });
 
-/**
- * Single source of truth for the entire app.
- */
 export const [state, _setState] = createStore({
     assets: {
         actors: {},

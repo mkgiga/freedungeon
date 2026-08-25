@@ -8,7 +8,6 @@ import { execCommand, runQuery } from './agent'
 import { db } from './db'
 import { log } from './logger'
 
-/** Load a chat's persisted OpenAI-v1 transcript (model memory). Empty if none. */
 export async function loadAiTranscript(chatId: string): Promise<ModelMessage[]> {
     const row = await db.selectFrom('chats').select('ai_transcript').where('id', '=', chatId).executeTakeFirst()
     if (!row?.ai_transcript) return []
@@ -20,7 +19,6 @@ export async function loadAiTranscript(chatId: string): Promise<ModelMessage[]> 
     }
 }
 
-/** Persist a chat's OpenAI-v1 transcript. */
 export async function saveAiTranscript(chatId: string, transcript: ModelMessage[]): Promise<void> {
     await db.updateTable('chats').set({ ai_transcript: JSON.stringify(transcript) }).where('id', '=', chatId).execute()
 }
@@ -52,12 +50,6 @@ class ToolFailure extends Error {
     }
 }
 
-/**
- * Build the AI SDK tool set from the shared registries. Every tool's `execute`
- * routes through `execCommand`/`runQuery` — the identical execution path the
- * Claude MCP server uses — so a tool call produces one Block + one ChatMessage
- * and returns the effect/result text the model sees next step.
- */
 export function buildAiSdkTools(
     chatId: string,
     enableChoicePrompts: boolean,
@@ -124,12 +116,6 @@ export type AiSdkTurnArgs = {
     signal: AbortSignal
 }
 
-/**
- * Run one OpenAI-v1 agentic turn. Tools execute in-process (producing
- * ChatMessages live as the loop runs), and the structured transcript is
- * extended with this turn's assistant/tool messages so the next turn resumes
- * with full memory of its atomic tool calls + results.
- */
 export async function runAiSdkTurn(args: AiSdkTurnArgs): Promise<{ transcript: ModelMessage[] }> {
     const tools = buildAiSdkTools(args.chatId, args.enableChoicePrompts, args.enableSceneImages, args.enableItemIcons)
     const messages: ModelMessage[] = [...args.transcript, { role: 'user', content: args.userContent }]

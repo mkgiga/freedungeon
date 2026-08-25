@@ -5,10 +5,6 @@ import { Text } from '../typography/Text'
 
 type ModalAPI = ReturnType<typeof useModal>
 
-/**
- * Opens a modal showing the given actor's expressions. Calling `onPick` with
- * `undefined` clears the expression (reverts to default avatar).
- */
 export function openExpressionPicker(opts: {
     modal: ModalAPI
     actor: Actor

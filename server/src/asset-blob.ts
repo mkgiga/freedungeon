@@ -26,11 +26,8 @@ export function packBlob(entries: BlobEntry[]): Uint8Array {
 }
 
 /**
- * Decompress a packed blob into per-key buffers.
- *
- * Each buffer is a copy rather than a view: a subarray would keep the whole
- * decompressed payload section alive, and the natives in it are ~46MB that we
- * only need long enough to write to disk.
+ * Each buffer is a copy rather than a subarray - a view would keep the whole
+ * decompressed payload (~46MB of natives) alive after the writes.
  */
 export function unpackBlob(blob: Uint8Array): Map<string, Buffer> {
     const buf = Buffer.from(blob.buffer, blob.byteOffset, blob.byteLength)

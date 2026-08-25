@@ -10,13 +10,8 @@ import { useModal } from './Modal'
 import { useToast } from './Toast'
 
 /**
- * Blocks the app while a required external file is being fetched.
- *
- * Driven by the replicated `state.dependencies` map; the client never polls.
- * Mounted at the app shell so it covers every tab.
- *
- * A failure keeps the overlay up with Retry/Cancel - the action that triggered
- * it stays refused, so dismissing silently would explain nothing.
+ * A failure keeps the overlay up with Retry/Cancel rather than closing - the
+ * action that triggered it stays refused either way.
  */
 export function PatcherOverlay() {
     const blocking = createMemo(() =>
@@ -202,12 +197,6 @@ function mb(bytes: number | undefined): string {
     return `${(bytes / 1e6).toFixed(1)} MB`
 }
 
-/**
- * Live progress for a backgrounded download, opened from the system menu.
- *
- * A hook rather than a component, so the menu can also read whether there is
- * anything to show and put the percentage on its own row.
- */
 export function useDownloads() {
     const modal = useModal()
     const blocking = createMemo(() =>

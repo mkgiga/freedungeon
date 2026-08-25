@@ -24,7 +24,6 @@ export type FreedungeonHost = {
     onDispose: (fn: () => void) => void
 }
 
-/** The shape an extension's entry module must default-export. */
 export type ExtensionModule = {
     activate?: (host: FreedungeonHost) => void | Promise<void>
     deactivate?: () => void | Promise<void>

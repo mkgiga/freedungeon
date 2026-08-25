@@ -20,20 +20,12 @@ const keywordsByEmoji: Record<string, string[]> = (() => {
     return out
 })()
 
-/** What the chrome needs to drive the editor it sits above. */
 export type NoteEditorChrome = {
     title: string
     editing: boolean
     save: () => Promise<void>
 }
 
-/**
- * Viewer/editor for a single note.
- *
- * Same two homes as ActorEditor: the /notes/$id route, and a modal over the
- * Scenario editor — which can't navigate away without discarding its own
- * uncommitted draft.
- */
 export function NoteEditor(props: {
     noteId: string
     edit: boolean

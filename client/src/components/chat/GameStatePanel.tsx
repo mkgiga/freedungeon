@@ -17,14 +17,6 @@ import { MdFillPerson } from 'solid-icons/md'
 import { Loader } from '../Loader'
 import { isIconPending } from './inventory/resolveItem'
 
-/**
- * Bottom band: actor portraits and inventory, inline in the composer rail.
- * Names and HP numbers are one click away in a modal.
- *
- * NPCs sort most-recently-active first. Recency is derived client-side by
- * diffing the replayed state, so the shared game-state code stays pure;
- * auto-animate FLIPs the resulting reorder.
- */
 export function GameStatePanel() {
     const modal = useModal()
     const toast = useToast()

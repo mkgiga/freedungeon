@@ -2,14 +2,8 @@ import { Show, type JSXElement } from 'solid-js'
 import { viewport, type Viewport } from '../viewport'
 
 /**
- * Renders children only on the given viewport sizes.
- *
- *   <ShowOn viewport="phone">…</ShowOn>
- *   <ShowOn viewport={['tablet', 'wide']}>…</ShowOn>
- *
- * Like Solid's `<Show>`, children aren't rendered at all rather than rendered
- * and hidden. Use `md:hidden` when the same markup just looks different, this
- * when the markup itself should differ.
+ * Children aren't rendered at all rather than rendered and hidden. Use
+ * `md:hidden` when the same markup just looks different.
  */
 export function ShowOn(props: {
     viewport: Viewport | Viewport[]

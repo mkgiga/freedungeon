@@ -3,10 +3,8 @@ import { installFromZipBytes } from '../../extensions/host'
 import { log } from '../../logger'
 
 /**
- * Extension install by upload.
- *
- * Its own route rather than a tRPC procedure because the payload is an archive:
- * tRPC speaks JSON, and base64-ing a zip through it would inflate it by a third
+ * Its own route rather than a tRPC procedure: the payload is an archive, and
+ * base64-ing a zip through JSON would inflate it by a third
  * for no gain. Mirrors how image uploads already work.
  */
 export const extensionUploadRouter = new Hono()

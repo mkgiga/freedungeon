@@ -23,11 +23,9 @@ export type TlsMaterial = {
 }
 
 /**
- * This machine's LAN address — the one a phone can reach.
- *
  * Skips loopback and link-local (169.254.x, handed out when DHCP failed and
- * routable from nothing). Returns null when there's no such interface, which is
- * a legitimate state: a machine with only loopback has no LAN to serve.
+ * routable from nothing). Null is legitimate - a machine with only loopback has
+ * no LAN to serve.
  */
 export function lanAddress(): string | null {
     for (const addrs of Object.values(os.networkInterfaces())) {
@@ -115,11 +113,8 @@ function writePair(pair: { cert: string; key: string }): void {
 }
 
 /**
- * Produce usable TLS material, fetching or refreshing as needed.
- *
- * Returns null rather than throwing on every failure path — no LAN address, no
- * network, service down, junk response. HTTPS here is an enhancement; losing it
- * must never stop the app from starting on HTTP.
+ * Returns null rather than throwing on every failure path. HTTPS is an
+ * enhancement; losing it must never stop the app starting on HTTP.
  */
 export async function ensureCert(): Promise<TlsMaterial | null> {
     const ip = lanAddress()

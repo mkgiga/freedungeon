@@ -8,13 +8,6 @@ import { Em } from './typography/Em'
 const gb = (bytes: number) => `${(bytes / 1_073_741_824).toFixed(2)} GB`
 const mb = (bytes: number) => `${Math.round(bytes / 1_048_576)} MB`
 
-/**
- * Confirms the image-generation download before it starts: what's missing, what
- * each piece is for, the total. It runs to gigabytes.
- *
- * Sizes come from the server - the GPU decides whether a CUDA runtime is on the
- * list, and a partly-fetched file only owes its remainder.
- */
 export function useImageGenConsent() {
     const modal = useModal()
 

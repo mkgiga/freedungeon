@@ -40,18 +40,12 @@ function ExpressionImage(props: {
     )
 }
 
-/** What the chrome needs to drive the editor it sits above. */
 export type ActorEditorChrome = {
     name: string
     editing: boolean
     save: () => Promise<void>
 }
 
-/**
- * Viewer/editor for a single actor. Two homes - the /actors/$id route, and a
- * modal over the Scenario editor, which can't navigate away without discarding
- * its draft. The host supplies the chrome.
- */
 export function ActorEditor(props: {
     customId: string
     edit: boolean

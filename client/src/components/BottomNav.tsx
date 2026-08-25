@@ -6,11 +6,8 @@ import { useSystemMenu } from './SystemMenu'
 export type { Tab }
 
 /**
- * The last slot is not a tab - Preferences opens as a dialog over whatever you
- * were doing, so it never shows an active state.
- *
- * NavDrawer and the Drawer's `side: 'left'` support still work but nothing
- * opens them.
+ * The last slot is a dialog, not a tab, so it never shows active. NavDrawer and
+ * the Drawer's `side: 'left'` support still work but nothing opens them.
  */
 export function BottomNav(props: { activeTab: Tab; onChange: (t: Tab) => void }) {
     const systemMenu = useSystemMenu()

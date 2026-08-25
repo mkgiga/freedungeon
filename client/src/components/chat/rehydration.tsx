@@ -4,11 +4,9 @@ import { Text } from '../typography/Text'
 import { Em } from '../typography/Em'
 
 /**
- * Guard for anything that triggers an agent turn.
- *
  * A chat with no live SDK session must have its whole history injected first,
- * which costs real tokens, so the first such action confirms. Shared because a
- * choice menu is answered from the history and triggers a turn just like send.
+ * which costs real tokens - so confirm. Answering a choice menu triggers a turn
+ * just like send does.
  */
 export function useRehydrationConfirm() {
     const modal = useModal()

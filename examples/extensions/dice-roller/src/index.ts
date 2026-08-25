@@ -1,13 +1,6 @@
 import { roll } from './dice'
 import type { FreedungeonHost } from './freedungeon'
 
-/**
- * The smallest extension that does something you can see.
- *
- * On activation it rolls a d20, keeps a running history in its own persisted
- * state, and raises a toast. Everything it touches is namespaced to its id, so
- * uninstalling it takes its data with it.
- */
 export default {
     activate(fd: FreedungeonHost) {
         const value = roll(20)

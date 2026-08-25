@@ -54,7 +54,6 @@ function ScenarioAgentSettings() {
     )
 }
 
-/** Opens the settings dialog. Shared by the docked panel and the phone screen. */
 export function useScenarioAgentSettings() {
     const modal = useModal()
     return () => modal.open({

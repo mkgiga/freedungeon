@@ -25,10 +25,7 @@ export type SdArtifact = {
     bytes: number
 }
 
-/**
- * A build target is (platform, accelerator) — the accelerator alone is not
- * enough, since the Vulkan archive differs per OS.
- */
+/** Accelerator alone isn't enough - the Vulkan archive differs per OS. */
 export type SdTarget = 'win32-cuda12' | 'win32-vulkan' | 'linux-vulkan' | 'darwin-metal'
 
 export function sdTarget(platform: NodeJS.Platform, backend: SdBackend): SdTarget | null {
@@ -103,7 +100,6 @@ export const SD_MODELS = {
     },
 } as const satisfies Record<string, SdArtifact & { file: string }>
 
-/** Total bytes fetched on first activation, for the patcher's "this will cost" line. */
 export function sdDownloadBytes(target: SdTarget): number {
     const bin = SD_BINARIES[target].reduce((n, a) => n + a.bytes, 0)
     const models = Object.values(SD_MODELS).reduce((n, a) => n + a.bytes, 0)

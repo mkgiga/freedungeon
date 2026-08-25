@@ -80,9 +80,8 @@ uploadsRouter.post('/', async (c) => {
 })
 
 /**
- * Write bytes into the uploads dir under their content hash and return the
- * serving URL. Shared by the HTTP upload route and by server-side producers
- * (image generation) so dedup + thumbnailing behave identically for both.
+ * Shared by the HTTP upload route and by server-side producers, so dedup and
+ * thumbnailing behave identically for both.
  */
 export async function storeUpload(
     buffer: ArrayBuffer,

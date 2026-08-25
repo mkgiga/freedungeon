@@ -2,14 +2,10 @@ import type { AppState } from './types'
 import type { FeatureKey } from './features'
 
 /**
- * Named things the app can do, and the keys that trigger them.
- *
- * A static registry of data, so the settings UI can render an editor for it.
- * Behaviour is registered separately on the client (client/src/actions.tsx) -
- * a keybind crosses into userPreferences and a callback can't.
- *
- * Ids are `area.verb`; `feature` scopes an action to its owner being enabled.
- * Desktop only - nothing here dispatches on a phone.
+ * Data only - behaviour is registered separately on the client
+ * (client/src/actions.tsx), since a keybind crosses into userPreferences and a
+ * callback can't. `feature` scopes an action to its owner being enabled.
+ * Desktop only; nothing here dispatches on a phone.
  */
 export type ActionSpec = {
     id: string
@@ -20,7 +16,6 @@ export type ActionSpec = {
     canExecute?: (ctx: ActionContext) => boolean
 }
 
-/** What a declaration-site `canExecute` is given. */
 export type ActionContext = {
     state: AppState
 }
@@ -71,7 +66,6 @@ export const ACTIONS: Record<string, ActionSpec> = {
 
 export type ActionId = keyof typeof ACTIONS
 
-/** User overrides, stored in `userPreferences.keybinds`. null means unbound. */
 export type KeybindOverrides = Record<string, string | null>
 
 /**
@@ -107,7 +101,6 @@ function normalizeKey(key: string): string {
     return key
 }
 
-/** Whether an event is exactly this binding. */
 export function matchesKeybind(
     e: { key: string; ctrlKey: boolean; altKey: boolean; shiftKey: boolean; metaKey: boolean },
     binding: string | null | undefined,
@@ -126,7 +119,6 @@ export function resolveKeybind(id: string, overrides: KeybindOverrides | undefin
     return ACTIONS[id]?.defaultKeybind ?? null
 }
 
-/** Actions currently bound to `binding`, excluding `exceptId`. */
 export function conflictsFor(
     binding: string,
     overrides: KeybindOverrides | undefined,
