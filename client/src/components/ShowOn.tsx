@@ -7,11 +7,9 @@ import { viewport, type Viewport } from '../viewport'
  *   <ShowOn viewport="phone">…</ShowOn>
  *   <ShowOn viewport={['tablet', 'wide']}>…</ShowOn>
  *
- * Named to sit next to Solid's own `<Show>`, and it behaves the same way:
- * children aren't rendered at all when the condition is false, rather than
- * rendered and hidden. That's the reason to use this over a `md:hidden` class —
- * reach for CSS when the same markup just looks different, and this when the
- * markup itself should differ.
+ * Like Solid's `<Show>`, children aren't rendered at all rather than rendered
+ * and hidden. Use `md:hidden` when the same markup just looks different, this
+ * when the markup itself should differ.
  */
 export function ShowOn(props: {
     viewport: Viewport | Viewport[]

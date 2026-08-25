@@ -7,13 +7,11 @@ import { SettingsToggle } from './settings'
 import type { ExtensionInfo } from '@shared/extensions'
 
 /**
- * Installed extensions, with a switch each.
+ * Installed extensions, with a switch each. The list is replicated state - the
+ * server scans the directory and publishes what it found, so this only issues
+ * verbs.
  *
- * The list comes from replicated state rather than a query — the server scans
- * the extensions directory and publishes what it found, so this only issues
- * verbs. An extension is only *executed* once switched on; until then this is
- * showing manifests, which is the whole reason identity lives in a file
- * separate from the code.
+ * Nothing is executed until switched on; until then these are manifests.
  */
 export function ExtensionsList() {
     const [busy, setBusy] = createSignal<string | null>(null)

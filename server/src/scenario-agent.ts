@@ -206,10 +206,8 @@ export const WEB_FETCH_UNAVAILABLE =
 /**
  * One tool the collaborator ran, for showing the user what it did.
  *
- * Recorded here rather than in either provider loop because both bottom out in
- * `runScenarioTool` — the AI SDK path calls it from `execute`, the Claude path
- * from the `/agent-rpc` handler — so this is the only place that sees every
- * call regardless of transport.
+ * Recorded here because both provider loops bottom out in `runScenarioTool`,
+ * making it the only place that sees every call regardless of transport.
  */
 export type ScenarioToolCall = {
     name: string

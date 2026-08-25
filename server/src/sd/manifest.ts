@@ -1,20 +1,15 @@
 import type { SdBackend } from './backend'
 
 /**
- * Every byte the image-generation feature fetches, pinned.
+ * Every byte the image-generation feature fetches, pinned by sha256 and size.
+ * Recorded here so verification works offline and an upstream rebuild can't
+ * change what a given version runs.
  *
- * Hashes and sizes are recorded here rather than looked up at download time so
- * that verifying an already-downloaded file works offline, and so an upstream
- * rebuild can never silently change what a given version of freedungeon runs.
- * Same reasoning as the pinned hash on `rmbgModel` in dependencies.ts.
+ * stable-diffusion.cpp ships rolling master builds, so the tag is a commit, and
+ * archive names embed both it and the CI runner's OS version - hence whole
+ * filenames rather than templates.
  *
- * stable-diffusion.cpp publishes rolling master builds rather than semver
- * releases, so the tag below is a specific commit. Its archive names embed both
- * that tag and the CI runner's OS version (`macOS-26.5.2`, `Ubuntu-24.04`),
- * which is precisely why whole filenames are pinned instead of templated —
- * they are not predictable across releases.
- *
- * Refreshing to a newer upstream build:
+ * To refresh:
  *   gh api repos/leejet/stable-diffusion.cpp/releases/latest \
  *     --jq '.assets[] | "\(.name)\t\(.size)\t\(.digest)"'
  */
@@ -47,10 +42,9 @@ export function sdTarget(platform: NodeJS.Platform, backend: SdBackend): SdTarge
 /**
  * Archives to unpack for each target, in order.
  *
- * CUDA is two: upstream ships the runtime DLLs (`cudart64_*`, `cublas64_*`,
- * `cublasLt64_*`) as a separate archive, built from the same CUDA 12.8.1
- * toolkit as the executable. Both are required, which is why the CUDA path
- * costs ~860 MB against Vulkan's ~39 MB.
+ * CUDA is two: the runtime DLLs (`cudart64_*`, `cublas64_*`, `cublasLt64_*`)
+ * ship separately from the executable, both built against CUDA 12.8.1. Both are
+ * required - ~860 MB against Vulkan's ~39 MB.
  */
 export const SD_BINARIES: Record<SdTarget, SdArtifact[]> = {
     'win32-cuda12': [

@@ -4,14 +4,10 @@ import type { ExtensionStore } from '../extension-state'
 /**
  * What an extension is handed when it activates.
  *
- * Injected as an argument rather than imported. An extension is loaded from
- * disk at runtime, so a bare specifier like `import { … } from 'freedungeon'`
- * would have to be resolvable from wherever the user dropped the folder — that
- * means shipping a module resolver, or forcing every author to install a
- * package just to get an object we already hold. Passing it in needs neither.
- *
- * Authoring types come from the shipped `freedungeon.d.ts`, so an author still
- * gets full autocomplete: types by declaration, runtime by injection.
+ * Injected rather than imported: extensions load from disk at runtime, so a
+ * bare `from 'freedungeon'` would need a module resolver or an installed
+ * package. Types come from the shipped `freedungeon.d.ts`, so autocomplete
+ * still works - types by declaration, runtime by injection.
  */
 export type FreedungeonHost = {
     readonly id: string

@@ -19,13 +19,9 @@ export type SystemMenuEntry = {
 }
 
 /**
- * The settings button as a menu of destinations, the way a game's system menu
- * works, rather than a single shortcut to Preferences.
- *
- * The point is space: Notifications, Downloads and Documentation each need
- * somewhere to live, and none of them deserves a permanent slot in a five-item
- * nav bar. Behind one button they cost nothing until opened, and the pattern is
- * already familiar from the Home dashboard's list of links.
+ * The settings button as a menu of destinations rather than a shortcut to
+ * Preferences. Notifications, Downloads and Documentation each need somewhere
+ * to live and none earns a slot in a five-item nav bar.
  */
 export function useSystemMenu() {
     const modal = useModal()

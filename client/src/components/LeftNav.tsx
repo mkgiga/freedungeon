@@ -14,13 +14,11 @@ import { Text } from './typography/Text'
 import { useSystemMenu } from './SystemMenu'
 
 /**
- * Side navigation for tablet and widescreen, replacing the bottom bar.
+ * Side navigation for tablet and widescreen, replacing the bottom bar. Wide
+ * shows icon plus label; tablet collapses to icons.
  *
- * On a wide screen each row is an icon plus its label; on a tablet the label is
- * dropped and the rail collapses to icons, keeping horizontal space for the
- * content. The label is omitted from the DOM rather than hidden with CSS so it
- * can't be picked up by screen readers or find-in-page while invisible — the
- * `title` carries the name instead.
+ * The label leaves the DOM rather than being hidden with CSS, so screen readers
+ * and find-in-page can't reach it. `title` carries the name instead.
  */
 export function LeftNav() {
     const pickers = useAssetPickers()

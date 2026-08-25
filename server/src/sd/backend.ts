@@ -21,11 +21,10 @@ export type SdUnsupportedCode = 'linuxNvidia' | 'platform'
 /**
  * NVIDIA compute capability (e.g. "12.0" for Blackwell), or null.
  *
- * `nvidia-smi` is the probe rather than an adapter enumeration because it
- * exists if and only if the NVIDIA driver is installed, and it reports the
- * card's architecture directly. Enumerating display adapters would also have to
- * cope with machines that list several — an integrated AMD, a virtual display
- * from remote-desktop software — where "the first one" is routinely wrong.
+ * `nvidia-smi` is the probe because it exists iff the driver does and reports
+ * the architecture directly. Enumerating display adapters would have to pick
+ * among several - integrated AMD, virtual remote-desktop displays - where "the
+ * first one" is routinely wrong.
  */
 export async function nvidiaComputeCap(): Promise<string | null> {
     try {
@@ -90,10 +89,9 @@ export async function resolveSdBuild(): Promise<SdBuildChoice> {
 /**
  * Total VRAM in GiB for an NVIDIA card, or null when it can't be known.
  *
- * Only NVIDIA is answerable cheaply. Windows' `Win32_VideoController.AdapterRAM`
- * is a 32-bit field and saturates at 4 GiB — it reports a 32 GiB RTX 5090 as
- * 4 — so it is not a usable source for anyone. Unknown is therefore a normal
- * outcome, not a failure, and the flag tiers below treat it as such.
+ * Only NVIDIA is cheap to answer. Windows' `Win32_VideoController.AdapterRAM`
+ * is 32-bit and saturates at 4 GiB, so it reports a 32 GiB card as 4. Unknown
+ * is a normal outcome rather than a failure; the flag tiers treat it as such.
  */
 export async function nvidiaVramGiB(): Promise<number | null> {
     try {
@@ -110,23 +108,13 @@ export async function nvidiaVramGiB(): Promise<number | null> {
 }
 
 /**
- * Runtime flags sized to the machine, rather than to the machine it was
- * developed on.
- *
- * Upstream's own ordering, fastest to smallest-VRAM, is
+ * Runtime flags picked from measured VRAM, walking upstream's ladder:
  *   none -> --offload-to-cpu -> + --max-vram N -> + --stream-layers
- * each step trading a few percent of throughput for room. The tiers below walk
- * that ladder against measured VRAM.
  *
- * `--max-vram -1` is upstream's auto-detect: it reads free VRAM, keeps ~1 GiB
- * headroom, and cuts each forward pass into segments that fit. It is why this
- * doesn't compute a budget itself, and why an unmeasurable GPU is survivable —
- * the problem is handed to the thing that can measure it at runtime.
- *
- * Flash attention is conditional rather than always on: upstream notes it
- * speeds CUDA up but *slows most other backends down*, while saving memory on
- * all of them. So it is free on CUDA, and only worth paying for elsewhere once
- * memory is the binding constraint.
+ * `--max-vram -1` is upstream's auto-detect: it reads free VRAM at runtime and
+ * segments each pass to fit, so no budget is computed here and an unmeasurable
+ * GPU still works. Flash attention speeds up CUDA but slows other backends, so
+ * it is on for CUDA and used elsewhere only when memory is the constraint.
  */
 export function sdRuntimeFlags(backend: SdBackend, vramGiB: number | null): string[] {
     if (backend === 'metal') return ['--max-vram', '-1']

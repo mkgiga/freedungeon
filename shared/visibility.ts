@@ -1,17 +1,12 @@
 /**
- * Soft-delete visibility, in one place.
+ * Soft-delete visibility.
  *
- * Deleting an actor or a note never removes the row: chat history resolves them
- * live (SpeechBlock looks the actor up by `customId` on every render), so a real
- * delete would strip portraits and expressions out of messages already written.
+ * Deleting an actor or note never removes the row - history resolves them live
+ * (SpeechBlock looks actors up by `customId` on every render), so a real delete
+ * would strip portraits out of messages already written.
  *
- * The rule is therefore: **rows always exist; visibility is a filter.** Anything
- * that presents a library, a picker, or an agent tool applies it. History does
- * not, which is the entire point.
- *
- * Shared rather than reimplemented per call site because there are a dozen of
- * them, and one that forgets is a deleted character quietly reappearing in a
- * picker — or worse, in the agent's tool results.
+ * Rows always exist; visibility is a filter. Every library, picker and agent
+ * tool applies it. History does not.
  */
 
 export type SoftDeletable = { deletedAt?: number | null }

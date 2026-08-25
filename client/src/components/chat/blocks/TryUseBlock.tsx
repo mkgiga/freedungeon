@@ -6,9 +6,8 @@ import { resolveItem } from '../inventory/resolveItem'
 
 /**
  * A drag-and-drop use attempt, rendered as a plain stated fact rather than a
- * chip. It used to borrow ChoiceBlock's pill, which framed it as something
- * offered or chosen from a set — but this is a thing the player already did,
- * and the agent's answering useItem / narration blocks carry what came of it.
+ * chip - this is something the player already did, not something offered. The
+ * agent's answering useItem / narration blocks carry what came of it.
  */
 export function TryUseBlock(props: {
     block: TryUseBlockType

@@ -4,13 +4,11 @@ import { SCENARIO_TOOLS } from '@shared/scenario-agent/tools';
 import { rpcScenarioTool } from './rpc';
 
 /**
- * MCP surface for the Scenario collaborator, built from the same registry the
- * AI-SDK path uses. The subprocess never implements a tool itself — every call
- * goes back to the server, which owns the scoped deps. That's what keeps the
- * two providers behaviourally identical.
+ * MCP surface for the Scenario collaborator, from the same registry the AI-SDK
+ * path uses. The subprocess implements nothing itself - every call goes back to
+ * the server, which owns the scoped deps, so both providers behave identically.
  *
- * The scenario id is closed over per prompt, so a tool cannot act on a
- * different scenario than the one the panel is editing.
+ * The scenario id is closed over per prompt.
  */
 export function buildScenarioMcpServer(chatId: string) {
     const tools = Object.entries(SCENARIO_TOOLS).map(([key, spec]) =>

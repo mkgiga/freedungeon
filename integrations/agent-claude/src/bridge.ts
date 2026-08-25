@@ -203,12 +203,10 @@ export type ScenarioPromptResult =
     | { ok: false; error: string };
 
 /**
- * One collaborator exchange through the Claude SDK.
- *
- * Deliberately much simpler than runAgentPrompt: no session resume, no fork
- * anchors, no produced-message bookkeeping. The collaborator writes directly to
+ * One collaborator exchange through the Claude SDK. No session resume, fork
+ * anchors or produced-message bookkeeping - the collaborator writes directly to
  * actors and notes rather than emitting blocks, so there is no transcript to
- * keep in sync — history is replayed as plain text each turn.
+ * keep in sync. History is replayed as plain text each turn.
  */
 export async function runScenarioPrompt(args: ScenarioPromptArgs): Promise<ScenarioPromptResult> {
     const { buildScenarioMcpServer, scenarioAllowedTools } = await import('./scenario-mcp');

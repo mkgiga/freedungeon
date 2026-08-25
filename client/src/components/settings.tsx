@@ -5,14 +5,9 @@ import { Text } from './typography/Text'
 /**
  * The building blocks every settings pane is made of.
  *
- * They exist because the Preferences screen had grown a different arrangement
- * for each row it needed — one checkbox with an emphasised blue label, another
- * with a plain one; field captions styled identically to the section headings
- * above them, so nothing outranked anything. Hierarchy can't be maintained by
- * hand at each call site; it has to come from the components.
- *
- * The rule: a group titles a set of related rows, a row titles one control, and
- * a hint explains it. Three levels, and nothing else competes.
+ * A group titles a set of related rows, a row titles one control, a hint
+ * explains it. Three levels, nothing else competes - hierarchy comes from the
+ * components rather than being reapplied at each call site.
  */
 
 /** A titled set of related rows. */

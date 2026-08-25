@@ -1,16 +1,12 @@
 /**
  * What an extension declares about itself.
- * 
- * Split from the code deliberately: the host reads every manifest at boot to
- * populate the extensions list, but only *executes* the ones that are enabled.
- * A disabled extension can therefore be shown, described and toggled without
- * ever having run — which is the difference between a list of installed things
- * and a list of things you've already trusted.
  *
- * Everything else an extension declares (settings, state defaults, actions,
- * tools) is registered from inside `activate` against the injected host, so
- * there is one source of truth rather than a manifest that has to be kept in
- * step with the code.
+ * Split from the code: the host reads every manifest at boot but only executes
+ * enabled ones, so a disabled extension can be listed, described and toggled
+ * without ever having run.
+ *
+ * Everything else - settings, state defaults, actions, tools - is registered
+ * from inside `activate` against the injected host.
  */
 export type ExtensionManifest = {
     id: string

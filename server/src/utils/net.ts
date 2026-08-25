@@ -11,12 +11,11 @@ privateRanges.addSubnet('fe80::', 10, 'ipv6');
 privateRanges.addSubnet('fc00::', 7, 'ipv6');
 
 /**
- * Utility function to check if IPv4/IPv6 address is private.
+ * Whether an IPv4/IPv6 address is private.
  *
- * BlockList.check() defaults `type` to 'ipv4', so passing an IPv6 string
- * (e.g. '::1', or an IPv4-mapped '::ffff:192.168.0.50') without the type
- * would silently return false. Select the type from isIP so IPv6 loopback,
- * link-local, ULA, and IPv4-mapped peers are matched correctly.
+ * `BlockList.check()` defaults `type` to 'ipv4', so an IPv6 string ('::1', or
+ * IPv4-mapped '::ffff:192.168.0.50') silently returns false without it. The
+ * type comes from isIP so loopback, link-local, ULA and mapped peers all match.
  */
 export function isPrivateIP(ip: string): boolean {
     const type = isIP(ip);

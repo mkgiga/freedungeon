@@ -1,20 +1,11 @@
 /**
- * Pointer-based drag-and-drop for inventory items — deliberately not HTML5
- * drag-and-drop (no styling control over the native ghost, no touch support).
+ * Pointer-based drag-and-drop for inventory items. Not HTML5 DnD - no styling
+ * control over the native ghost, no touch support.
  *
- * On pointerdown over a slot, nothing happens until the pointer moves past a
- * small threshold (so incidental presses stay inert). Then:
- *   - a fixed-position container is created at the source element's exact
- *     bounds, holding a deep clone of it, and follows the pointer via
- *     transform (pointer-events: none, so it never blocks hit-testing)
- *   - the source element gets `.drag-source-ghost`
- *   - <body> gets `.item-dragging`, which surfaces every `[data-drop-actor]`
- *     element as a visible target via CSS
- *   - each move hit-tests document.elementFromPoint for the nearest
- *     `[data-drop-actor]` ancestor and marks it with `.drop-target-hover`
- *
- * Releasing over a target calls `onDrop(actorId)`; releasing anywhere else
- * (or pointercancel / Escape-less abort paths) just cleans up.
+ * Past a small move threshold: a fixed-position clone follows the pointer, the
+ * source gets `.drag-source-ghost`, <body> gets `.item-dragging` (CSS reveals
+ * every `[data-drop-actor]`), and each move marks the nearest one
+ * `.drop-target-hover`. Release over a target calls `onDrop(actorId)`.
  */
 export function startItemDrag(
     down: PointerEvent,

@@ -4,17 +4,12 @@ import { useDownloads } from './components/PatcherOverlay'
 import type { NotificationAction } from '@shared/types'
 
 /**
- * Run a notification's fix-it action.
+ * Run a notification's fix-it action. Shared by the toast and the log so acting
+ * on something you missed behaves the same as acting on it live.
  *
- * Shared by the toast and the notification log so the two can't drift on what
- * a given kind does — the log's whole value is being able to act on something
- * you missed, and that has to behave identically to acting on it live.
- *
- * Targets are resolved here rather than carried on the notification: by the
- * time anyone clicks, the active config may not be the one that was active when
- * the turn failed, and opening a config they are no longer using would be worse
- * than useless. It also means an action stored months ago still points at
- * something real.
+ * Targets resolve at click time rather than being carried on the notification -
+ * the active config may have changed since, and an action stored months ago
+ * still has to point at something real.
  */
 export function useNotificationActions() {
     const configs = useLlmConfigs()

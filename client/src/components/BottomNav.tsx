@@ -6,13 +6,11 @@ import { useSystemMenu } from './SystemMenu'
 export type { Tab }
 
 /**
- * The first slot was briefly a burger opening a left NavDrawer; it's back to
- * Home. NavDrawer and the Drawer's `side: 'left'` support are both intact and
- * still work — nothing currently opens them, so the drawer is simply
- * unreachable rather than removed.
+ * The last slot is not a tab - Preferences opens as a dialog over whatever you
+ * were doing, so it never shows an active state.
  *
- * The last slot is not a tab: Preferences opens as a dialog over whatever you
- * were doing, so it never has an active state here.
+ * NavDrawer and the Drawer's `side: 'left'` support still work but nothing
+ * opens them.
  */
 export function BottomNav(props: { activeTab: Tab; onChange: (t: Tab) => void }) {
     const systemMenu = useSystemMenu()

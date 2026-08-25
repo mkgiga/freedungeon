@@ -13,10 +13,9 @@ export type Choice = {
 /**
  * A fork between two ways of doing the same thing.
  *
- * Used where an "add" is ambiguous: adding a character to a Scenario can mean
- * writing a new one or pulling one in from the library, and a tester who
- * didn't know the library existed read the picker as broken. Naming both paths
- * makes the second one discoverable instead of assumed.
+ * For where an "add" is ambiguous - adding a character to a Scenario can mean
+ * writing a new one or pulling one from the library. Naming both paths makes
+ * the second discoverable rather than assumed.
  */
 export function ChoiceDialog(props: { choices: Choice[] }) {
     return (

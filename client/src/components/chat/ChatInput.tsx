@@ -39,9 +39,8 @@ const latestMessageId = () => {
 
 /**
  * The latest message, if it's an unanswered choice menu and the setting is on.
- * Its options surface as buttons in the composer, beside the always-available
- * text field (the "type your own action" escape hatch). GameStatePanel uses the
- * same memo to flip itself into composer mode when a menu appears.
+ * Only drives the composer's placeholder - the options themselves render inline
+ * in the history.
  */
 export function createPendingChoicePrompt() {
     const playback = usePlayback()

@@ -88,21 +88,14 @@ enablePatches();
 setAutoFreeze(false);
 
 /**
- * Edit application state by mutating a draft.
- *
- * The one funnel, in the form callers actually want:
+ * Edit application state by mutating a draft:
  *
  *     mutate(d => { d.currentChat.gameState.itemDefs[key].icon = url })
  *
- * instead of spelling the path out as arguments. Immer records exactly which
- * leaves changed and hands back patches whose `path` is the same array
- * `persistPath` and the socket already speak — so this is a nicer front door
- * onto the existing machinery, not a new protocol. Several edits in one call
- * become several precise patches, not one coarse whole-object write.
- *
- * It also removes the sharp edge that `setState` has: a draft creates
- * intermediate objects as you assign them, so `d.a.b = { c: 1 }` works whether
- * or not `a.b` existed, and the emitted patch always targets a parent that does.
+ * Immer records which leaves changed and returns patches `persistPath` and the
+ * socket already speak, so several edits in one call become several precise
+ * patches rather than one whole-object write. A draft creates intermediates as
+ * you assign, so `d.a.b = { c: 1 }` works whether or not `a.b` existed.
  */
 export function mutate(fn: (draft: AppState) => void): void {
     const [, patches] = produceWithPatches(unwrap(state) as AppState, fn as (d: AppState) => void);
@@ -147,15 +140,11 @@ function removeAt(path: (string | number)[]): void {
 }
 
 /**
- * The low-level path write. `mutate` is the API for application code — this
- * stays for the few places a path is genuinely dynamic (the cascade callbacks
- * below, whose root is a variable) and for the boot writes, where setStore's
- * MERGE semantics are load-bearing: `setState('userPreferences', loaded)` keeps
- * any key the initial store declared that the stored file predates, whereas an
- * assignment would drop it.
- *
- * That merge/replace difference is the one behavioural gap between the two, and
- * the reason this wasn't simply deleted.
+ * The low-level path write. `mutate` is the API for application code; this is
+ * for dynamic paths (the cascade callbacks below) and the boot writes, where
+ * setStore's MERGE is load-bearing - `setState('userPreferences', loaded)`
+ * keeps keys the initial store declares that a stored file predates, which an
+ * assignment would drop.
  */
 export function setState(...args: any[]) {
     (_setState as Function)(...args);

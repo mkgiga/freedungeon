@@ -4,13 +4,11 @@ import type { Activity } from '@shared/types'
 import { Text } from './typography/Text'
 
 /**
- * Renders whatever server-side work is currently in flight. Driven entirely by
- * the replicated `state.activities` map — the client never asks for this, it
- * just re-renders when the server sets or deletes an entry.
+ * Server-side work currently in flight, driven by the replicated
+ * `state.activities` map. The client never asks; it re-renders on set/delete.
  *
- * Add a new activity by adding a `kind` case here; anything unrecognised falls
- * back to a plain labelled row, so a server can emit a new kind without the UI
- * needing to ship first.
+ * Add a `kind` case for a new activity. Unrecognised kinds fall back to a
+ * labelled row, so the server can emit one before the UI ships.
  */
 export function ActivityOverlay() {
     const activities = createMemo(() =>

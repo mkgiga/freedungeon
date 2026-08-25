@@ -62,10 +62,9 @@ export type ActorGameState = {
 /**
  * A way out of the problem a notification reports, offered alongside it.
  *
- * `kind` is a closed set the client maps to a handler rather than anything the
- * server can describe directly — a notification crosses a socket, so it can
- * carry data but never behaviour. Deliberately no payload: each kind resolves
- * its own target from client state, so the server can't hand over a stale id.
+ * `kind` is a closed set the client maps to a handler - a notification crosses
+ * a socket, so it carries data but never behaviour. No payload: each kind
+ * resolves its own target from client state, so no stale id can cross.
  */
 export type NotificationAction = {
     label: string;
@@ -134,14 +133,12 @@ export type LLMConfig = {
 }
 
 /**
- * A user-curated image attached to a chat (usually a template, as preset
- * scenery the agent can bring on screen by `key`).
+ * A user-curated image attached to a chat - preset scenery the agent can bring
+ * on screen by `key`.
  *
- * Agent-generated images deliberately never land here: they're contextual to
- * the beat that produced them, and a registry row would outlive the message
- * block that rewinding or regenerating deletes — leaving an image the agent
- * could still summon for a scene that no longer happened. Those stay as a URL
- * inside their image block and die with it.
+ * Agent-generated images never land here. A registry row would outlive the
+ * message block that a rewind deletes, leaving the agent able to summon an
+ * image for a scene that no longer happened; those stay a URL in their block.
  */
 export type ImageAsset = {
     id: string;

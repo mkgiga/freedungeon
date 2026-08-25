@@ -48,15 +48,9 @@ export type ActorEditorChrome = {
 }
 
 /**
- * Viewer/editor for a single actor.
- *
- * Lives here rather than in /actors/$id because it has two homes: that route,
- * and a modal over the Scenario editor. Editing a character from a scenario
- * can't navigate — the editor holds an uncommitted draft that unmounting would
- * throw away — so the same UI has to be able to open in place.
- *
- * The host supplies its own chrome: a TopBar in the route, a save button in the
- * modal.
+ * Viewer/editor for a single actor. Two homes - the /actors/$id route, and a
+ * modal over the Scenario editor, which can't navigate away without discarding
+ * its draft. The host supplies the chrome.
  */
 export function ActorEditor(props: {
     customId: string

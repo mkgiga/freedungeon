@@ -40,14 +40,12 @@ async function isUp(): Promise<boolean> {
 }
 
 /**
- * Start the sidecar if it isn't already running, and resolve once it answers.
+ * Start the sidecar if it isn't running, and resolve once it answers.
  *
- * Concurrent callers share one attempt: two chat turns asking for an image at
- * the same moment must not race two processes onto the same port. Readiness is
- * a real request rather than "the process didn't exit", because sd-server binds
- * its port only after loading ~3 GB of weights — which on a cold page cache can
- * take a minute, and during which a naive caller would get connection refused
- * and conclude it had failed.
+ * Concurrent callers share one attempt so two turns can't race two processes
+ * onto the same port. Readiness is a real request, not "the process didn't
+ * exit" - sd-server binds its port only after loading ~3 GB of weights, which
+ * can take a minute cold.
  */
 export function ensureSdServer(): Promise<void> {
     if (starting) return starting

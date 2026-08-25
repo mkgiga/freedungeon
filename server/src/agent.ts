@@ -32,9 +32,8 @@ const AGENT_URL = `http://127.0.0.1:${AGENT_PORT}`;
 let agentProcess: ChildProcess | null = null;
 
 /**
- * Spawn the agent process as a child of the server. Owning the lifecycle here
- * means the agent dies with the server (and restarts if we ever crash-loop
- * it). The agent listens on AGENT_PORT and we call into it via HTTP.
+ * Spawn the agent as a child of the server, so it dies with the server and is
+ * restarted on crash-loop. It listens on AGENT_PORT and is called over HTTP.
  */
 export async function spawnAgentProcess() {
     if (agentProcess) return;
@@ -713,17 +712,11 @@ export async function cancelAgentTurn() {
 }
 
 /**
- * Drop a chat's SDK session and arm the rehydration path. The next
- * prompt will inject the chat's full message history as a preamble
- * into a fresh session so the agent's view stays in sync with the
- * displayed chat. Used as the fork-failure / no-anchor fallback —
- * preferred over "leave session intact" because divergence causes the
- * agent to ignore events the user can see (e.g. characters
- * pretending events didn't happen).
+ * Drop a chat's SDK session and arm rehydration: the next prompt injects the
+ * full message history as a preamble into a fresh session.
  *
- * When the dropped chat is the loaded one and has any messages, sets
- * the rehydration flag so the UI shows the warning + cost-confirm
- * modal on the next send.
+ * The fork-failure / no-anchor fallback. If the chat is the loaded one and has
+ * messages, sets the rehydration flag so the next send warns and confirms cost.
  */
 export async function invalidateAgentSession(chatId: string) {
     await db.updateTable('chats')
@@ -774,22 +767,12 @@ function findForkAnchorIn(
 }
 
 /**
- * Fork the SDK session to preserve cache up to (and including) a clean
- * turn boundary at or before `keepUntilMessageId`. On success persists
- * the new session id to `chat.agent_session_id` and returns it.
+ * Fork the SDK session at a clean turn boundary at or before
+ * `keepUntilMessageId`, persisting the new id to `chat.agent_session_id`.
  *
- * On any failure (no anchor in the current session, fork call errored)
- * the session is INVALIDATED so the next prompt rebuilds context from
- * the displayed chat via rehydration. The invalidate path is preferred
- * over "leave session intact" because divergence between displayed
- * messages and SDK transcript causes the agent to ignore events the
- * user can see (characters pretending events that just happened
- * didn't). Rehydration costs a one-time preamble; divergence costs
- * trust in the chat.
- *
- * The one case where we do nothing: no source session at all. Then
- * the chat is ALREADY in the rehydration state and the next prompt
- * will inject the preamble naturally.
+ * Any failure INVALIDATES the session so the next prompt rehydrates from the
+ * displayed chat - a diverged transcript makes characters ignore events the
+ * user can see. No source session at all is a no-op.
  */
 export async function forkAgentSession(args: {
     chatId: string;
@@ -834,25 +817,15 @@ export async function forkAgentSession(args: {
 }
 
 /**
- * Fork the source chat's SDK session and assign the resulting fork to
- * `targetChatId`. Used by branch / clone / saveAsTemplate so derived
- * chats inherit the agent's memory of the source.
+ * Fork the source chat's SDK session onto `targetChatId`, so branch / clone /
+ * saveAsTemplate inherit the agent's memory.
  *
- * Three modes:
+ * `fullCopy` takes the whole session. `untilMessage` forks at the turn-closer
+ * anchor at or before `keepUntilMessageId`, resolved against `sourceMessages`
+ * (which must still hold the pre-clone ids).
  *
- * - `mode: 'fullCopy'` — fork the entire source session (no
- *   upToMessageId). Use for clone/template flows where the derived chat
- *   is the complete contents of the source.
- *
- * - `mode: 'untilMessage'` — fork at the turn-closer anchor at or
- *   before `keepUntilMessageId`. Use for branch flows. The anchor is
- *   resolved against `sourceMessages` (which must contain
- *   keepUntilMessageId — typically the source chat's messages BEFORE
- *   they're cloned with new ids).
- *
- * Returns null when there's no source session, no anchor found, or the
- * fork call failed. In those cases the derived chat is left with
- * agent_session_id = null and its first prompt creates a fresh session.
+ * Null on no session, no anchor, or a failed fork - the derived chat then
+ * starts fresh.
  */
 export async function forkAgentSessionForChat(
     args:

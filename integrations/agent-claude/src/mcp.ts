@@ -6,15 +6,11 @@ import { rpcExec, rpcQuery } from './rpc';
 import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProducedMessageId } from './bridge-state';
 
 /**
- * Build the MCP server for one user prompt. The chatId is closed over by the
- * tool handlers, so we get a fresh server per prompt — that keeps the tool
- * handlers' notion of "current chat" unambiguous even if the user switches
- * chats mid-turn (which we don't allow, but the closure makes it impossible
- * to act on the wrong chat by accident).
+ * Build the MCP server for one user prompt. Handlers close over the chatId, so
+ * a fresh server per prompt makes acting on the wrong chat impossible.
  *
- * Tool naming: MCP names become `mcp__game_state__<tool>` once the server is
- * registered under `game_state`. We pass that pattern to `allowedTools` so
- * the model can call them without permission prompts.
+ * Names become `mcp__game_state__<tool>` once registered under `game_state`;
+ * that pattern goes to `allowedTools` so calls skip permission prompts.
  */
 export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableSceneImages = false, enableItemIcons = false) {
     const writeTools = commandEntries(enableSceneImages).map(([key, spec]) => {
@@ -114,10 +110,9 @@ export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableScen
 }
 
 /**
- * Returns the qualified MCP tool name pattern for `allowedTools`. Once the
- * MCP server is registered under name "game_state", individual tools become
- * `mcp__game_state__<tool>`. We list each one explicitly so we don't
- * accidentally bypass deferred-loading semantics.
+ * Qualified MCP tool names for `allowedTools`. Once the server is registered
+ * under "game_state", tools become `mcp__game_state__<tool>`. Listed
+ * explicitly rather than wildcarded, to keep deferred-loading semantics.
  */
 export function allTools(enableSceneImages = false): string[] {
     const cmds = commandEntries(enableSceneImages).map(([, c]) => `mcp__game_state__${c.name}`);

@@ -1,23 +1,14 @@
 /**
- * Removes explanatory comments from the TypeScript sources, keeping the two
- * kinds that aren't prose: toolchain directives, and the JSDoc your editor
- * shows on hover at a call site.
+ * Strips comments from the TypeScript sources. Keeps toolchain directives and
+ * JSDoc on exported declarations.
  *
- * Usage:
- *   bun scripts/strip-comments.ts --dry-run     report only
- *   bun scripts/strip-comments.ts               rewrite in place
- *   bun scripts/strip-comments.ts --all         also drop JSDoc on exports
+ *   bun scripts/strip-comments.ts --dry-run   report only
+ *   bun scripts/strip-comments.ts             rewrite in place
+ *   bun scripts/strip-comments.ts --all       also drop JSDoc on exports
  *
- * Why this exists rather than a package: none of the published comment
- * strippers state what they parse with, and `/*` inside JSX *text* is literal
- * text rather than a comment — `<p>/* hi *\/</p>` renders those characters — so
- * anything scanning raw tokens corrupts markup. Walking real AST nodes cannot
- * make that mistake. `tsc --removeComments` only affects emitted JavaScript,
- * and neither ESLint nor Biome ships a comment-removal fix.
- *
- * Every file is verified before it is written: the AST of the result must match
- * the AST of the original, node for node. If it doesn't, the file is skipped
- * and reported rather than saved.
+ * Walks AST nodes rather than scanning tokens: `/*` inside JSX text is literal
+ * text, not a comment. Only sees tracked files. Each file's AST is compared
+ * before and after and a mismatch skips the file rather than writing it.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -50,16 +41,12 @@ function sourceFile(path: string, text: string) {
 }
 
 /**
- * A shape that survives losing comments, so the two versions of a file can be
+ * A shape that survives losing comments, so two versions of a file can be
  * compared for real difference.
  *
- * Two allowances, both for JSX. A comment-only expression container is elided,
- * because removing one is the point. And the text around it is accumulated
- * rather than recorded per node: `<p>a {/* c *\/} b</p>` holds two text nodes
- * either side of the container and one merged node once it's gone, so counting
- * them would report every such edit as damage. Neither allowance can hide a
- * real change — a container with an expression in it still has to match, and
- * the merged text still has to read the same.
+ * Two JSX allowances: comment-only expression containers are elided, and
+ * adjacent text is accumulated rather than counted per node - removing a
+ * container merges the text either side of it. Neither can hide a real change.
  */
 function signature(sf: ts.SourceFile): string[] {
     const out: string[] = []

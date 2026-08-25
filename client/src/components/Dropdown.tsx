@@ -15,11 +15,9 @@ const VIEWPORT_MARGIN = 8
 /**
  * The floating menu half of a dropdown, anchored to an element you already own.
  *
- * Split out from `Dropdown` because that component supplies its own trigger
- * button, and some triggers can't be wrapped: the speech portrait is
- * `float: left` (the dialogue wraps around it), so an extra container — or an
- * extra button around its button — changes the layout. Here the caller keeps
- * its element and just hands over the rect to hang the menu off.
+ * `Dropdown` supplies its own trigger button, which some callers can't accept -
+ * the speech portrait is `float: left`, so an extra wrapper changes the layout.
+ * Here the caller keeps its element and hands over the rect.
  */
 export function AnchoredMenu(props: {
     anchor: HTMLElement

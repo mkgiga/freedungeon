@@ -6,12 +6,11 @@ import { Text } from './typography/Text'
 import { DOCS, findDoc, parseDocRef, renderDoc, type DocRef } from '../docs'
 
 /**
- * The help browser: the `/docs` folder, rendered.
+ * The help browser: the `/docs` folder, rendered. List-and-detail, like the
+ * models library.
  *
- * Same list-and-detail shape as the models library, so the two read as the same
- * kind of surface. Opening it can target a specific page and heading, which is
- * what lets a label anywhere in the app point at the paragraph that explains it
- * (see DocLink).
+ * Opening it can target a page and heading, so a label anywhere in the app can
+ * point at the paragraph explaining it (see DocLink).
  */
 export function HelpDialog(props: { initial?: DocRef }) {
     const initial = () => parseDocRef(props.initial ?? DOCS[0]?.slug ?? '')

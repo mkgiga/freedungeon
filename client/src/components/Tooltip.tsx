@@ -55,10 +55,9 @@ function offer(side: TooltipPlacement, anchor: DOMRect, box: { width: number; he
 /**
  * Pick a side that fits, then keep the box on screen.
  *
- * Fit is judged on the *measured* box, so a tooltip near an edge flips rather
- * than being shoved back over its own trigger. If no side fits (a small
- * viewport, a long tooltip) the preferred one is used and clamped — overlapping
- * the trigger beats hanging off the screen.
+ * Fit is judged on the measured box, so a tooltip near an edge flips rather
+ * than being shoved over its trigger. If no side fits, the preferred one is
+ * clamped - overlapping the trigger beats hanging off the screen.
  */
 export function placeTooltip(
     anchor: DOMRect,

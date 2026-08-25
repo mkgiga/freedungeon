@@ -4,18 +4,12 @@ import type { FeatureKey } from './features'
 /**
  * Named things the app can do, and the keys that trigger them.
  *
- * Declared the same way features are: a static registry of *data*, so the
- * settings UI can render an editor for it and anything can ask "what is bound
- * to X?" without knowing who implements it. The behaviour itself is registered
- * separately on the client (see client/src/actions.tsx) — a keybind has to
- * cross into userPreferences, and a callback can't.
+ * A static registry of data, so the settings UI can render an editor for it.
+ * Behaviour is registered separately on the client (client/src/actions.tsx) -
+ * a keybind crosses into userPreferences and a callback can't.
  *
- * Ids are namespaced `area.verb`. When features become extensions, an extension
- * declares actions under its own namespace and nothing else changes: `feature`
- * already scopes an action's lifetime to its owner being enabled.
- *
- * Keybinds are desktop-only by definition — a touch screen has no keys — so
- * nothing here is dispatched on a phone.
+ * Ids are `area.verb`; `feature` scopes an action to its owner being enabled.
+ * Desktop only - nothing here dispatches on a phone.
  */
 export type ActionSpec = {
     id: string
@@ -82,11 +76,11 @@ export type KeybindOverrides = Record<string, string | null>
 
 /**
  * Canonical text for a key combination: modifiers in a fixed order, then the
- * key. Fixed order matters — `Shift+Ctrl+K` and `Ctrl+Shift+K` are the same
- * chord, and comparing raw strings would say otherwise.
+ * key - `Shift+Ctrl+K` and `Ctrl+Shift+K` are one chord, and raw strings
+ * would compare unequal.
  *
- * Returns null for a lone modifier press, so holding Ctrl while choosing a
- * binding doesn't record `Ctrl+Control`.
+ * Null for a lone modifier press, so holding Ctrl while picking a binding
+ * doesn't record `Ctrl+Control`.
  */
 export function keybindFromEvent(e: {
     key: string

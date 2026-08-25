@@ -110,14 +110,11 @@ const SPECS: Record<DependencyKey, Spec> = {
 type AuthStatus = { loggedIn: boolean; email?: string; orgName?: string; subscriptionType?: string }
 
 /**
- * Locate a usable Claude CLI: the copy we manage, or one the user already has.
+ * Locate a usable Claude CLI: the managed copy, or one already on the system.
  *
- * Plenty of people install Claude Code before they ever run freedungeon — that
- * is how `claude setup-token` works for them — and downloading a second 228MB
- * copy for those users is both wasteful and, when we then fail to pass the path
- * along, actively broken. A system install is accepted as-is: it is whatever
- * version the user chose, so it is deliberately NOT checked against our pinned
- * manifest, which would report a perfectly good binary as corrupt.
+ * A system install is accepted as-is and NOT checked against the pinned
+ * manifest - it is whatever version the user chose, and checking it would
+ * report a perfectly good binary as corrupt.
  */
 export function resolveClaudeCli(): { file: string; managed: boolean } | null {
     const managed = SPECS.claudeCli.file
@@ -322,15 +319,12 @@ async function gateReady(spec: Spec, verified: 'satisfied'): Promise<DependencyS
 }
 
 /**
- * What fetching `keys` would actually cost, so the user can be asked first.
+ * What fetching `keys` would cost, so the user can be asked first. Sizes come
+ * from each dependency's own `resolve()`; nothing here knows which feature
+ * asked.
  *
- * Generic on purpose: it reports on whatever keys it is handed, and takes each
- * size from that dependency's own `resolve()`. Nothing here knows which feature
- * asked or which host serves the bytes.
- *
- * `bytes` is what remains, not the file's full size — a dependency half-fetched
- * before the app was closed only owes the rest, and quoting the full figure
- * would overstate the cost and make a resumed download look stalled.
+ * `bytes` is what remains, not the full size - a half-fetched file only owes
+ * the rest, and the full figure would make a resumed download look stalled.
  */
 export async function planDependencies(keys: DependencyKey[]): Promise<DependencyPlanItem[]> {
     const items: DependencyPlanItem[] = []
@@ -419,10 +413,9 @@ function markerPath(key: DependencyKey, dir: string): string {
 /**
  * Stream a response to disk, hashing as it goes, and report progress.
  *
- * Streaming rather than buffering because these run to gigabytes: the diffusion
- * model alone is 2.2 GB, and collecting chunks into an array before
- * `Buffer.concat` would need roughly twice that in RAM at the moment of
- * concatenation. Hashing incrementally means the bytes are never all resident.
+ * Streamed rather than buffered - these run to gigabytes, and concatenating
+ * chunks would need twice the file size in RAM. Hashing incrementally keeps the
+ * bytes from ever all being resident.
  */
 export async function downloadResumable(
     url: string,

@@ -2,11 +2,9 @@ import { z } from 'zod';
 import type { GameStateContext } from '../types';
 
 /**
- * Read-only MCP tools the agent can call to inspect current state without
- * mutating it. These are pure reads against the server's authoritative state
- * and never produce a ChatMessage. The model uses them to verify before
- * acting ("is vega still alive before I damage them?") or to disambiguate
- * actor ids before calling speech/damage/etc.
+ * Read-only MCP tools for inspecting current state. Pure reads against the
+ * server's authoritative state; never produce a ChatMessage. The model uses
+ * them to check state before mutating it, or to disambiguate an actor id.
  */
 export type QueryDeps = {
     ctx: GameStateContext;

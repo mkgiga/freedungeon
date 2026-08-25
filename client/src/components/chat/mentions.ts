@@ -3,12 +3,11 @@ import { state } from '../../state'
 const MENTION = /<@([^>\s]+)>/g
 
 /**
- * Swap mentions for display names.
+ * Swap mentions for display names, on the way to the screen only - the stored
+ * block keeps its refs, so a rename still updates old messages.
  *
- * Applied only on the way to the screen — the stored block keeps its refs, so
- * renaming an actor still updates old messages and editing a line doesn't
- * silently freeze the name in. An unresolvable id is left exactly as written
- * rather than blanked: a visible broken ref is easier to fix than a silent gap.
+ * An unresolvable id is left as written rather than blanked; a visible broken
+ * ref is easier to fix than a silent gap.
  */
 export function resolveMentions(text: string): string {
     if (!text.includes('<@')) return text

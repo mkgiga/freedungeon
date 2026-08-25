@@ -12,15 +12,11 @@ import { useToast } from './Toast'
 /**
  * Blocks the app while a required external file is being fetched.
  *
- * Driven entirely by the replicated `state.dependencies` map — the same one-way
- * flow as ActivityOverlay. The client never polls; the server publishes
- * progress and this re-renders. Mounted at the app shell rather than inside a
- * route so it covers every tab.
+ * Driven by the replicated `state.dependencies` map; the client never polls.
+ * Mounted at the app shell so it covers every tab.
  *
- * A failed download keeps the overlay up with Retry/Cancel rather than
- * vanishing, because the action that triggered it (saving an Anthropic config,
- * enabling background removal) is refused when the dependency can't be met —
- * silently dismissing would leave the user wondering why nothing saved.
+ * A failure keeps the overlay up with Retry/Cancel - the action that triggered
+ * it stays refused, so dismissing silently would explain nothing.
  */
 export function PatcherOverlay() {
     const blocking = createMemo(() =>
@@ -209,10 +205,8 @@ function mb(bytes: number | undefined): string {
 /**
  * Live progress for a backgrounded download, opened from the system menu.
  *
- * A dialog rather than a side rail panel: on a wide screen the nav is already a
- * 200px column, and a second one beside it puts 520px of chrome in front of the
- * content. Exported as a hook so the menu can also read whether there is
- * anything to show, and label its own row with the percentage.
+ * A hook rather than a component, so the menu can also read whether there is
+ * anything to show and put the percentage on its own row.
  */
 export function useDownloads() {
     const modal = useModal()

@@ -3,15 +3,12 @@ import type { Block } from '../blocks';
 import type { GameStateContext } from '../types';
 
 /**
- * A command spec defines an MCP tool that, when invoked by the agent, produces
- * exactly one Block. The Block is the unit of:
- *   - persistence (one Block ↔ one ChatMessage, serialized via serializeBlocks)
- *   - state mutation (via applyBlockToCtx during replay)
- *   - display (rendered by the matching client component)
+ * An MCP tool that produces exactly one Block when the agent calls it. The
+ * Block is the unit of persistence (one Block ↔ one ChatMessage), state
+ * mutation (applyBlockToCtx during replay), and display.
  *
- * The registry is the single source of truth that the agent's MCP server and
- * the server's RPC handler both read from — they cannot disagree on the
- * arg shape because there is only one schema.
+ * The MCP server and the RPC handler both read this registry, so they can't
+ * disagree on the arg shape.
  */
 export type CommandSpec<S extends z.ZodTypeAny = z.ZodTypeAny> = {
     name: string;
@@ -300,13 +297,9 @@ export type CommandFeatures = { itemIcons?: boolean };
 /**
  * The arg schema to expose for a command, given which features are on.
  *
- * `visualDescription` is only ever read when item icons are being generated —
- * it's the prompt handed to the image model. With that feature off, exposing it
- * asks for a paragraph per item that nothing renders, so it's dropped.
- *
- * Lives here rather than in each tool builder for the reason the registry
- * exists at all: the MCP server and the AI-SDK loop must not be able to
- * disagree about the arg shape.
+ * `visualDescription` is the prompt handed to the image model, so with icon
+ * generation off it asks for a paragraph per item that nothing renders. Lives
+ * here so the MCP server and the AI-SDK loop can't disagree.
  */
 export function commandSchema(key: CommandName, features: CommandFeatures): z.ZodTypeAny {
     if (key === 'define_item' && !features.itemIcons) {

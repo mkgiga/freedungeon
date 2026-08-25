@@ -4,14 +4,10 @@ import { Text } from './typography/Text'
 
 /**
  * The create affordance, as the first item in a list rather than an icon in a
- * corner.
+ * corner - the first slot is where the eye lands, and it says what the screen
+ * is for.
  *
- * A `+` in the top-right of a full-width screen sits in peripheral vision on a
- * desktop monitor — findable only if you already know it's there. The first
- * slot of the list is the one place the eye is guaranteed to land, and it also
- * answers "what is this screen for?" for someone who has never seen it.
- *
- * Two shapes: `AddNewCard` for grids, `AddNewRow` for `.resource-table` lists.
+ * `AddNewCard` for grids, `AddNewRow` for `.resource-table` lists.
  */
 
 /** Where the affordance sits relative to the existing items. */
@@ -33,13 +29,9 @@ export function AddNewCard(props: { label: string; onClick: () => void }) {
 }
 
 /**
- * Built from the same row and cell classes as a real item, rather than a box
- * spanning the table.
- *
- * That's what keeps its height identical to the rows around it: padding,
- * line-height and cell metrics come from `.resource-table-cell-content`
- * itself, so it can't drift when those change. Only the bottom rule differs —
- * dashed instead of solid — to read as an empty slot.
+ * Built from the same row and cell classes as a real item, so its height can't
+ * drift from the rows around it. Only the bottom rule differs - dashed rather
+ * than solid, to read as an empty slot.
  */
 export function AddNewRow(props: {
     label: string

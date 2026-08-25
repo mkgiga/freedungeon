@@ -6,12 +6,9 @@ import { Text } from '../typography/Text'
 import type { Actor } from '@shared/types'
 
 /**
- * The cast of a chat or Scenario, as portrait cards.
- *
- * A sortable table is the right tool for browsing hundreds of actors, which is
- * what the Actors screen does. Here the set is small and hand-picked, and what
- * matters is recognising faces at a glance — so this trades sorting and density
- * for portraits.
+ * The cast of a chat or Scenario, as portrait cards. The set is small and
+ * hand-picked and what matters is recognising faces, so this trades the Actors
+ * screen's sorting and density for portraits.
  */
 export function ActorCardGrid(props: {
     actors: Actor[]

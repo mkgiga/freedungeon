@@ -151,15 +151,10 @@ export function NotePicker(props: {
 }
 
 /**
- * Opens the session pickers in a modal.
+ * Opens the session pickers in a modal. The left rail and Preferences both
+ * change the player character and share this, so they can't drift apart.
  *
- * The left rail and Preferences both let you change the player character, and
- * both did it by hand-rolling the same modal.open call — which is how the two
- * drifted into a picker on one side and a <select> on the other. The title and
- * the close-on-pick wiring live here now.
- *
- * There is no model picker here any more: the models library does that job
- * as well as a dedicated picker did, so both entry points open it directly.
+ * No model picker here - both entry points open the models library directly.
  * See useLlmConfigs in components/LlmConfigsDialog.
  */
 export function useAssetPickers() {

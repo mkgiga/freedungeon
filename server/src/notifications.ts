@@ -20,18 +20,13 @@ export class ActionableError extends Error {
 const KEEP = 500;
 
 /**
- * Raise a notification: record it, count it as unseen, and surface it.
+ * Raise a notification. Three destinations, three lifetimes:
  *
- * Three destinations, matched to three lifetimes.
- *
- *  - The **row** is the history. Written straight to SQL rather than through
- *    app state, because the log is unbounded and state is replicated wholesale.
- *  - The **state entry** is the unseen set. Bounded — opening the Notifications
- *    view clears it — and it is what the badge counts.
- *  - The **socket event** is the toast. An event about something happening now,
- *    dismissed locally per client; making it state would mean a round-trip to
- *    dismiss a four-second popup, and dismissing it on one device would clear
- *    it on another.
+ *  - row: the history. Straight to SQL - the log is unbounded and state is
+ *    replicated wholesale.
+ *  - state entry: the unseen set, cleared by opening Notifications. The badge
+ *    counts these.
+ *  - socket event: the toast, dismissed locally per client.
  */
 export const notification = (notification: Omit<AppNotification, 'id' | 'createdAt'>) => {
     const full: AppNotification = { id: nanoid(), createdAt: Date.now(), ...notification };

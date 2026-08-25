@@ -163,13 +163,9 @@ function pollTask(taskId: string, update: (patch: Record<string, unknown>) => vo
 /**
  * Start an icon generation and hand the URL back when it lands.
  *
- * Fire-and-forget by design: `define_item` used to await the icon inside the
- * tool call, so the model sat idle for the whole generation before its tool
- * result came back. The item is fully usable without an icon, so the turn
- * continues immediately and the picture catches up.
- *
- * `onDone` runs only on success; a failed generation leaves the item as it is,
- * which is the same outcome the awaited version produced.
+ * Fire-and-forget: an item is usable without an icon, so the turn continues
+ * immediately rather than blocking `define_item` on the image model. `onDone`
+ * runs only on success; a failure just leaves the item as it is.
  */
 export function queueItemIcon(label: string, description: string, itemKey: string, onDone: (url: string) => void): void {
     void generateItemIcon(label, description, itemKey)

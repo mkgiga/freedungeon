@@ -29,15 +29,12 @@ function enabledFlag(id: string): boolean {
 }
 
 /**
- * Read every manifest. Nothing is executed here, and an extension whose
- * manifest doesn't validate is never executed at all: it is marked `invalid`,
- * `loadExtensions` skips it, and `setExtensionEnabled` refuses it even if a
- * stale enabled flag survives from before the file was broken.
+ * Read every manifest. Nothing is executed here. An extension whose manifest
+ * fails validation is marked `invalid`, skipped by `loadExtensions`, and
+ * refused by `setExtensionEnabled` even if a stale enabled flag survives.
  *
- * It is still *listed*, with the reason. A folder the user just dropped in that
- * simply fails to appear is the worst version of this — they have nowhere to
- * look but a log they have no reason to open, so the rejection is shown where
- * the extension would have been.
+ * It is still listed, with the reason - a dropped-in folder that simply never
+ * appears leaves nowhere to look but the log.
  */
 export function scanExtensions(): ExtensionInfo[] {
     if (!fs.existsSync(EXTENSIONS_DIR)) return []
@@ -135,14 +132,11 @@ async function deactivate(id: string): Promise<void> {
 }
 
 /**
- * Re-read the directory and reconcile against what is running.
+ * Re-read the directory and reconcile against what is running. Used by both
+ * startup and Rescan, so a folder dropped in while the server is up behaves as
+ * it would have at boot.
  *
- * This is what both startup and the Rescan button use, so a folder dropped in
- * while the server is up behaves exactly as it would have at boot: discovered,
- * and started if it was already enabled. Anything already running keeps its
- * `active` status rather than being reported back as merely installed, and
- * anything whose folder has disappeared is stopped rather than left running
- * against files that no longer exist.
+ * Running extensions keep `active`; ones whose folder has gone are stopped.
  */
 export async function rescanExtensions(): Promise<ExtensionInfo[]> {
     fs.mkdirSync(EXTENSIONS_DIR, { recursive: true })

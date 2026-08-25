@@ -7,11 +7,9 @@ import type { Actor, Note } from '@shared/types'
 /**
  * Opens an actor or a note in a modal.
  *
- * Used from the Scenario editor, which can't navigate away without discarding
- * its uncommitted draft, and from the chat sidebar, where inspecting a note
- * shouldn't cost you the conversation. Shared so the two can't drift — the
- * asset pickers were duplicated the same way and ended up as a picker on one
- * screen and a <select> on another.
+ * For the Scenario editor, which can't navigate away without discarding its
+ * draft, and the chat sidebar, where reading a note shouldn't cost you the
+ * conversation. Shared so the two can't drift.
  */
 export function useResourceEditors() {
     const modal = useModal()

@@ -13,14 +13,10 @@ import { LLM_PRESETS } from '@shared/llm-presets'
 import { pendingConfigEdit, setPendingConfigEdit } from '../pending-nav'
 
 /**
- * Editor for one LLM config, extracted from the route it used to be so it can
- * sit in the configs dialog's detail pane. Same shape as the ActorEditor and
- * NoteEditor extractions.
+ * Editor for one LLM config, sitting in the configs dialog's detail pane.
  *
- * The route had a view mode and an edit mode, because it was a screen with a
- * TopBar check button. A settings pane you opened by clicking the thing you
- * want to change has no use for a read-only state, so the fields are always
- * live and Save is explicit.
+ * No view/edit split - you opened it by clicking the thing you want to change,
+ * so fields are always live and Save is explicit.
  */
 export function LlmConfigEditor(props: {
     id: string

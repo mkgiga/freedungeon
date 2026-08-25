@@ -18,25 +18,12 @@ import { Loader } from '../Loader'
 import { isIconPending } from './inventory/resolveItem'
 
 /**
- * The persistent bottom band: one rail of live state above the text field.
+ * Bottom band: actor portraits and inventory, inline in the composer rail.
+ * Names and HP numbers are one click away in a modal.
  *
- * Present actors and carried items sit side by side in that rail, inline with
- * the composer's buttons, and are always on screen. They used to be two things
- * you had to go and open — the band flipped between an actor rail and the
- * composer, and the inventory hung off the band's top edge in a drawer over the
- * feed. Both cost a trip away from the text box to see state that is only
- * useful while you are deciding what to type.
- *
- * Everything here is squeezed to fit that row: actors are bare square portraits
- * with a health orb in the corner (variant="micro"), items are their icons. The
- * detail — names, HP numbers, descriptions — is one click away in a modal or
- * the hover card, which is where it was worth reading anyway.
- *
- * NPC cards reorder by "recency": an actor whose HP changes (or who just
- * entered) jumps to the front of the NPCs. The recency signal is derived purely
- * client-side by diffing the replayed game state — the shared game-state code
- * stays pure (it also runs on the server). auto-animate FLIP-animates the
- * resulting DOM reorder.
+ * NPCs sort most-recently-active first. Recency is derived client-side by
+ * diffing the replayed state, so the shared game-state code stays pure;
+ * auto-animate FLIPs the resulting reorder.
  */
 export function GameStatePanel() {
     const modal = useModal()

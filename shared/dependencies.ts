@@ -1,15 +1,12 @@
 /**
- * External files the app needs but doesn't ship: large third-party binaries and
+ * External files the app needs but doesn't ship - third-party binaries and
  * model weights, fetched on demand into the data dir.
  *
- * These are declared rather than hardcoded at each call site so that any
- * feature can state what it depends on, the server can answer "is this usable?"
- * from anywhere, and the client can render the same patcher UI for all of them
- * without knowing what any individual dependency is.
+ * Declared rather than hardcoded per call site, so a feature can state what it
+ * needs and the client renders one patcher UI for all of them.
  *
- * Presence on disk is deliberately NOT the readiness signal — an interrupted
- * download leaves a file that exists but is unusable. Readiness means the bytes
- * match a publisher-provided sha256; see server/src/dependencies.ts.
+ * Presence on disk is NOT readiness: an interrupted download leaves a file that
+ * exists but is unusable. Readiness means the bytes match a publisher sha256.
  */
 
 export type DependencyKey =
@@ -56,13 +53,10 @@ export type DependencyState = {
 /**
  * Dependencies that must land before an agent turn may run.
  *
- * One function, shared: the server refuses prompts with it and the client
- * disables the composer with it, so the two cannot disagree about whether the
- * app is usable. Both inputs are already replicated state.
- *
- * A dependency counts only when this machine needs it AND the feature that
- * wants it is switched on. Turning image generation off is therefore a valid
- * way out of the wait — the files stop being anyone's problem.
+ * Shared: the server refuses prompts with it and the client disables the
+ * composer with it, so the two can't disagree. A dependency counts only when
+ * this machine needs it AND the feature wanting it is on - so switching the
+ * feature off is a valid way out of the wait.
  */
 export function turnBlockers(
     dependencies: Record<string, DependencyState>,

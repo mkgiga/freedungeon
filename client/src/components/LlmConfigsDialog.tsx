@@ -11,18 +11,11 @@ import { LLM_PRESETS } from '@shared/llm-presets'
 import type { LLMConfig } from '@shared/types'
 
 /**
- * The library of LLM configs, as its own dialog.
+ * The library of LLM configs. Preferences keeps only the picker for which one
+ * is active; managing the set happens here.
  *
- * Configs used to live inside the Preferences screen, where a full CRUD table
- * with sortable columns sat between a dropdown and a checkbox and dominated
- * everything around it. They're an asset with a library — like actors and notes,
- * which have their own destinations — and the only part that is genuinely a
- * *preference* is which one is active. That picker stays behind in Preferences;
- * managing the set happens here.
- *
- * Layout is list-and-detail: the list on the left, the editor on the right. On a
- * phone there's no room for both, so exactly one is mounted — the list until you
- * pick something, then the editor with a back affordance.
+ * List-and-detail. On a phone exactly one is mounted - the list until you pick
+ * something, then the editor with a back button.
  */
 export function LlmConfigsDialog(props: { initialId?: string | null }) {
     const modal = useModal()

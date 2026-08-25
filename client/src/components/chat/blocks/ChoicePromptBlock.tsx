@@ -2,16 +2,11 @@ import { For } from 'solid-js'
 import type { ChoicePromptBlock as ChoicePromptBlockType } from '../blocks'
 
 /**
- * The agent's optional end-of-turn multiple-choice menu.
+ * The agent's optional end-of-turn choice menu, rendered and answered inline in
+ * the history.
  *
- * Rendered inline in the history, which is also where it is answered. When
- * `interactive` (the menu is the latest message, unanswered, and the global
- * setting is on) the options are clickable; otherwise they're static — the
- * chosen one is highlighted and the rest dimmed.
- *
- * It used to be mirrored into the composer rail, which meant the rail grew with
- * the number of options and ate the vertical space the scene needs. Here it
- * scrolls with everything else and costs nothing when it's off screen.
+ * `interactive` - latest message, unanswered, setting on - makes the options
+ * clickable. Otherwise the chosen one is highlighted and the rest dimmed.
  */
 export function ChoicePromptBlock(props: {
     block: ChoicePromptBlockType

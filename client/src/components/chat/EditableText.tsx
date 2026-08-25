@@ -1,10 +1,10 @@
 import { createEffect, onMount } from 'solid-js'
 
 /**
- * A contenteditable wrapper that decouples its content from reactive JSX children.
- * Solid's reactivity would otherwise wipe the user's in-progress edits when the
- * bound signal updates. Here, we set `innerText` imperatively via a ref and
- * only sync external changes when the element is not focused.
+ * A contenteditable wrapper that decouples its content from reactive JSX
+ * children, which would otherwise wipe an in-progress edit when the bound
+ * signal updates. Sets `innerText` imperatively through a ref and syncs
+ * external changes only while unfocused.
  */
 export function EditableText(props: {
     initial: string

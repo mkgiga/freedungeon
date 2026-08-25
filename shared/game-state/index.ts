@@ -17,14 +17,12 @@ function sortMessages(messages: ChatMessage[]): ChatMessage[] {
 }
 
 /**
- * Replay every message's command calls from a fresh ctx. Pure: same input →
- * same output. Lives in shared/ so the client can run the same logic against
- * a partial message tail during visual-novel-style playback.
+ * Replay every message's command calls from a fresh ctx. Pure - same input,
+ * same output. In shared/ so the client can replay a partial message tail
+ * during playback.
  *
- * Replays via parseBlocks (cached per content string) + applyBlockToCtx
- * rather than eval'ing each message's content — content is always pure
- * block-call JS (written only through serializeBlocks and friends), so the
- * block list captures everything the old `new Function` execution did.
+ * Goes through parseBlocks (cached per content string) + applyBlockToCtx rather
+ * than eval: content is always pure block-call JS written via serializeBlocks.
  */
 export function runTurn(messages: ChatMessage[]): SharedTurnResult {
     const sorted = sortMessages(messages);

@@ -1,22 +1,12 @@
 import { mutate, state } from './server'
 
 /**
- * The authoring surface for an extension's own persisted state.
+ * Authoring surface for an extension's persisted state. Wraps `mutate` so an
+ * extension assigns fields instead of spelling out the path.
  *
- * `mutate(s => { s.extensionState.myext.a.b = value })` is the funnel, and it
- * is a poor thing to ask a plugin author to write: path-as-arguments, and it
- * throws if any level is missing. This wraps it so the extension writes what it
- * means.
- *
- * Built on `mutate`, which is Immer underneath. Not on Solid's reactivity: the
- * server resolves solid-js's SSR build, where the store is inert — an effect
- * never runs — so `createMutable` plus a change listener, the obvious design,
- * can observe nothing here. Immer gives the same ergonomics and, unlike a
- * listener, reports exactly which leaves changed.
- *
- * One write per `update` call regardless of how many fields it touches, so a
- * batch of related changes is a single database write and a single socket
- * patch instead of one each.
+ * One write per `update` call however many fields it touches - one DB write,
+ * one socket patch. Immer, not Solid reactivity: the server resolves
+ * solid-js's SSR build, where the store is inert and effects never run.
  */
 export type ExtensionStore<T extends Record<string, unknown> = Record<string, unknown>> = {
     readonly values: T

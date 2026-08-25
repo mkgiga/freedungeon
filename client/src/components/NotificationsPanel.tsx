@@ -20,12 +20,11 @@ const when = (ms: number) => {
 }
 
 /**
- * The notification log.
+ * The notification log. Reads history through `notifications.list` - the log is
+ * unbounded and only unseen ones are replicated.
  *
- * Reads history through `notifications.list` rather than from app state,
- * because the log is unbounded — only the unseen ones are replicated. Opening
- * the panel marks everything seen in one stamp, so the badge clears by being
- * looked at rather than by clicking each row.
+ * Opening it marks everything seen in one stamp, so the badge clears by being
+ * looked at rather than per row.
  */
 export function NotificationsPanel(props: { onAction: (a: NotificationAction) => void }) {
     const [cursor, setCursor] = createSignal<{ createdAt: number; id: string } | undefined>(undefined)
@@ -88,14 +87,7 @@ export function NotificationsPanel(props: { onAction: (a: NotificationAction) =>
     )
 }
 
-/**
- * Open the notification log.
- *
- * A dialog, not a side panel. Reading a log is something you go and do and then
- * leave — unlike a download, which you want to glance at while carrying on. And
- * every other entry in the system menu (Preferences, Documentation, the models
- * library) is already a dialog, so this is the shape the app already speaks.
- */
+/** Open the notification log. */
 export function useNotifications() {
     const modal = useModal()
     const runAction = useNotificationActions()

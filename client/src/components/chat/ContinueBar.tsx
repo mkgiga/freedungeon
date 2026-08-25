@@ -7,11 +7,9 @@ import { ShowOn } from '../ShowOn'
 /**
  * Stands in for the composer while blocks are still unread.
  *
- * The blinking triangle on the active line wasn't enough on its own — a tester
- * typed a prompt without realising the scene was still playing, because the
- * text box being there is an invitation to use it. Taking the box away and
- * putting the advance control where the user's hands already are makes the
- * state unmissable, and makes "read the rest" the only move.
+ * A visible text box is an invitation to type through a scene that is still
+ * playing. Removing it and putting the advance control in its place makes
+ * reading on the only move.
  */
 export function ContinueBar() {
     const playback = usePlayback()

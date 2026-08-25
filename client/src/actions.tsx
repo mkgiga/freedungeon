@@ -35,9 +35,8 @@ export function useActions(): ActionsApi {
 /**
  * Claim an action for as long as the calling component is alive.
  *
- * Later registrations win. A screen mounted over another (a chat inside a
- * dialog, say) takes the binding while it's up and hands it back on cleanup,
- * which is the behaviour you want without anyone tracking z-order.
+ * Later registrations win, so a screen mounted over another takes the binding
+ * while it's up and hands it back on cleanup - no z-order tracking needed.
  */
 export function useAction(id: ActionId, handler: Handler, options?: ActionOptions): void {
     const actions = useActions()

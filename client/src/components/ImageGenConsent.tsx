@@ -9,16 +9,11 @@ const gb = (bytes: number) => `${(bytes / 1_073_741_824).toFixed(2)} GB`
 const mb = (bytes: number) => `${Math.round(bytes / 1_048_576)} MB`
 
 /**
- * Ask before spending gigabytes of someone's bandwidth.
+ * Confirms the image-generation download before it starts: what's missing, what
+ * each piece is for, the total. It runs to gigabytes.
  *
- * Every other dependency in the app is small enough to fetch on opt-in without
- * comment — the background-remover is 88MB. The image generator is roughly
- * thirty times that, which is a decision rather than a detail, so it is spelled
- * out first: what is missing, what each piece is for, and what it totals.
- *
- * Sizes come from the server because only it knows them: which GPU is present
- * decides whether a CUDA runtime is on the list, and a partly-downloaded file
- * only owes its remainder.
+ * Sizes come from the server - the GPU decides whether a CUDA runtime is on the
+ * list, and a partly-fetched file only owes its remainder.
  */
 export function useImageGenConsent() {
     const modal = useModal()
