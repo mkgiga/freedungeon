@@ -9,17 +9,7 @@ import { useScenarioAgentSettings } from './ScenarioAgentSettings'
 type ToolCall = { name: string; args: Record<string, unknown>; result?: string; error?: string }
 type Message = { id: string; role: string; content: string; createdAt: number; toolCalls?: ToolCall[] }
 
-/**
- * What the agent did, inline with what it said.
- *
- * Without this the panel reports "done" and the scenario silently differs —
- * you can't tell a created character from a renamed one, or notice a call that
- * failed. Collapsed by default: the summary line is the answer most of the
- * time, and the arguments matter only when something looks wrong.
- */
 function ToolCallList(props: { calls: ToolCall[] }) {
-    // Most tools take the thing they act on as `name`, `title` or `id`; showing
-    // it turns "create_character" into "create_character  Thrall".
     const subject = (call: ToolCall) => {
         for (const key of ['name', 'title', 'id', 'query', 'url']) {
             const v = call.args?.[key]
@@ -63,8 +53,6 @@ function ToolCallList(props: { calls: ToolCall[] }) {
  */
 export function ScenarioCollaborator(props: {
     scenarioId: string
-    /** The docked panel has no chrome of its own; the phone screen has a TopBar
-     *  above it already, so it asks for this to stay off. */
     showHeader?: boolean
 }) {
     const openSettings = useScenarioAgentSettings()
@@ -75,7 +63,6 @@ export function ScenarioCollaborator(props: {
     const [error, setError] = createSignal<string | null>(null)
     let scroller: HTMLDivElement | undefined
 
-    // The conversation is created on first open and reused thereafter.
     const [conversation] = createResource(
         () => props.scenarioId,
         async (scenarioId) => {
@@ -87,7 +74,6 @@ export function ScenarioCollaborator(props: {
         },
     )
 
-    // Follow the tail as turns land.
     createEffect(() => {
         messages()
         queueMicrotask(() => scroller?.scrollTo({ top: scroller.scrollHeight }))
@@ -101,7 +87,6 @@ export function ScenarioCollaborator(props: {
         setBusy(true)
         setError(null)
         setDraft('')
-        // Optimistic echo so the input clearing doesn't look like a dropped message.
         const pending: Message = { id: `pending-${Date.now()}`, role: 'user', content: text, createdAt: Date.now() }
         setMessages([...messages(), pending])
 
@@ -111,7 +96,6 @@ export function ScenarioCollaborator(props: {
                 conversationId: id,
                 message: text,
             })
-            // Replace the optimistic echo with the rows the server actually wrote.
             setMessages([...messages().filter(m => m.id !== pending.id), ...(result.messages as Message[])])
         } catch (err) {
             setMessages(messages().filter(m => m.id !== pending.id))
@@ -183,7 +167,6 @@ export function ScenarioCollaborator(props: {
                     disabled={busy() || conversation.loading}
                     onInput={(e) => setDraft(e.currentTarget.value)}
                     onKeyDown={(e) => {
-                        // Enter sends; Shift+Enter is a newline, matching the main composer.
                         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
                     }}
                 />

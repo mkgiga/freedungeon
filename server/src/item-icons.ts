@@ -1,14 +1,3 @@
-/**
- * Agent-facing image generation — bridges the `imageGen` feature config to
- * img-gen.ts. Two consumers, both gated on their own sub-toggle:
- *
- *   - item icons, generated once per item definition at define_item exec time
- *   - inline scene images, generated per generate_image call
- *
- * Both bake the resulting /uploads URL into the persisted block, so nothing is
- * cached separately: replaying history rebuilds the URLs along with everything
- * else (see shared/game-state/scope.ts).
- */
 
 import { state } from './server'
 import { resolveFeatureConfig, featureEnabled, type ImageGenConfig } from '@shared/features'
@@ -37,11 +26,6 @@ export function sceneImagesEnabled(): boolean {
     return imageGenConfig()?.generateImages === true
 }
 
-/**
- * The aspect names the agent picks from, and the dimensions they stand for.
- * Kept here rather than in the shared command spec so the agent only ever
- * reasons about shape, never pixels.
- */
 const ASPECT_DIMENSIONS = {
     square: { width: 1024, height: 1024 },
     landscape: { width: 1280, height: 832 },
@@ -62,9 +46,6 @@ export async function generateSceneImage(
     const cfg = imageGenConfig()
     if (!cfg) return undefined
 
-
-    // Template is user-editable at server/src/prompts/GENERATE_IMAGE_VISUAL.macro
-    // and reads the agent's description via the `agent_image_prompt` scope.
     const prompt = withImagePrompt(description, () =>
         parseMacros('{{ @GENERATE_IMAGE_VISUAL() }}').parsed.trim(),
     )
@@ -88,7 +69,6 @@ export async function generateSceneImage(
                 return undefined
             }
 
-            // No background removal here — a scene image is meant to have one.
             const { url } = await storeUpload(
                 image.png.buffer.slice(
                     image.png.byteOffset,
@@ -115,32 +95,14 @@ export async function generateItemIcon(label: string, description: string, itemK
     const cfg = imageGenConfig()
     if (!cfg) return undefined
 
-
-    // Our own id for this generation, so the progress we report is this icon's
-    // and not whatever Forge happens to be working on. Forge runs one job at a
-    // time, so with several icons in flight the others are genuinely queued —
-    // the global progress endpoint would show them all the leader's numbers.
     const taskId = `freedungeon-icon-${nanoid(8)}`
 
-    // The prompt template is user-editable at
-    // server/src/prompts/GENERATE_ITEM_ICON_PROMPT.macro and reads the item
-    // description via the `mcp_item_description` scope.
     const prompt = withItemDescription(description, () =>
         parseMacros('{{ @GENERATE_ITEM_ICON_PROMPT() }}').parsed.trim(),
     )
 
-    // The activity is what the UI renders while the turn is blocked here.
-    // withActivity clears it in a `finally`, so the failure paths below can't
-    // strand a spinner on screen.
-    // No `steps` in the activity data: the step count now lives in Forge's own
-    // config, so it can only come back from /sdapi/v1/progress at runtime.
-    // `key` is what lets the inventory show a spinner on the one slot this is
-    // for. It stays in the activity — transient, never persisted — rather than
-    // on the block, so a server restart can't leave an item pending forever.
     return withActivity('generatingItemIcon', { label, key: itemKey }, async (update) => {
         try {
-            // Only the size is specified; steps, CFG and the negative prompt
-            // take img-gen's defaults, which are tuned for the bundled model.
             const stopPolling = pollTask(taskId, update)
             let result
             try {
@@ -160,10 +122,6 @@ export async function generateItemIcon(label: string, description: string, itemK
                 return undefined
             }
 
-            // Matte before uploading, so the cached icon and the URL baked into
-            // the defineItem block are already background-free — replay never
-            // has to redo this. A failed matte degrades to the original image
-            // rather than failing the item definition.
             let png = image.png
             if (cfg.removeIconBackground) {
                 update({ phase: 'removingBackground' })
@@ -189,13 +147,6 @@ export async function generateItemIcon(label: string, description: string, itemK
     })
 }
 
-/**
- * Poll one job's progress into its activity until stopped. Returns the stopper.
- *
- * Deliberately fire-and-forget on error: `getTaskProgress` already swallows
- * failures into null, and a progress read that fails must never take down the
- * generation it is only describing.
- */
 function pollTask(taskId: string, update: (patch: Record<string, unknown>) => void): () => void {
     const timer = setInterval(async () => {
         const p = await getTaskProgress(taskId)

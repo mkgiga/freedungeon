@@ -11,7 +11,6 @@ import { createSignal } from 'solid-js'
  */
 export type PendingConfigEdit = {
     id: string
-    /** Draw attention to the endpoint field once the editor opens. */
     focusEndpoint: boolean
 }
 

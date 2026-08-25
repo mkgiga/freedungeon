@@ -44,10 +44,6 @@ export function GameStatePanel() {
     const pickers = useAssetPickers()
     const playback = usePlayback()
 
-    // `assets.actors` is keyed by the nanoid primary key, but everything in the
-    // game state addresses actors by customId — so a lookup has to scan rather
-    // than index. Both callers below go through this; indexing the record
-    // directly with a customId silently yields undefined.
     const actorByCustomId = (customId: string) =>
         Object.values(state.assets.actors).find(a => a.customId === customId) ?? null
 
@@ -62,10 +58,6 @@ export function GameStatePanel() {
     const hpOf = (customId: string): number | null =>
         playback.effectiveGameState().scene.actors.active[customId]?.hp ?? null
 
-    // ── Recency tracking (client-side, derived from the replayed state) ──
-    // Bump an actor's recency counter whenever their HP changes or they newly
-    // enter the active scene, so the NPC list can sort most-recently-active
-    // first. Diffing the reactive state needs no hooks in the shared module.
     const recency = new Map<string, number>()
     let recencyCounter = 0
     let prevHp: Record<string, number> = {}
@@ -79,7 +71,6 @@ export function GameStatePanel() {
         for (const id in active) curHp[id] = active[id]!.hp
 
         untrack(() => {
-            // Chat switch: reseed without bumping so a fresh chat doesn't shuffle.
             if (chatId !== prevChatId) {
                 prevChatId = chatId
                 prevHp = curHp
@@ -101,11 +92,8 @@ export function GameStatePanel() {
         })
     })
 
-    // NPC ids (player excluded), most-recently-active first, then avatar-first,
-    // then name. Returns stable customId strings so <For> MOVES the card nodes
-    // on reorder (required for the auto-animate FLIP to fire).
     const npcIds = createMemo(() => {
-        recencyVersion() // re-sort when recency changes
+        recencyVersion()
         const playerCustomId = playerActor()?.customId
         return Object.keys(playback.effectiveGameState().scene.actors.active)
             .filter(id => id !== playerCustomId)
@@ -139,10 +127,6 @@ export function GameStatePanel() {
 
     const bindActorsRail = (el: HTMLDivElement) => autoAnimate(el)
 
-    // ── Item detail card ──
-    // Desktop opens it on hover; touch has no hover, so a tap toggles it. A tap
-    // is "pointerup without the drag threshold having been crossed" — the drag
-    // itself reports via startItemDrag's onDragStart.
     const [card, setCard] = createSignal<{ key: string; anchor: DOMRect } | null>(null)
     const openCard = (key: string, el: HTMLElement) => setCard({ key, anchor: el.getBoundingClientRect() })
     const closeCard = () => setCard(null)
@@ -152,14 +136,9 @@ export function GameStatePanel() {
     })
 
     onMount(() => {
-        // Any press that isn't on a slot dismisses. Slots are excluded so
-        // tapping a different item switches the card rather than closing it —
-        // this runs on bubble, after the slot's own handler.
         const onDocDown = (e: PointerEvent) => {
             if (!(e.target as HTMLElement | null)?.closest('.chat-inventory-slot')) closeCard()
         }
-        // The anchor rect is captured at open time, so it goes stale if the
-        // layout shifts underneath it.
         const onLayoutChange = () => closeCard()
         document.addEventListener('pointerdown', onDocDown)
         window.addEventListener('resize', onLayoutChange)
@@ -171,13 +150,8 @@ export function GameStatePanel() {
         })
     })
 
-    // Dropping an item on an actor submits a mechanical use *attempt* as a
-    // user turn; the agent adjudicates it via the use_item tool.
     const sendTryUse = (item: string, actorId: string) => {
         if (state.isGenerating) return
-        // Second prompt path — hiding the composer wouldn't cover it, and it
-        // used to skipAll(), discarding unread blocks on a drag the user may
-        // not have meant as "I'm done reading".
         if (playback.hasUnread()) {
             toast.info('Finish the scene first.')
             return
@@ -187,17 +161,9 @@ export function GameStatePanel() {
         })
     }
 
-    // The rail's middle column. Handed to ChatInput rather than rendered here
-    // so it lands between the overflow menu and the turn actions, on the same
-    // row — all three share the rail's height and its leftover width.
     const hud = (
         <>
             <div class="chat-hud-actors" ref={bindActorsRail}>
-                {/* The player's slot is always the leftmost box, filled or
-                  * not. Empty, it is the same portrait with a placeholder in
-                  * it — clicking either one opens the picker, so choosing a
-                  * character and changing it are the same gesture in the same
-                  * place, and the row doesn't shift when you pick. */}
                 <div class="chat-hud-actor is-player" data-drop-actor={playerActor()?.customId}>
                     <Show
                         when={playerActor()}
@@ -236,7 +202,6 @@ export function GameStatePanel() {
                 </For>
             </div>
 
-            {/* Only drawn once there is something on both sides of it. */}
             <Show when={items().length > 0}>
                 <div class="chat-hud-divider" />
             </Show>
@@ -244,8 +209,6 @@ export function GameStatePanel() {
             <div class="chat-hud-items">
                 <For each={items()}>
                     {(item) => {
-                        // Set once a drag crosses the threshold, so the
-                        // following pointerup is understood as a drop, not a tap.
                         let dragged = false
                         return (
                             <div

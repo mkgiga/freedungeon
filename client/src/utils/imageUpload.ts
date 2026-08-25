@@ -44,14 +44,10 @@ export function createImageDrop(onUrl: (url: string) => void, enabled?: () => bo
         handlers: {
             onDragOver: (e: DragEvent) => {
                 if (!active() || !carriesImage(e.dataTransfer)) return
-                // Required on every dragover, not just dragenter, or the drop
-                // never fires and the browser navigates to the file instead.
                 e.preventDefault()
                 setOver(true)
             },
             onDragLeave: (e: DragEvent) => {
-                // dragleave also fires when crossing into a child, which would
-                // flicker the highlight off mid-hover.
                 const to = e.relatedTarget as Node | null
                 if (to && (e.currentTarget as HTMLElement).contains(to)) return
                 setOver(false)

@@ -1,24 +1,3 @@
-/**
- * Every writable location the server uses, resolved in one place.
- *
- * Data lives in `~/.freedungeon` rather than next to the source tree so the
- * server can run from anywhere — including a compiled single-file binary,
- * where `import.meta.dirname` points into the virtual filesystem
- * (`B:\~BUN\root`) and nothing next to it is writable.
- *
- * The layout mirrors what `server/data/` used to hold:
- *
- *   ~/.freedungeon/
- *     db/db.sqlite
- *     models/            (RMBG weights, fetched on first use)
- *     uploads/
- *       thumbs/
- *     debug/             (was server/debug/)
- *     preferences.json
- *
- * FREEDUNGEON_DATA_DIR overrides the root, which is what the tests use to
- * keep out of the real one.
- */
 
 import path from 'node:path'
 import fs from 'node:fs'

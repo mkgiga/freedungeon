@@ -41,8 +41,6 @@ declare module '@tanstack/solid-router' {
 
 const TABS: Tab[] = ['home', 'scenarios', 'actors', 'chat', 'notes']
 
-// A file dropped anywhere unhandled makes the browser open it, discarding the
-// page — including an unsaved editor. Registered once, app-wide.
 guardStrayImageDrops()
 
 export function App() {
@@ -62,8 +60,6 @@ export function App() {
                         <ToastProvider>
                          <ActionsProvider>
                           <TooltipProvider>
-                            {/* Row wrapper: the side rail sits beside the content,
-                                where the bottom bar sat under it. */}
                             <div class="app-body">
                                 <ShowOn viewport={['tablet', 'wide']}>
                                     <LeftNav />
@@ -78,26 +74,11 @@ export function App() {
                                     </For>
                                 </main>
                             </div>
-                            {/* One nav at a time — the rail replaces the bar rather
-                                than doubling up on the same five destinations.
-
-                                An open conversation gives the bar's height back to
-                                the scene: a phone has to fit the feed, the actors
-                                band and the composer in one column, and that is the
-                                one screen where the height is worth more than the
-                                shortcut. Only the conversation, not the chat list —
-                                a list has nothing to gain, and its TopBar has no
-                                back button, so hiding the nav there would strand
-                                you. Here the back button leads out. */}
                             <ShowOn viewport="phone">
                                 <Show when={!(activeTab() === 'chat' && chatView() === 'conversation')}>
                                     <BottomNav activeTab={activeTab()} onChange={setActiveTab} />
                                 </Show>
                             </ShowOn>
-                            {/* Outside the tab panes so they block every tab, not just the active
-                                one. Patcher is mounted last so it layers above onboarding —
-                                choosing Anthropic during setup starts a download that has to
-                                stay visible. */}
                             <OnboardingOverlay />
                             <PatcherOverlay />
                           </TooltipProvider>

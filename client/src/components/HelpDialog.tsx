@@ -17,8 +17,6 @@ export function HelpDialog(props: { initial?: DocRef }) {
     const initial = () => parseDocRef(props.initial ?? DOCS[0]?.slug ?? '')
 
     const [slug, setSlug] = createSignal<string | null>(
-        // On a phone the list is a screen of its own, so an untargeted open
-        // starts there rather than on an arbitrary first page.
         props.initial ? initial().slug : (viewport() === 'phone' ? null : DOCS[0]?.slug ?? null)
     )
     const [anchor, setAnchor] = createSignal<string | undefined>(initial().anchor)
@@ -32,9 +30,6 @@ export function HelpDialog(props: { initial?: DocRef }) {
 
     let contentRef: HTMLDivElement | undefined
 
-    // Jump to the requested heading once the page it lives on is on screen.
-    // Runs after the innerHTML above is applied, and resets the request so
-    // re-selecting the same page later lands at the top instead of re-jumping.
     createEffect(() => {
         html()
         const target = anchor()
@@ -55,14 +50,6 @@ export function HelpDialog(props: { initial?: DocRef }) {
         setAnchor(hash)
     }
 
-    /**
-     * Links inside rendered docs, handled here rather than by rewriting hrefs
-     * during rendering — the markdown keeps the exact links it has on GitHub.
-     *
-     * External links MUST be intercepted: in the desktop shell this is a
-     * webview, and letting one navigate would replace the running app with a
-     * web page and no way back.
-     */
     const onContentClick = (e: MouseEvent) => {
         const link = (e.target as HTMLElement | null)?.closest('a')
         if (!link) return
@@ -84,8 +71,6 @@ export function HelpDialog(props: { initial?: DocRef }) {
             window.open(href, '_blank', 'noopener,noreferrer')
             return
         }
-        // Anything else (a relative path to a non-doc, a mailto) would navigate
-        // the shell away from the app.
         e.preventDefault()
     }
 
@@ -117,9 +102,6 @@ export function HelpDialog(props: { initial?: DocRef }) {
                             )}
                         </For>
                     </div>
-                    {/* The docs ship with the build, so the version is also the
-                        answer to "which docs am I reading?" — and it's the first
-                        thing worth having in a bug report. */}
                     <div class="rail-dialog-rail-footer doc-version">
                         <Text size="sm" font="mono">v{__APP_VERSION__}</Text>
                     </div>
@@ -141,8 +123,6 @@ export function HelpDialog(props: { initial?: DocRef }) {
                             when={doc()}
                             fallback={<Text size="sm" class="settings-hint">Pick a page.</Text>}
                         >
-                            {/* First-party markdown that ships with the build —
-                                there is no user-supplied content in this path. */}
                             <div innerHTML={html()} />
                         </Show>
                     </div>
@@ -173,9 +153,6 @@ export function useHelp() {
 export function DocLink(props: { to: DocRef; children: JSXElement }) {
     const help = useHelp()
 
-    // A ref pointing at a page that no longer exists is invisible in
-    // production: the link opens the browser on a blank pane. Say so while
-    // developing, where a rename is what just broke it.
     if (import.meta.env.DEV) {
         const { slug } = parseDocRef(props.to)
         if (!findDoc(slug)) {

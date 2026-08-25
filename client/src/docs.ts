@@ -1,28 +1,11 @@
 import { marked, type Tokens } from 'marked'
 
-/**
- * The help content, loaded from the repo's `/docs` directory at build time.
- *
- * Bundled rather than fetched. This app runs offline — local models are a
- * first-class option — and documentation that needs the internet is missing
- * exactly when someone is offline working out why their endpoint won't
- * connect. Bundling also pins the docs to the build, so a v1 binary can't show
- * you v2 instructions.
- *
- * The markdown files stay the single source: publish the same `/docs` folder
- * anywhere else and both renderings come from identical text.
- */
 const RAW = import.meta.glob('../../docs/*.md', {
     query: '?raw',
     import: 'default',
     eager: true,
 }) as Record<string, string>
 
-/**
- * Reading order. Anything not listed still shows up, alphabetically, after
- * these — a doc added to the folder appears without needing a code change,
- * it just won't have an opinion about where it belongs.
- */
 const ORDER = ['install', 'chats', 'actors', 'notes', 'macros', 'configuration']
 
 export type Doc = {
@@ -42,7 +25,6 @@ export function slugify(text: string): string {
     return text.trim().toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-')
 }
 
-/** First `# Heading`, falling back to a prettified filename. */
 function titleOf(slug: string, markdown: string): string {
     const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim()
     if (heading) return heading
@@ -71,10 +53,6 @@ export function findDoc(slug: string): Doc | undefined {
     return DOCS.find(d => d.slug === slug)
 }
 
-// Headings carry ids so in-page anchors resolve — both the docs' own
-// cross-links and any UI label pointing at a specific section. marked stopped
-// emitting them by default, so we add them from the heading's plain text
-// rather than its rendered HTML (which would fold markup into the slug).
 marked.use({
     renderer: {
         heading(this: { parser: { parseInline: (t: Tokens.Generic[]) => string } }, token: Tokens.Heading) {

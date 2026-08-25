@@ -14,7 +14,6 @@ import {
  * the verbs.
  */
 export const extensionsRouter = router({
-    /** Re-read the extensions directory, for a folder dropped in while running. */
     rescan: procedure
         .mutation(async () => ({ found: (await rescanExtensions()).length })),
 
@@ -25,7 +24,6 @@ export const extensionsRouter = router({
             return state.extensions[input.id] ?? null
         }),
 
-    /** Install from a `.zip` already on disk. */
     installFromZip: procedure
         .input(z.object({ path: z.string().min(1) }))
         .mutation(async ({ input }) => installFromZip(input.path)),

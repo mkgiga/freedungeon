@@ -30,10 +30,6 @@ function ChatListItem(props: {
     actions?: ChatAction[]
     onClick?: () => void
 }) {
-    // The banner renders as a row-level ::before pseudo-element pulling its
-    // URL from this custom property. Keeping it as a var instead of inline
-    // background-image lets the CSS own the sizing/mask logic and also lets
-    // the gradient span all cells rather than being clipped to one <td>.
     const rowStyle = () => props.chat.bannerUrl
         ? { '--chat-row-banner': `url(${JSON.stringify(props.chat.bannerUrl)})` }
         : undefined
@@ -79,17 +75,13 @@ export function ChatList(props: {
     chats: Chat[]
     actions?: ChatAction[]
     onChatClick?: (chat: Chat) => void
-    /** Renders the create affordance as a row. See components/AddNew. */
     addNew?: AddNew
-    /** Optional JSX rendered in a consistent toolbar row above the table
-     *  (typically search inputs, filter pills, etc.). */
     toolbar?: JSXElement
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Chat>('updatedAt', 'desc')
 
     const sorted = createMemo(() => sort(props.chats))
 
-    /** avatar + title + updated, plus the actions menu when shown. */
     const columns = () => 3 + (props.actions ? 1 : 0)
 
     return (

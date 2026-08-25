@@ -32,7 +32,6 @@ const idList = (ids: string[]) => `[${ids.map(id => `'${id}'`).join(', ')}]`;
 
 const roster = (ctx: GameStateContext) => idList(Object.keys(ctx.scene.actors.active));
 
-/** Moves one actor into the active scene, restoring from offscreen if known. */
 function moveIn(ctx: GameStateContext, id: string): ActorGameState {
     const present = ctx.scene.actors.active[id];
     if (present) return present;
@@ -44,32 +43,6 @@ function moveIn(ctx: GameStateContext, id: string): ActorGameState {
     return entry;
 }
 
-/**
- * Admit actors to the scene and report what the scene now looks like.
- *
- * Reporting lives here rather than at the call sites because an actor can join
- * three ways — an explicit `enter_actors`, a `speech` line naming someone who
- * isn't present, or a `set_hp` for a stranger — and only the first of those used
- * to say so. The other two grew the cast in silence, which is how an agent ends
- * up with actors it never noticed it created (one mistyped id spawns a whole
- * character). Announcing from the one function that does the moving makes all
- * three agree by construction, and a fourth path can't forget.
- *
- * The full roster goes out with every arrival rather than a bare delta: a scene
- * holds a handful of actors, so it costs almost nothing, and it re-grounds an
- * agent whose picture of the scene has drifted instead of asking it to maintain
- * that picture by accumulating deltas correctly.
- *
- * `reportUnchanged` is the difference between an explicit claim about the roster
- * and an incidental touch of it. `enter_actors` asserts something, so a call
- * that changes nothing still deserves an answer — that is exactly the case where
- * the agent has lost track and needs correcting. `speech` merely mentions a
- * name, and the overwhelmingly common case is a present actor talking; reporting
- * there would repeat the roster after every line of dialogue.
- *
- * It cannot distinguish an ad-hoc actor from a cast member's first entrance:
- * `ctx` knows who is *present*, not who the chat has defined.
- */
 function admit(
     ctx: GameStateContext,
     arr: string[],
@@ -99,14 +72,9 @@ function admit(
 
 export function createScope({ ctx, arr }: ScopeBinding) {
     return {
-        // ── Display-only (mirror shared/blocks.ts) ────────────────────────
         unformatted: (_text: string) => {},
         text: (_text: string) => {},
         speech: (customIdOrDialogue: string, textOrOpts?: string | object, _opts?: object) => {
-            // Two forms:
-            //   predefined: speech(customId, dialogue, opts?)   — arg 2 is a string
-            //   ad-hoc:     speech(dialogue, { name })          — arg 2 is an object
-            // Only the predefined form carries a customId worth tracking.
             if (typeof textOrOpts === 'string') {
                 admit(ctx, arr, [customIdOrDialogue]);
             }
@@ -117,15 +85,9 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         noOpContinue: () => {},
         choicePrompt: (_options: string[]) => {},
         choice: (_text: string) => {},
-        // A use *attempt* (drag-and-drop user event) — no state change; the
-        // agent's answering useItem block carries the actual consumption.
         tryUse: (_opts: { what: string; on: string }) => {},
-        // A request to look closer — narration, not state. The agent answers it.
         inspect: (_target: string) => {},
 
-        // ── Item definitions ──────────────────────────────────────────────
-        // Redefining a key overwrites, so an agent can revise a description or
-        // attach an icon to an item it defined earlier in the chat.
         defineItem: (opts: { key: string; label: string; description?: string; visualDescription?: string; icon?: string }) => {
             ctx.itemDefs ??= {};
             const existed = ctx.itemDefs[opts.key] !== undefined;
@@ -139,11 +101,6 @@ export function createScope({ ctx, arr }: ScopeBinding) {
             arr.push(`${existed ? 'Redefined' : 'Defined'} item ${opts.key} (${opts.label})`);
         },
 
-        // ── Inventory (party-wide) ────────────────────────────────────────
-        // `name` is the definition key for content written since define_item
-        // existed; older chats pass a free-text display name. Effect text uses
-        // the definition's label when one is known so the agent reads prose,
-        // not identifiers.
         giveItem: (name: string, qty: number = 1) => {
             ctx.inventory[name] = (ctx.inventory[name] ?? 0) + qty;
             arr.push(`Received ${qty}x ${ctx.itemDefs?.[name]?.label ?? name}`);
@@ -154,10 +111,6 @@ export function createScope({ ctx, arr }: ScopeBinding) {
             ctx.inventory[name] = current - taken;
             if (taken > 0) arr.push(`Lost ${taken}x ${ctx.itemDefs?.[name]?.label ?? name}`);
         },
-        // Replay must be total, so like takeItem this silently caps at the
-        // available quantity — the hard validation (missing item, short qty,
-        // absent target) lives in the use_item command's `validate`, which
-        // rejects at exec time before a block ever persists.
         useItem: (item: string, target: string, qty: number = 1) => {
             const current = ctx.inventory[item] ?? 0;
             const used = Math.min(current, qty);
@@ -165,7 +118,6 @@ export function createScope({ ctx, arr }: ScopeBinding) {
             if (used > 0) arr.push(`Used ${used}x ${ctx.itemDefs?.[item]?.label ?? item} on ${target}`);
         },
 
-        // ── Scene management ──────────────────────────────────────────────
         enterActors: (customIds: string[]) => {
             admit(ctx, arr, customIds, true);
         },
@@ -179,8 +131,6 @@ export function createScope({ ctx, arr }: ScopeBinding) {
                 delete ctx.scene.actors.active[id];
                 left.push(id);
             }
-            // Same reasoning as admit: an explicit call about the roster always
-            // gets the roster back, including the all-no-op case.
             const parts: string[] = [];
             if (left.length > 0) parts.push(`${idList(left)} left the scene.`);
             if (absent.length > 0) parts.push(`${idList(absent)} were not in the scene.`);
@@ -188,12 +138,7 @@ export function createScope({ ctx, arr }: ScopeBinding) {
             arr.push(parts.join(' '));
         },
 
-        // ── Per-actor HP ──────────────────────────────────────────────────
         setHp: (customId: string, value: number) => {
-            // findActor covers offscreen too, so setting an absent actor's HP
-            // doesn't drag them on stage. Only a completely unknown id does,
-            // and that goes through admit so it gets announced like any other
-            // arrival.
             const found = findActor(ctx, customId);
             if (found) found.entry.hp = value;
             else admit(ctx, arr, [customId])[0]!.hp = value;
@@ -212,7 +157,6 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         },
         attack: (_target: string) => {},
 
-        // ── Flags + location ─────────────────────────────────────────────
         setFlag: (key: string, value: string | number | boolean) => {
             const prev = ctx.flags[key];
             ctx.flags[key] = value;
@@ -246,7 +190,6 @@ export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string
     const scope = createScope({ ctx, arr });
     switch (block.type) {
         case 'speech':
-            // Only the predefined form (with actorId) ensures the actor is active.
             if (block.actorId) scope.speech(block.actorId, block.dialogue);
             return;
         case 'enterActors':

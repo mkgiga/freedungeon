@@ -21,9 +21,7 @@ function SearchInput(props: { placeholder: string; value: string; onInput: (v: s
 }
 
 export function ActorPicker(props: {
-    /** Override the "already added" set. Defaults to state.currentChat.assets.actors. */
     selected?: () => Set<string>
-    /** Override the toggle side-effect. If supplied, the picker skips the tRPC call. */
     onToggle?: (actor: Actor) => void
 } = {}) {
     const [query, setQuery] = createSignal('')
@@ -113,9 +111,7 @@ export function PlayerCharacterPicker(props: { onPick?: () => void }) {
 }
 
 export function NotePicker(props: {
-    /** Override the "already added" set. Defaults to the current chat's attached note ids. */
     selected?: () => Set<string>
-    /** Override the toggle side-effect. If supplied, the picker skips the tRPC call. */
     onToggle?: (note: Note) => void
 } = {}) {
     const [query, setQuery] = createSignal('')

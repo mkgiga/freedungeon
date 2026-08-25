@@ -22,7 +22,6 @@ export type DependencyKey =
     | 'sdTextEncoder'
 
 export type DependencyStatus =
-    /** Verified against its expected hash — safe to use. */
     | 'satisfied'
     /** Not downloaded yet. */
     | 'missing'
@@ -41,39 +40,16 @@ export type DependencyStatus =
 
 export type DependencyState = {
     key: DependencyKey
-    /** Shown as the patcher's title. */
     label: string
-    /** One line on why the user is being asked to wait for this. */
     reason: string
     status: DependencyStatus
-    /** Bytes written so far, while downloading. */
     received?: number
-    /** Total expected bytes, when the server advertises a length. */
     total?: number
-    /** Set when status is 'failed'. */
     error?: string
-    /** While 'authenticating': the URL the user must visit to authorize. */
     authUrl?: string
-    /** While 'authenticating': whether the CLI is waiting on a pasted code. */
     awaitingCode?: boolean
-    /** While 'satisfied': who is signed in, for display. */
     account?: string
-    /**
-     * The feature this file serves, or absent for the app itself.
-     *
-     * This is the link that lets one function answer "may a turn run right
-     * now?" — without it, a download is an anonymous progress bar and nothing
-     * can tell whether the thing it unblocks is even switched on.
-     */
     feature?: string
-    /**
-     * Whether this machine actually needs the file.
-     *
-     * Every dependency gets an entry regardless of platform, so the CUDA
-     * runtime is reported as 'missing' on a Mac that will never want it.
-     * Computed server-side because only the server can tell — it is the side
-     * that probed the GPU.
-     */
     required: boolean
 }
 
@@ -94,7 +70,6 @@ export function turnBlockers(
 ): DependencyState[] {
     return Object.values(dependencies ?? {}).filter((dep) => {
         if (!dep.required || dep.status === 'satisfied') return false
-        // No feature means the app core (the Claude CLI): always counts.
         if (!dep.feature) return true
         return features?.[dep.feature]?.enabled === true
     })
@@ -111,9 +86,6 @@ export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string
         reason: 'Runs locally to cut backgrounds out of item icons.',
         feature: 'imageGen',
     },
-    // Image generation. One dependency per file rather than one bundle, so the
-    // patcher shows real movement across a ~3 GB first run instead of a single
-    // bar that appears stuck for minutes at a time.
     sdServer: {
         label: 'Image generator',
         reason: 'stable-diffusion.cpp runs the image model on your own machine.',
@@ -152,7 +124,6 @@ export type DependencyPlanItem = {
     label: string
     reason: string
     status: DependencyStatus
-    /** Bytes still to fetch; 0 when the size could not be determined. */
     bytes: number
 }
 

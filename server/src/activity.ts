@@ -1,18 +1,3 @@
-/**
- * Transient activity signalling — lets any server code announce in-flight work
- * that the UI can render something specific for, instead of the single generic
- * `isGenerating` spinner.
- *
- * Follows the same one-way flow as the rest of the app: the server writes via
- * `setState`/`deleteState` and the change replicates to the client over the
- * socket. The client never asks for this — it just re-renders. Nothing here is
- * persisted (`persistPath` ignores the `activities` root), so activities are
- * pure runtime state.
- *
- * Activities are id-keyed, not kind-keyed, so any number can run concurrently —
- * parallel tool calls, or sub-agents each doing their own work, don't overwrite
- * one another. Consumers filter by `kind`.
- */
 
 import { nanoid } from 'nanoid'
 import { mutate, state } from './server'

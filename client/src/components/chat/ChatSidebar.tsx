@@ -15,7 +15,6 @@ export function ChatSidebar() {
     const modal = useModal()
     const editors = useResourceEditors()
 
-    /** Notes default to on; only an explicit false takes one out of the prompt. */
     const isNoteEnabled = (note: Note) =>
         state.currentChat.assets.notes[note.id]?.enabled ?? true
 
@@ -89,9 +88,6 @@ export function ChatSidebar() {
                         onNoteClick={editors.openNote}
                         disabled={(note) => !isNoteEnabled(note)}
                         actions={[
-                            // One entry, two labels — `show` picks whichever
-                            // matches the note's current state, so the menu
-                            // reads as the action you're about to take.
                             {
                                 label: 'Disable',
                                 show: isNoteEnabled,

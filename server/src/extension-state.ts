@@ -19,30 +19,15 @@ import { mutate, state } from './server'
  * patch instead of one each.
  */
 export type ExtensionStore<T extends Record<string, unknown> = Record<string, unknown>> = {
-    /** Current values. Read-only — mutating this does not persist or replicate. */
     readonly values: T
-    /** Replace one declared value. */
     set<K extends keyof T & string>(name: K, value: T[K]): void
-    /** Remove a value entirely, dropping its row. */
     remove(name: keyof T & string): void
-    /**
-     * Mutate the extension's state as if it were a plain object.
-     *
-     *   store.update(d => { d.counter++; d.cfg = { theme: 'dark' } })
-     *
-     * Assigning a new key works; reaching *through* one that doesn't exist yet
-     * does not, because the draft is an ordinary object and `d.a.b = 1` reads
-     * `d.a` first. Assign the level, then fill it.
-     */
     update(fn: (draft: T) => void): void
 }
 
 export function extensionStore<T extends Record<string, unknown> = Record<string, unknown>>(
     key: string,
 ): ExtensionStore<T> {
-    // The bag is seeded at boot for every declaring feature (see
-    // seedExtensionState). An extension registered at runtime may not have one
-    // yet, and setState cannot create a missing level — so make it here.
     if (!state.extensionState[key]) mutate(s => { s.extensionState[key] = {} })
 
     return {
@@ -56,8 +41,6 @@ export function extensionStore<T extends Record<string, unknown> = Record<string
             mutate(s => { delete s.extensionState[key]![name] })
         },
         update(fn) {
-            // The draft is already a mutable proxy, so the author's function runs
-            // directly against it — no nested producer.
             mutate(s => { fn((s.extensionState[key] ??= {}) as T) })
         },
     }

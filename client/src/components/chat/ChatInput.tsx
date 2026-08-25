@@ -49,9 +49,6 @@ export function createPendingChoicePrompt() {
         if (!featureEnabled(state.userPreferences, 'choicePrompts')) return null
         const id = latestMessageId()
         if (!id) return null
-        // Don't offer the menu until playback has actually reached this prompt —
-        // otherwise the options appear in the input bar while earlier dialogue
-        // is still typewriting/holding.
         if (!playback.isMessageRevealed(id)) return null
         const msg = state.currentChat.messages[id]
         if (!msg || msg.role !== 'assistant' || msg.metadata?.chosenIndex != null) return null
@@ -62,9 +59,6 @@ export function createPendingChoicePrompt() {
 }
 
 export function ChatInput(props: {
-    /** The live game state — actors and inventory — rendered inline in the
-     *  rail. Passed in rather than built here: it belongs to GameStatePanel,
-     *  which owns the replayed state and the drag/drop wiring. */
     hud?: JSXElement
 }) {
     const [message, setMessage] = createSignal('')
@@ -109,14 +103,6 @@ export function ChatInput(props: {
         })
     }
 
-    /**
-     * Files an enabled feature is still waiting on.
-     *
-     * The same `turnBlockers` the server refuses prompts with, run against the
-     * same replicated state — so the composer cannot claim a turn is possible
-     * when the server would reject it, and the two can't drift as dependencies
-     * are added.
-     */
     const blockers = createMemo(() =>
         turnBlockers(state.dependencies, state.userPreferences.features))
 
@@ -169,13 +155,7 @@ export function ChatInput(props: {
     const handleSend = async () => {
         const text = message().trim()
         if (!text) return
-        // Refused server-side too; stopping here keeps the draft rather than
-        // clearing it into a rejected request.
         if (blockedReason()) return
-        // The send button is a Stop button while generating, but Ctrl+Enter
-        // still reaches here — and with auto-skip on, the composer is live
-        // throughout a turn instead of being replaced by the continue bar.
-        // `chat.prompt` rejects a concurrent turn server-side; don't call it.
         if (state.isGenerating) return
         await withRehydrationConfirm('Send anyway', () => sendNow(text))
     }
@@ -198,21 +178,9 @@ export function ChatInput(props: {
         })
     }
 
-    // Claimed while the composer exists, which is the only time they mean
-    // anything. Both route through the same guards as the buttons.
     useAction('chat.regenerate', () => { void handleRegenerate() })
     useAction('chat.fastForward', () => { void handleContinue() })
 
-    /*
-     * Send is bound to a bare Enter, so it needs both escapes from the "don't
-     * fire while typing" rule: `whileTyping` to be considered at all, and an
-     * `enabled` that narrows it to THIS textarea. Without the second, Enter in
-     * the rename dialog — or any other input in the app — would send a message,
-     * because the composer is still mounted behind it.
-     *
-     * Desktop only: a phone's return key is a bare Enter with no Shift to reach
-     * for, so binding it would leave no way to type a second line.
-     */
     let composerEl: HTMLTextAreaElement | undefined
     useAction('chat.send', () => { void handleSend() }, {
         whileTyping: true,
@@ -221,15 +189,8 @@ export function ChatInput(props: {
             && document.activeElement === composerEl,
     })
 
-    // Only for the placeholder hint. The options themselves render inline in
-    // the history now — see ChoicePromptBlock — because a menu of any length
-    // made this rail as tall as the answers, and there is no vertical room for
-    // that. The composer stays the escape hatch for typing your own action.
     const pendingChoicePrompt = createPendingChoicePrompt()
 
-    // Everything that isn't a turn action. They were three icons squatting on
-    // the left of the rail; the rail now has a HUD to fit, and these are all
-    // things you reach for occasionally and never mid-sentence.
     const overflowItems = createMemo<DropdownItem[]>(() => {
         const items: DropdownItem[] = [{
             label: hasPendingNotice() ? "Director's note (pending)" : "Director's note",
@@ -260,15 +221,11 @@ export function ChatInput(props: {
         return items
     })
 
-    // The menu is folded shut, so whatever it holds has to be tellable from the
-    // outside — otherwise a pending note or a dead session becomes invisible.
     const [menuOpen, setMenuOpen] = createSignal(false)
     let menuAnchor: HTMLButtonElement | undefined
 
     return (
         <div class="chat-composer">
-            {/* Sits above the field rather than replacing it, so a half-typed
-                message survives the wait. */}
             <Show when={blockedReason()}>
                 {(reason) => (
                     <div class="chat-composer-blocked">
@@ -281,9 +238,6 @@ export function ChatInput(props: {
                 )}
             </Show>
 
-            {/* Above the field, not below it. It carries the HUD now, and a
-              * field that grows line by line would drag a bottom rail down the
-              * screen while you type — the buttons would never sit still. */}
             <div class="chat-composer-actions">
                 <button
                     ref={menuAnchor}
@@ -307,7 +261,6 @@ export function ChatInput(props: {
                     )}
                 </Show>
 
-                {/* Takes whatever width the two button groups leave. */}
                 <div class="chat-composer-hud">{props.hud}</div>
 
                 <div class="chat-composer-actions-group">
@@ -332,10 +285,6 @@ export function ChatInput(props: {
                 </div>
             </div>
 
-            {/* The field is taken away entirely while blocks are unread — a text
-              * box is an invitation to type, and a tester did, straight through
-              * a scene that was still playing. The rail stays: the HUD is state
-              * to read, not an invitation. */}
             <Show
                 when={!playback.hasUnread()}
                 fallback={<ContinueBar />}

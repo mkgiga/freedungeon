@@ -24,10 +24,6 @@ import { runScenarioTool } from './scenario-agent';
 import type { ScenarioToolName } from '@shared/scenario-agent/tools';
 import type { ModelMessage } from 'ai';
 import type { GameStateContext, LLMConfig } from '@shared/types';
-// In-process OpenAI-v1 loop. Note: ai-agent.ts imports execCommand/runQuery from
-// here, forming a cycle — benign because both sides only call across it inside
-// function bodies (hoisted `export function` bindings resolve via ESM live
-// bindings). Extracting the executors to a dedicated module would remove it.
 import { runAiSdkTurn, loadAiTranscript, saveAiTranscript } from './ai-agent';
 
 const AGENT_PORT = Number(process.env.AGENT_PORT ?? 8076);
@@ -43,16 +39,10 @@ let agentProcess: ChildProcess | null = null;
 export async function spawnAgentProcess() {
     if (agentProcess) return;
 
-    // A compiled binary has no agent-claude source tree to point `bun` at, and
-    // no `bun` on the user's machine either — the agent is bundled into this
-    // same executable, so re-exec ourselves with a flag that routes to it.
     const [command, args, cwd] = isEmbedded()
         ? [process.execPath, ['--agent'], undefined]
         : ['bun', ['run', 'index.ts'], path.join(import.meta.dirname, '..', '..', 'integrations', 'agent-claude')];
 
-    // May be null on a first run that has never used an Anthropic config; the
-    // SDK only needs it once such a config actually drives a turn, and
-    // restartAgentProcess picks it up after the download completes.
     const claudeCli = await dependencyPath('claudeCli');
 
     log.server.info(`Spawning agent process${cwd ? ` from ${cwd}` : ''} on port ${AGENT_PORT}...`);
@@ -61,7 +51,6 @@ export async function spawnAgentProcess() {
         env: {
             ...process.env,
             AGENT_PORT: String(AGENT_PORT),
-            // Must track --port, or the agent calls back to the wrong server.
             SERVER_RPC_URL: `http://127.0.0.1:${process.env.FREEDUNGEON_PORT ?? process.env.SERVER_PORT ?? 8078}/agent-rpc`,
             ...(claudeCli ? { CLAUDE_CLI_PATH: claudeCli } : {}),
         },
@@ -93,10 +82,6 @@ export function killAgentProcess() {
         agentProcess = null;
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Agent RPC — endpoints the agent process calls into
-// ─────────────────────────────────────────────────────────────────────────
 
 type ExecRequest = {
     kind: 'exec';
@@ -135,7 +120,6 @@ type TurnClosedRequest = {
     trailingWrapperSessionId: string;
 };
 
-/** One Scenario collaborator tool call, proxied from the Claude subprocess. */
 type ScenarioRequest = {
     kind: 'scenario';
     chatId: string;
@@ -167,17 +151,6 @@ agentRpcRouter.post('/', async (c) => {
 });
 
 function handleTurnClosed(req: TurnClosedRequest) {
-    // Stamp metadata.sdkTurnCloserUuid AND sdkTurnCloserSessionId on
-    // every message the agent produced during this turn (user prompt +
-    // assistant blocks). The pair (uuid, sessionId) is the only clean
-    // fork anchor we can rely on — it points to the tool_result wrapper
-    // that closes the agent's turn in a SPECIFIC session's transcript.
-    //
-    // Tracking sessionId alongside is critical: forkSession rewrites
-    // every kept entry's uuid in the resulting session. After a
-    // successful fork, closer uuids stamped pre-fork become stale
-    // pointers into the now-defunct prior session. findForkAnchorIn
-    // filters by current sessionId to skip those stale entries.
     let stamped = 0;
     for (const messageId of req.messageIds) {
         const msg = state.currentChat.messages[messageId];
@@ -229,9 +202,6 @@ export async function execCommand(
         return { error: `chat_mismatch: agent is acting on ${chatId} but server's current chat is ${state.currentChat.id}` };
     }
 
-    // Semantic validation against the live game state (e.g. use_item checking
-    // inventory). Rejects before any Block is built or persisted. Same
-    // any-cast rationale as toBlock below.
     if (spec.validate) {
         const invalid = (spec.validate as (a: unknown, c: GameStateContext) => string | null)(
             parsed.data,
@@ -240,20 +210,8 @@ export async function execCommand(
         if (invalid) return { error: `invalid_action: ${invalid}` };
     }
 
-    // Zod has already validated the args against this spec's schema; the
-    // any-cast is needed because TS can't narrow toBlock's union signature
-    // back to its origin spec when COMMANDS is iterated as a union map.
     const block = (spec.toBlock as (a: unknown) => ReturnType<typeof spec.toBlock>)(parsed.data);
 
-    // Item icons are generated here rather than in toBlock (which must stay
-    // pure and synchronous) — the resulting URL is baked into the block before
-    // it is applied and persisted, so replay never re-generates. The turn
-    // deliberately blocks on the job so the agent's next step sees a finished
-    // item. The per-chat cache is the game state itself: a key that already
-    // carries an icon reuses it instead of paying for another generation.
-    // Resolve a library image's key to its URL. Same reason as the icon path:
-    // toBlock is pure, and the chat's attached images aren't part of the game
-    // state it's given.
     if (command === 'show_image') {
         const { key } = parsed.data as { key: string };
         const image = (state.currentChat.assets.images ?? [])
@@ -263,9 +221,6 @@ export async function execCommand(
         (block as { src: string }).src = image.url;
     }
 
-    // Same deal for generate_image, except the image IS the block: a failed
-    // generation has nothing worth persisting, so it comes back to the agent as
-    // a tool error instead of an <img> pointing at nothing.
     if (command === 'generate_image') {
         const args = parsed.data as { description: string; aspect: ImageAspect };
         const url = await generateSceneImage(args.description, args.aspect);
@@ -273,8 +228,6 @@ export async function execCommand(
         (block as { src: string }).src = url;
     }
 
-    // An icon this item already has is reused as-is. A new one is NOT awaited:
-    // see the queueItemIcon call after the message is created.
     if (block.type === 'defineItem') {
         const existing = state.currentChat.gameState.itemDefs?.[block.key]?.icon;
         if (existing) block.icon = existing;
@@ -303,13 +256,7 @@ export async function execCommand(
     };
     mutate(s => { s.currentChat.messages[messageId] = message });
 
-    // Kicked off only once the block is persisted, because the icon patches
-    // that message when it arrives. Not awaited: the model gets its tool result
-    // now and keeps working while the GPU catches up.
     if (block.type === 'defineItem' && !block.icon && itemIconsEnabled()) {
-        // The visual description is written for the image model; `description`
-        // is the player-facing blurb and only stands in for items defined
-        // before the field existed.
         const prompt = block.visualDescription ?? block.description ?? block.label;
         const key = block.key;
         queueItemIcon(block.label, prompt, key, (url) => attachItemIcon(chatId, messageId, key, url));
@@ -322,19 +269,6 @@ export async function execCommand(
     };
 }
 
-/**
- * Attach a generated icon to an already-persisted define_item block.
- *
- * The block is written before the picture exists, so this edits it after the
- * fact: re-parse, set `icon`, re-serialize. Going through the message (rather
- * than only patching gameState) is what makes it stick — game state is derived
- * by replaying blocks, so an icon that lived only in state would vanish on the
- * next replay.
- *
- * Silently does nothing when the message is gone or the chat has moved on. A
- * generation outlives rewinds, deletions and chat switches, and none of those
- * are errors — the user simply no longer wants what it was making.
- */
 function attachItemIcon(chatId: string, messageId: string, key: string, url: string): void {
     if (state.currentChat.id !== chatId) return;
     const msg = state.currentChat.messages[messageId];
@@ -345,8 +279,6 @@ function attachItemIcon(chatId: string, messageId: string, key: string, url: str
     if (!target || target.type !== 'defineItem') return;
     if (target.icon) return;
 
-    // parseBlocks caches by content string and hands out shared arrays, so the
-    // block must be replaced rather than mutated in place.
     const patched = blocks.map(b =>
         b === target ? { ...target, icon: url } : b);
 
@@ -356,9 +288,6 @@ function attachItemIcon(chatId: string, messageId: string, key: string, url: str
         updatedAt: Date.now(),
     } });
 
-    // The live ctx was computed before the icon existed; replay would produce
-    // it, but nothing replays until the next turn and the HUD is showing this
-    // item now.
     const defs = state.currentChat.gameState.itemDefs;
     if (defs?.[key]) {
         mutate(s => { s.currentChat.gameState.itemDefs[key] = { ...defs[key]!, icon: url } });
@@ -394,20 +323,12 @@ export function runQuery(chatId: string, query: QueryName, args: Record<string, 
         return { error: `chat_mismatch: agent is querying ${chatId} but server's current chat is ${state.currentChat.id}` };
     }
 
-    // Soft-deleted actors are withheld from the agent: it can still *see* them
-    // in replayed history (blocks resolve independently), but it must not be
-    // offered them as something to act on.
     const actors = visible(
         state.currentChat.assets.actors
             .map((id) => state.assets.actors[id])
             .filter((a): a is NonNullable<typeof a> => Boolean(a)),
     )
         .map((a) => ({
-            // Aliasing boundary: the agent-facing field is `id`, backed
-            // by the DB's `Actor.customId` (user-authored, stable,
-            // friendly). The nanoid `a.id` primary key is intentionally
-            // never exposed to the agent — falls back to it only if
-            // customId is somehow blank, as a last-resort identifier.
             id: a.customId || a.id,
             name: a.name,
             description: a.description,
@@ -434,7 +355,6 @@ export function runQuery(chatId: string, query: QueryName, args: Record<string, 
         images,
     };
 
-    // Cast around the same union-of-generic narrowing limitation as toBlock above.
     const result = (spec.run as (a: unknown, d: typeof deps) => string)(parsed.data, deps);
     return { ok: true, result };
 }
@@ -449,9 +369,6 @@ function handleAnnounce(req: AnnouncementRequest) {
             .set({ agent_session_id: req.sessionId })
             .where('id', '=', req.chatId)
             .execute();
-        // Clear the rehydration warning now that a session exists — the
-        // preamble has been baked into it, and future prompts resume
-        // normally.
         if (state.currentChat.id === req.chatId && state.currentChat.agentRehydration !== null) {
             mutate(s => { s.currentChat.agentRehydration = null });
         }
@@ -459,12 +376,6 @@ function handleAnnounce(req: AnnouncementRequest) {
     }
     if (req.event === 'turn_ended') {
         mutate(s => { s.isGenerating = false });
-        // Snapshot the post-turn flags so the NEXT prompt can diff
-        // against them. Captures the agent's own set_flag/clear_flag
-        // effects too — those will then NOT appear as deltas on the
-        // next turn, since the snapshot already reflects them. Only
-        // out-of-band changes (UI toggles, edits to prior messages
-        // that re-replay differently) will surface as deltas.
         if (state.currentChat.id === req.chatId) {
             void writeFlagsSnapshot(req.chatId, state.currentChat.gameState.flags);
         }
@@ -495,17 +406,11 @@ export async function resetFlagsSnapshotToCurrent(chatId: string) {
     await writeFlagsSnapshot(chatId, state.currentChat.gameState.flags);
 }
 
-/**
- * Build a delta string from a snapshot (the post-turn flags from the
- * end of the previous turn) and the current flags. Returns an empty
- * string if nothing changed — the caller should then skip injecting
- * the <state_changes_since_last_turn> block entirely.
- */
 function buildFlagsDelta(
     snapshot: Record<string, unknown> | null,
     current: Record<string, unknown>,
 ): string {
-    if (snapshot === null) return ''; // no baseline yet (fresh chat, post-fork, post-clone) — treat current as the baseline
+    if (snapshot === null) return '';
     const lines: string[] = [];
     for (const [key, val] of Object.entries(current)) {
         if (!(key in snapshot)) {
@@ -522,23 +427,6 @@ function buildFlagsDelta(
     return lines.join('\n');
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Server → Agent: prompt forwarding
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Wrap the user input with a <system_notice> block carrying
- * out-of-band updates from the controller. The Anthropic API has no
- * system-role channel within the messages array, so by convention the
- * SDK ferries server-originated, non-user instruction-context inside a
- * user-role message tagged with a known XML wrapper. The system prompt
- * teaches the agent to treat <system_notice> content as authoritative
- * and out-of-character — distinct from the user's `<current_input>`,
- * and not to be narrated or acknowledged in output.
- *
- * Sections with empty body are dropped. If every section is empty,
- * callers should skip the wrap entirely.
- */
 type SystemNoticeSection = { heading: string; body: string };
 
 function wrapWithSystemNotice(sections: SystemNoticeSection[], userContent: string): string {
@@ -554,22 +442,6 @@ function wrapWithSystemNotice(sections: SystemNoticeSection[], userContent: stri
     return lines.join('\n');
 }
 
-/**
- * Wrap the new user input with a replayed-history preamble built from
- * the chat's persisted ChatMessages (excluding the just-added prompt).
- * Returns the bare input unchanged if there's no prior history.
- *
- * The preamble uses XML-style tags the system prompt is aware of:
- *
- *   <replayed_history>...</replayed_history>
- *   <current_input>...</current_input>
- *
- * Consecutive same-role messages are grouped into one section to keep
- * the preamble compact. ChatMessage.content is the serialized block(s)
- * exactly as they live in the DB — the agent reads them as the source
- * of truth, and queries like list_active_actors return the cumulative
- * state from the deterministic replay so the agent can cross-check.
- */
 function wrapWithHistoryPreamble(
     allMessages: import('@shared/types').ChatMessage[],
     excludeMessageId: string,
@@ -614,18 +486,8 @@ function wrapWithHistoryPreamble(
     ].join('\n');
 }
 
-// In-flight in-process AI SDK turns, keyed by chatId, so `cancelAgentTurn` can
-// abort them (the Claude path cancels via the subprocess instead).
 const inFlightAiTurns = new Map<string, AbortController>();
 
-/**
- * Run one OpenAI-v1 turn in-process. Unlike the Claude subprocess (which
- * announces `turn_ended` over RPC), this path clears its own bookkeeping:
- * persist the extended transcript and snapshot post-turn flags for the next
- * turn's `<system_notice>` delta. `isGenerating` is cleared by generateResponse's
- * finally. Aborts are swallowed (clean cancel); other errors propagate so the
- * caller can notify the user.
- */
 async function runAiTurn(args: {
     chatId: string;
     systemPrompt: string;
@@ -652,9 +514,6 @@ async function runAiTurn(args: {
         });
         await saveAiTranscript(args.chatId, transcript);
         void writeFlagsSnapshot(args.chatId, state.currentChat.gameState.flags);
-        // No session_captured event on this path (that's what clears the Claude
-        // rehydration warning), so clear it here now that the transcript is
-        // rebuilt — otherwise a post-invalidate AI-SDK turn leaves it stuck on.
         if (state.currentChat.id === args.chatId && state.currentChat.agentRehydration !== null) {
             mutate(s => { s.currentChat.agentRehydration = null });
         }
@@ -677,14 +536,8 @@ export async function dispatchPromptToAgent(args: {
     const llmConfig = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!];
     if (!llmConfig) throw new Error('No model selected — choose one in Preferences first.');
 
-    // Flag generation up front so the UI shows feedback immediately — before
-    // the composer probe (up to ~1.5s) and macro expansion, and so a failure in
-    // either still surfaces as a cleared spinner via generateResponse's finally
-    // rather than no feedback at all.
     mutate(s => { s.isGenerating = true });
 
-    // Re-run replay so any state effects from the just-appended user message
-    // are visible to the agent's queries from the very first tool call.
     const turnResult = runTurn(Object.values(state.currentChat.messages));
     mutate(s => { s.currentChat.gameState = turnResult.ctx });
     setCurrentTurnResult(turnResult);
@@ -699,41 +552,19 @@ export async function dispatchPromptToAgent(args: {
         setCurrentTurnResult(null);
     }
 
-    // The choice-prompt instruction can be positioned by the user via its macro
-    // (`@MULTICHOICE_PROMPT_INSTRUCTIONS()`); only when they haven't placed it do
-    // we append it trailing, so toggling needs no prompt edits. The matching
-    // end_turn `choices` arg is exposed agent-side under the same flag, keeping
-    // instruction and capability in lockstep.
     const enableChoicePrompts = featureEnabled(state.userPreferences, 'choicePrompts');
     if (enableChoicePrompts && !macroFeatures['MULTICHOICE_PROMPT_INSTRUCTIONS']) {
         expandedSystemPrompt += `\n\n${MULTICHOICE_PROMPT_INSTRUCTIONS}`;
     }
 
-    // Same lockstep for generate_image: the tool only exists when the sub-toggle
-    // is on, so the agent is never told about a capability the exec path would
-    // then refuse.
     const enableSceneImages = sceneImagesEnabled();
-    // Same lockstep for define_item's visualDescription: it is only ever read
-    // to prompt the icon image model, so with icons off the field is dropped
-    // rather than asking for a paragraph nothing renders.
     const enableItemIcons = itemIconsEnabled();
 
-    // Provider → loop. Anthropic uses the Claude Agent SDK subprocess; OpenAI-v1
-    // (openai/custom) uses the in-process AI SDK loop. Each keeps private memory
-    // (Claude session id vs ai_transcript), both rebuildable from the canonical
-    // ChatMessage log — so a provider switch just rehydrates the active loop.
     const currentLoop: 'claude' | 'ai-sdk' =
         llmConfig.provider === 'anthropic' ? 'claude'
             : (llmConfig.provider === 'openai' || llmConfig.provider === 'custom') ? 'ai-sdk'
                 : (() => { throw new Error(`Provider "${llmConfig.provider}" isn't supported yet — use an Anthropic model or an OpenAI-v1-compatible (openai/custom) endpoint.`); })();
 
-    // The Claude loop can't start without a signed-in CLI, and left alone it
-    // reports the wrong problem: `dependencyPath` yields null for an
-    // unauthenticated CLI exactly as it does for an absent one, so the SDK
-    // fails with "Native CLI binary not found" and sends the user looking for a
-    // missing file. Check the real condition and carry the fix with the error.
-    // Costs nothing extra — dependencyPath() below runs the same check, and
-    // checkClaudeAuth caches for 10s.
     if (currentLoop === 'claude') {
         const claudeStatus = await verifyDependency('claudeCli').catch(() => 'missing' as const);
         if (claudeStatus !== 'satisfied') {
@@ -751,13 +582,9 @@ export async function dispatchPromptToAgent(args: {
         .where('id', '=', args.chatId)
         .executeTakeFirst();
 
-    // On a provider switch the now-active loop's private memory is stale, so it
-    // rehydrates from the ChatMessage log (shared truth) rather than resuming.
     const providerSwitched = (chatRow?.last_agent_loop ?? null) !== null
         && chatRow!.last_agent_loop !== currentLoop;
 
-    // Claude resumes its SDK session; the AI SDK loop resumes its transcript —
-    // unless switched/absent, in which case both fall back to rehydration.
     const resumeSessionId = currentLoop === 'claude' && !providerSwitched
         ? (chatRow?.agent_session_id ?? null)
         : null;
@@ -766,10 +593,6 @@ export async function dispatchPromptToAgent(args: {
         : [];
     const needsPreamble = currentLoop === 'claude' ? resumeSessionId === null : transcript.length === 0;
 
-    // No live memory for the active loop — first turn, provider switch, or a
-    // branched/cloned/orphaned chat — so synthesize a context preamble from the
-    // persisted ChatMessages and prepend it. At most once per (re-)orphaning;
-    // subsequent turns resume the loop's own memory.
     let userContent = needsPreamble
         ? wrapWithHistoryPreamble(
             Object.values(state.currentChat.messages),
@@ -778,17 +601,11 @@ export async function dispatchPromptToAgent(args: {
         )
         : args.userContent;
 
-    // <system_notice>: out-of-band flag deltas + a one-shot director's note.
-    // Provider-agnostic — both loops receive the same wrapped userContent. The
-    // convention (an XML tag the model treats as distinct from user dialogue) is
-    // taught by RP_PROMPT.md; works for any model, not just Anthropic.
     const flagsSnapshot = chatRow?.last_agent_flags_snapshot
         ? JSON.parse(chatRow.last_agent_flags_snapshot) as Record<string, unknown>
         : null;
     const flagsDelta = buildFlagsDelta(flagsSnapshot, state.currentChat.gameState.flags);
 
-    // One-shot director's note composed in the UI. Consumed and cleared
-    // here so it attaches to exactly one turn.
     const directorNote = state.currentChat.pendingSystemNotice.trim();
     if (directorNote) mutate(s => { s.currentChat.pendingSystemNotice = '' });
 
@@ -809,11 +626,6 @@ export async function dispatchPromptToAgent(args: {
         userContent = wrapWithSystemNotice(sections, userContent);
     }
 
-    // Debug snapshot of the exact payload about to be dispatched. Gated on the
-    // debug pref so nothing is captured/synced when off. In-memory only (never
-    // persisted). AI-SDK sends the full transcript + this user turn; Claude sends
-    // only this user turn (prior turns live in its resumed session, unless we
-    // rehydrated from the log, in which case the full history is inside userContent).
     if (state.userPreferences.debug) {
         const messages = currentLoop === 'ai-sdk'
             ? [...transcript.map(normalizeModelMessage), { role: 'user', content: userContent }]
@@ -846,30 +658,18 @@ export async function dispatchPromptToAgent(args: {
                     enableChoicePrompts,
                     enableSceneImages,
                     enableItemIcons,
-                    // Resolved per turn rather than read from the environment
-                    // the agent was spawned with. A CLI downloaded (or
-                    // installed) after startup would otherwise never reach a
-                    // long-running agent, and the SDK fails with "Native CLI
-                    // binary not found" instead of using it.
                     claudeCliPath: await dependencyPath('claudeCli'),
                 }),
             });
         } catch (err) {
-            // Network-level failure: subprocess unreachable, crashed, restarted
-            // mid-request. generateResponse's finally clears isGenerating.
             throw new Error(`Agent unreachable: ${err instanceof Error ? err.message : String(err)}`);
         }
 
         if (!response.ok) {
-            // The subprocess always returns 200 with a structured body, so a
-            // non-OK status is something it couldn't catch — defensive only.
             const errText = await response.text().catch(() => '');
             throw new Error(`Agent transport error ${response.status}: ${errText.slice(0, 200)}`);
         }
 
-        // ok=false means an internal agent failure (SDK Overloaded, transport
-        // closed, etc.) the subprocess caught cleanly — surface it as a throw so
-        // generateResponse's catch notifies the user.
         const result = await response.json().catch(() => ({ ok: false, error: 'invalid agent response body' })) as
             | { ok: true; sessionId: string | null; aborted?: boolean }
             | { ok: false; sessionId: string | null; error: string; errorName?: string };
@@ -891,13 +691,10 @@ export async function dispatchPromptToAgent(args: {
         log.server.info(`AI SDK turn complete for chat ${args.chatId}`);
     }
 
-    // Record which loop owns this chat's live memory, so a later provider switch
-    // rehydrates the other loop from the message log.
     await db.updateTable('chats').set({ last_agent_loop: currentLoop }).where('id', '=', args.chatId).execute();
 }
 
 export async function cancelAgentTurn() {
-    // In-process AI SDK turns abort directly via their AbortController.
     let abortedAi = false;
     for (const ctrl of inFlightAiTurns.values()) {
         ctrl.abort();
@@ -905,7 +702,6 @@ export async function cancelAgentTurn() {
     }
     if (abortedAi) return;
 
-    // Otherwise it's a Claude subprocess turn — cancel over RPC.
     try {
         const response = await fetch(`${AGENT_URL}/cancel`, { method: 'POST' });
         if (!response.ok) {
@@ -947,31 +743,6 @@ export async function invalidateAgentSession(chatId: string) {
     log.server.info(`Invalidated agent session for chat ${chatId}`);
 }
 
-/**
- * Find a clean fork anchor (an SDK tool_result wrapper UUID) within a
- * given message dictionary, scoped to a specific SDK session. Walks
- * backward from `keepUntilMessageId` through the sorted messages,
- * returning the first metadata.sdkTurnCloserUuid whose recorded
- * sdkTurnCloserSessionId matches `currentSessionId`.
- *
- * Why the session filter matters: forkSession rewrites every kept
- * entry's uuid in the resulting session. After a successful fork,
- * closer uuids stamped pre-fork still refer to the OLD session and are
- * not addressable in the new one. Without this filter, walking back
- * would return a stale uuid and the next forkSession call would error
- * with "Message X not found in session Y".
- *
- * `keepUntilMessageId` itself counts as the starting point — if that
- * message has a matching closer, we use it. Otherwise we step back.
- *
- * Returns null when no matching anchor exists. Callers MUST handle
- * null by leaving the session untouched rather than invalidating.
- *
- * Takes a messages dict argument rather than reading from
- * state.currentChat so it can be used for cross-chat operations
- * (branching from a source chat whose messages haven't been loaded
- * into currentChat).
- */
 function findForkAnchorIn(
     messages: Record<string, import('@shared/types').ChatMessage>,
     keepUntilMessageId: string,
@@ -1030,10 +801,6 @@ export async function forkAgentSession(args: {
         .executeTakeFirst();
     const oldSessionId = sessionRow?.agent_session_id;
     if (!oldSessionId) {
-        // No Claude session — but this chat may be on the AI SDK loop, whose
-        // memory is `ai_transcript`. A structural edit (regen/rewind) just
-        // changed the message log, so clear the transcript too; the next AI-SDK
-        // turn rehydrates from the edited log instead of resuming stale memory.
         await db.updateTable('chats').set({ ai_transcript: null }).where('id', '=', args.chatId).execute();
         log.server.info(`No agent session to fork for chat ${args.chatId}; cleared ai_transcript; first prompt will rehydrate`);
         return null;

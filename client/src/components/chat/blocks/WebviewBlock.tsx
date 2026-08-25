@@ -1,10 +1,6 @@
 import { createMemo } from 'solid-js'
 import type { WebviewBlock as WebviewBlockType } from '../blocks'
 
-// Scrollbar styling matching the main app. Injected into each sandboxed iframe
-// since they get their own document tree and don't inherit parent CSS.
-// --text / --primary are redefined locally so the iframe doesn't depend on
-// parent variables (sandbox="allow-scripts" but no allow-same-origin).
 const IFRAME_SCROLLBAR_CSS = `
   :root {
     --scrollbar-thumb: rgba(210, 210, 210, 0.2);
@@ -32,7 +28,6 @@ export function WebviewBlock(props: {
         const userCss = props.block.css ? `<style>${props.block.css}</style>` : ''
         const scrollbarCss = `<style>${IFRAME_SCROLLBAR_CSS}</style>`
         const script = props.block.script ? `<script>${props.block.script}<\/script>` : ''
-        // Scrollbar CSS goes first so user CSS can override it if they want.
         return `<!DOCTYPE html><html><head>${scrollbarCss}${userCss}</head><body>${props.block.html}${script}</body></html>`
     })
 

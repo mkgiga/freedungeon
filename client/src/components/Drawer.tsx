@@ -1,8 +1,6 @@
 import { createSignal, createContext, useContext, Show, onMount, onCleanup, type JSXElement } from 'solid-js'
 import { Portal } from 'solid-js/web'
 
-// ── Types ──
-
 type DrawerConfig = {
     title?: string
     content: () => JSXElement
@@ -18,8 +16,6 @@ type DrawerAPI = {
     close: () => void
 }
 
-// ── Context ──
-
 const DrawerContext = createContext<DrawerAPI>()
 
 export function useDrawer(): DrawerAPI {
@@ -27,8 +23,6 @@ export function useDrawer(): DrawerAPI {
     if (!ctx) throw new Error('useDrawer must be used within <DrawerProvider>')
     return ctx
 }
-
-// ── Provider ──
 
 export function DrawerProvider(props: { children: JSXElement }) {
     const [current, setCurrent] = createSignal<DrawerConfig | null>(null)

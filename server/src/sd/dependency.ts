@@ -10,10 +10,6 @@ import { SD_BINARIES, sdTarget } from './manifest'
  */
 export const SD_DIR = path.join(NATIVE_DIR, 'sd')
 
-/**
- * Resolved once at startup rather than per call: it shells out to nvidia-smi,
- * and the answer cannot change while the process runs.
- */
 let choice: SdBuildChoice | null = null
 
 export async function initSdBuildChoice(): Promise<void> {

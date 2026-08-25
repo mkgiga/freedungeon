@@ -23,9 +23,6 @@ extensionUploadRouter.post('/', async (c) => {
         const info = await installFromZipBytes(new Uint8Array(await file.arrayBuffer()))
         return c.json({ id: info.manifest.id, name: info.manifest.name })
     } catch (err) {
-        // The archive being wrong is the normal failure here — a bad manifest, a
-        // zip of the wrong thing — so it comes back as a message the drop zone
-        // can show rather than a 500.
         const message = err instanceof Error ? err.message : String(err)
         log.server.warn(`Extension install failed: ${message}`)
         return c.json({ error: message }, 400)

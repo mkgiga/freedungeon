@@ -18,36 +18,11 @@ import type { FeatureKey } from './features'
  * nothing here is dispatched on a phone.
  */
 export type ActionSpec = {
-    /** Namespaced identifier, e.g. `chat.send`. Stable; it's the storage key. */
     id: string
     label: string
     description?: string
-    /**
-     * Key combination bound out of the box, in the normalized form produced by
-     * `keybindFromEvent`. Omit for an action that has none until the user gives
-     * it one.
-     */
     defaultKeybind?: string
-    /**
-     * The feature that owns this action. Absent means core. An action whose
-     * feature is switched off is never dispatched and is hidden from the
-     * keybind editor, so a disabled feature can't be driven by a stale binding.
-     */
     feature?: FeatureKey
-    /**
-     * A baseline condition owned by whoever *declares* the action, as opposed
-     * to whoever implements it. Both must pass for the action to run.
-     *
-     * A callback rather than declarative data on purpose: a constraint that
-     * depends on state nobody anticipated is the normal case, not the exotic
-     * one, and an expression language would only ever be a worse JavaScript.
-     * It's re-evaluated at dispatch, so it tracks state set at runtime.
-     *
-     * Reads app state through `ctx` instead of importing it, which is what
-     * keeps this module free of a client dependency — the dispatcher supplies
-     * the context. Anything client-only (focus, route, local signals) belongs
-     * in the registration's `enabled` instead; this can't see it.
-     */
     canExecute?: (ctx: ActionContext) => boolean
 }
 
@@ -62,8 +37,6 @@ export const ACTIONS: Record<string, ActionSpec> = {
         label: 'Send message',
         description: 'While the composer is focused. Shift+Enter always inserts a line break.',
         defaultKeybind: 'Enter',
-        // The server rejects a concurrent turn outright, so firing here would
-        // only produce an error toast.
         canExecute: ({ state }) => !state.isGenerating,
     },
     'chat.advance': {
@@ -134,7 +107,6 @@ export function keybindFromEvent(e: {
     return parts.join('+')
 }
 
-/** `' '` prints as nothing and reads as a bug; single letters vary by shift state. */
 function normalizeKey(key: string): string {
     if (key === ' ') return 'Space'
     if (key.length === 1) return key.toUpperCase()

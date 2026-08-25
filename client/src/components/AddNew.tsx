@@ -20,7 +20,6 @@ export type AddNewPosition = 'start' | 'end'
 export type AddNew = {
     label: string
     onClick: () => void
-    /** Defaults to 'start' — the whole point is landing in the first slot. */
     position?: AddNewPosition
 }
 
@@ -45,10 +44,7 @@ export function AddNewCard(props: { label: string; onClick: () => void }) {
 export function AddNewRow(props: {
     label: string
     onClick: () => void
-    /** The list's leading icon/avatar column class, when it has one. The `+`
-     *  goes there so it lines up with the emoji or portrait below it. */
     leadingClass?: string
-    /** Total columns in the table, so the trailing filler spans the rest. */
     columns: number
 }) {
     const used = () => (props.leadingClass ? 2 : 1)

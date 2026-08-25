@@ -17,10 +17,6 @@ export const imagesRouter = router({
     list: procedure
         .query(() => Object.values(state.assets.images)),
 
-    /**
-     * Register an already-uploaded file (POST /uploads gives you the URL) as a
-     * library image. `key` must be unique — it's the agent's handle for it.
-     */
     create: procedure
         .input(z.object({
             key: z.string().regex(/^[a-z][a-z0-9_]*$/, 'Use snake_case (lowercase + underscores).'),
@@ -67,14 +63,11 @@ export const imagesRouter = router({
             return { success: true }
         }),
 
-    /** Deletes the library row. CASCADE drops every chat's ref to it. */
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
             mutate(s => { delete s.assets.images[input.id] })
 
-            // The store's chat copies aren't touched by the CASCADE, so drop
-            // the id from each one that held it.
             for (const chat of Object.values(state.assets.chats)) {
                 if (!chat.assets.images?.includes(input.id)) continue
                 mutate(s => { s.assets.chats[chat.id]!.assets.images = chat.assets.images.filter(id => id !== input.id) })

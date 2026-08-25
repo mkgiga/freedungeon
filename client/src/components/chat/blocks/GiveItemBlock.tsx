@@ -8,10 +8,8 @@ export function GiveItemBlock(props: {
     block: GiveItemBlockType
     onUpdate: (block: GiveItemBlockType) => void
 }) {
-    // qty 0 is a no-op — don't clutter the transcript with empty lines.
     if (props.block.qty === 0) return null
 
-    // block.name holds the item's definition key; render its label.
     const label = () => resolveItem(state.currentChat.gameState, props.block.name).label
     const isOne = () => props.block.qty === 1
     const word = () => isOne() ? label() : pluralizeItem(label(), props.block.qty)

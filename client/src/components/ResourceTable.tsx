@@ -8,7 +8,6 @@ export function SortHeader(props: {
     active: boolean
     dir: SortDir
     onClick: () => void
-    /** Extra class names applied to the `<th>`, e.g. column-width utilities. */
     class?: string
 }) {
     const className = () => ['resource-table-col-sortable', props.class].filter(Boolean).join(' ')

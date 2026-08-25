@@ -33,13 +33,11 @@ async function generateThumbnail(buffer: ArrayBuffer, filename: string): Promise
 
 export const uploadsRouter = new Hono()
 
-// Serve thumbnails — must be before /:filename
 uploadsRouter.get('/thumbs/:filename', async (c) => {
     const filename = c.req.param('filename')
     const thumbPath = path.join(THUMBS_DIR, filename)
 
     if (!fs.existsSync(thumbPath)) {
-        // Try generating from original if it exists
         const originalPath = path.join(UPLOADS_DIR, filename)
         if (!fs.existsSync(originalPath)) {
             return c.text('Not found', 404)
@@ -56,7 +54,6 @@ uploadsRouter.get('/thumbs/:filename', async (c) => {
     return new Response(file)
 })
 
-// Serve uploaded files
 uploadsRouter.get('/:filename', async (c) => {
     const filename = c.req.param('filename')
     const filePath = path.join(UPLOADS_DIR, filename)
@@ -69,9 +66,6 @@ uploadsRouter.get('/:filename', async (c) => {
     return new Response(file)
 })
 
-// Upload any file — returns the full URL
-// Files are stored by content hash to deduplicate
-// Images automatically get a thumbnail generated
 uploadsRouter.post('/', async (c) => {
     ensureDirs()
 

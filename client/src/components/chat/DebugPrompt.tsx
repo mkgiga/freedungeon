@@ -3,13 +3,6 @@ import { state } from '../../state'
 import { useModal } from '../Modal'
 import { Text } from '../typography/Text'
 
-/**
- * Debug-only: opens a fullscreen view of the exact prompt last dispatched to the
- * provider (`state.currentChat.lastPrompt`, captured server-side when the debug
- * pref is on). Lets you see what the model actually received — useful when the
- * built history diverges from the visible chat on regenerate/rewind/branch.
- * Reads the synced snapshot reactively; no fetch.
- */
 function DebugPromptView() {
     const lp = () => state.currentChat.lastPrompt
 
@@ -32,7 +25,6 @@ function DebugPromptView() {
             >
                 {(p) => (
                     <>
-                        {/* Metadata line */}
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 opacity-70">
                             <Text size="sm" font="mono">{p().provider}</Text>
                             <span class="opacity-40">·</span>
@@ -45,7 +37,6 @@ function DebugPromptView() {
                             <Text size="sm">{new Date(p().capturedAt).toLocaleTimeString()}</Text>
                         </div>
 
-                        {/* System prompt — collapsed by default */}
                         <details class="rounded border border-[color-mix(in_oklch,var(--text),transparent_85%)]">
                             <summary class="cursor-pointer select-none px-2 py-1 opacity-80">
                                 <Text size="sm" class="inline">System prompt ({p().systemPrompt.length} chars)</Text>
@@ -59,7 +50,6 @@ function DebugPromptView() {
                             </Text>
                         </details>
 
-                        {/* Messages */}
                         <Text size="sm" class="opacity-60">
                             History ({p().messages.length} message{p().messages.length === 1 ? '' : 's'})
                         </Text>

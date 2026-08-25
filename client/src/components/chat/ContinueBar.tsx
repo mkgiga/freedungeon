@@ -16,9 +16,6 @@ import { ShowOn } from '../ShowOn'
 export function ContinueBar() {
     const playback = usePlayback()
 
-    // The key that advances is the `chat.advance` action, claimed only while
-    // this bar is on screen — which is exactly when advancing means anything.
-    // The dispatcher already declines bare keys while focus is in a text field.
     useAction('chat.advance', () => playback.tap())
 
     return (

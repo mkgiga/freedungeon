@@ -27,24 +27,10 @@ export function PatcherOverlay() {
         Object.values(state.dependencies ?? {}).filter(isBlocking),
     )
 
-    /**
-     * Whether the user has sent the download to the panel.
-     *
-     * Reset whenever nothing is in flight, so minimising applies to the run it
-     * was chosen for. A later download — a different feature, another day —
-     * starts by asking for attention again rather than inheriting a decision
-     * made about something else.
-     */
     const toast = useToast()
     const [minimized, setMinimized] = createSignal(false)
     createEffect(() => { if (blocking().length === 0) setMinimized(false) })
 
-    /**
-     * Whole-job progress, for the panel button. Averaging the parts would let a
-     * finished 22MB file offset a stalled 2.2GB one, so this is a byte total:
-     * files with no known size simply don't contribute, which is honest about
-     * what is measurable rather than inventing a denominator.
-     */
     const overall = createMemo(() => {
         let received = 0
         let total = 0
@@ -58,25 +44,6 @@ export function PatcherOverlay() {
 
     const failed = createMemo(() => blocking().filter(d => d.status === 'failed'))
 
-    /**
-     * Tell the user when a backgrounded download breaks.
-     *
-     * Deliberately a notification rather than a dialog. Minimising was a request
-     * not to be interrupted, and everything reachable from here is by
-     * construction non-urgent — "Continue in background" is only offered when
-     * every dependency is merely downloading, so anything that needs an answer
-     * never gets backgrounded in the first place. Throwing a modal in front of
-     * someone mid-scene to report an optional download would be the app going
-     * back on the deal.
-     *
-     * It does not expire, because a toast that vanishes after six seconds is
-     * indistinguishable from never having been shown, and it carries the action
-     * that reaches the panel — which on a phone mid-conversation is otherwise
-     * unreachable, since the nav bar is hidden there.
-     *
-     * Only while minimised: with the overlay up the error is already on screen
-     * with its own Retry button, and saying it twice is noise.
-     */
     const reported = new Set<string>()
     createEffect(() => {
         if (!minimized()) return
@@ -91,8 +58,6 @@ export function PatcherOverlay() {
                 action: { label: 'Open downloads', kind: 'openDownloads' },
             })
         }
-        // Forget a key once it is no longer failing, so a retry that fails again
-        // is reported again rather than silently swallowed.
         for (const key of [...reported]) {
             if (!failed().some(d => d.key === key)) reported.delete(key)
         }
@@ -108,10 +73,6 @@ export function PatcherOverlay() {
                         <Heading level={2}>Downloading required files</Heading>
                         <For each={blocking()}>{(dep) => <PatcherRow dep={dep} />}</For>
 
-                        {/* Only offered while things are actually downloading.
-                            A failed or unauthenticated dependency needs an
-                            answer — backgrounding it would hide the one prompt
-                            that unblocks whatever the user was trying to do. */}
                         <Show when={blocking().every(d => d.status === 'downloading')}>
                             <div class="patcher-actions">
                                 <button class="modal-btn modal-btn-cancel" onClick={minimize}>
@@ -194,12 +155,6 @@ function PatcherRow(props: { dep: DependencyState }) {
     )
 }
 
-/**
- * The CLI opens a browser itself and, when its local callback can't be reached,
- * falls back to showing a code for the user to paste. We mirror both paths: the
- * URL is always offered in case the browser didn't open, and the code box
- * appears only once the CLI actually asks for one.
- */
 function SignInFlow(props: { dep: DependencyState }) {
     const [code, setCode] = createSignal('')
 
@@ -276,7 +231,6 @@ export function useDownloads() {
 
     return {
         active: () => blocking().length > 0,
-        /** A failure must not keep reporting the percentage it stopped at. */
         summary: () => blocking().some(d => d.status === 'failed')
             ? 'failed'
             : overall() === null ? null : `${overall()}%`,

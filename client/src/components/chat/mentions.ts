@@ -1,13 +1,5 @@
 import { state } from '../../state'
 
-/**
- * `<@actor_id>` inside narration and dialogue.
- *
- * The `text()` tool has always advertised this syntax to the model, but nothing
- * ever consumed it, so the refs reached the screen verbatim. Actors are
- * referenced by `customId` here, matching speech blocks and every game-state
- * tool.
- */
 const MENTION = /<@([^>\s]+)>/g
 
 /**

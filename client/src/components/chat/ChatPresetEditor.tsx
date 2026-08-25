@@ -31,10 +31,6 @@ export function ChatPresetEditor(props: {
     id: string
     isTemplate: boolean
     onDone: () => void
-    /**
-     * Scenario-only. On a wide screen the collaborator docks beside the editor;
-     * on a phone there's no room, so this opens it as its own screen instead.
-     */
     onOpenCollaborator?: () => void
 }) {
     const [collabOpen, setCollabOpen] = createSignal(false)
@@ -45,8 +41,6 @@ export function ChatPresetEditor(props: {
     const serverChat = () => state.assets.chats[props.id]
     const isNew = () => !serverChat()
 
-    // Default title for new templates: "New Template", "New Template 2", ...
-    // Computed once at seed time so it doesn't flip around as the user types.
     const defaultTitle = () => {
         if (!isNew()) return ''
         const existingTitles = Object.values(state.assets.chats)
@@ -79,8 +73,6 @@ export function ChatPresetEditor(props: {
         isTemplate: serverChat()?.isTemplate ?? props.isTemplate,
     })
 
-    // When the chat arrives from the server after initial mount (late state
-    // sync), backfill the draft. Skipped for new drafts so we don't stomp them.
     onMount(() => {
         if (isNew()) return
         const c = serverChat()
@@ -97,18 +89,6 @@ export function ChatPresetEditor(props: {
         })
     })
 
-    /**
-     * Fold the collaborator's changes into the draft while it's open.
-     *
-     * The agent writes cast and note membership straight to server state, but
-     * this editor holds an uncommitted draft, so nothing showed up until you
-     * reopened the screen. Overwriting from the server would fix that and throw
-     * away whatever you'd toggled meanwhile, so apply the server's *delta*
-     * instead — the agent's additions land, your pending edits survive.
-     *
-     * Only membership is synced. The agent has no tool that touches the title,
-     * description, or images, so those stay yours until Save.
-     */
     const syncMembership = (key: 'actors' | 'notes', readServer: (c: Chat) => string[]) => {
         let last = new Set(untrack(() => { const c = serverChat(); return c ? readServer(c) : [] }))
         createEffect(() => {
@@ -128,18 +108,6 @@ export function ChatPresetEditor(props: {
     syncMembership('actors', (c) => c.assets.actors)
     syncMembership('notes', (c) => Object.keys(c.assets.notes))
 
-    /**
-     * Which resources changed while you were watching.
-     *
-     * The collaborator edits server state directly, so without a tell the grid
-     * just silently differs — you can't see whether it created a character,
-     * renamed one, or did nothing. Keyed on `updatedAt`, so it catches edits to
-     * an existing card, not only arrivals.
-     *
-     * The order survives the flash: the highlight fades after a couple of
-     * seconds, but a card that jumped to the front stays there for the session.
-     * Sliding back a moment later would be its own distraction.
-     */
     const FLASH_MS = 2200
     const [touchedAt, setTouchedAt] = createSignal<Record<string, number>>({})
     const [flashing, setFlashing] = createSignal<Record<string, true>>({})
@@ -151,16 +119,12 @@ export function ChatPresetEditor(props: {
 
     {
         const lastSeen = new Map<string, number>()
-        // The first pass only records: on open everything is "new", and lighting
-        // the whole grid up says nothing.
         let primed = false
         createEffect(() => {
             const resources = [
                 ...[...draft.actors].map(id => state.assets.actors[id]),
                 ...[...draft.notes].map(id => state.assets.notes[id]),
             ].filter(Boolean) as { id: string; updatedAt: number }[]
-            // Track updatedAt reactively, decide untracked — the writes below
-            // would otherwise re-trigger this effect.
             const stamps = resources.map(r => [r.id, r.updatedAt] as const)
 
             untrack(() => {
@@ -182,7 +146,6 @@ export function ChatPresetEditor(props: {
 
     const isFlashing = (id: string) => Boolean(flashing()[id])
 
-    /** Most recently changed first; everything else keeps its existing order. */
     const recentFirst = <T extends { id: string }>(items: T[]): T[] => {
         const at = touchedAt()
         if (Object.keys(at).length === 0) return items
@@ -207,9 +170,6 @@ export function ChatPresetEditor(props: {
         setDraft('actors', next)
     }
 
-    // Both open in a modal rather than navigating: this editor's draft is
-    // uncommitted until Save, and leaving for /actors/$id or /notes/$id would
-    // unmount it and throw that draft away.
     const editActor = editors.openActor
     const editNote = editors.openNote
 
@@ -232,15 +192,6 @@ export function ChatPresetEditor(props: {
         })
     }
 
-    /**
-     * "Add characters" forked in two.
-     *
-     * It used to go straight to a picker over the global library, which assumes
-     * you have one — a tester with an empty library hit a list of nothing and
-     * had no idea a library was even the thing being shown. Writing a character
-     * is now the first option, and the second names where the other ones come
-     * from.
-     */
     const openActorPicker = () => {
         modal.open({
             title: 'Add characters',
@@ -254,11 +205,6 @@ export function ChatPresetEditor(props: {
                             onClick: () => {
                                 modal.close()
                                 editors.createActor({
-                                    // Authored into this scenario, so it stays
-                                    // out of the global library — same as the
-                                    // collaborator's create_character. A cast
-                                    // written for one story shouldn't turn up
-                                    // in every other one's picker.
                                     homeChatId: props.id,
                                     onCreated: (actor) => toggleActor(actor.id),
                                 })
@@ -312,7 +258,6 @@ export function ChatPresetEditor(props: {
         })
     }
 
-    /** Same fork as characters — writing one has to be reachable from here. */
     const openNotePicker = () => {
         modal.open({
             title: 'Add notes',
@@ -355,8 +300,6 @@ export function ChatPresetEditor(props: {
 
     const save = async () => {
         if (isNew()) {
-            // Server mints the real id — the route param was only a client-side
-            // nanoid for URL uniqueness while drafting.
             await trpc.chat.create.mutate({
                 title: draft.title,
                 isTemplate: draft.isTemplate,
@@ -390,9 +333,6 @@ export function ChatPresetEditor(props: {
                 title={draft.title || 'Untitled'}
                 backButton={cancel}
                 slots={{
-                    // A fragment, not a wrapper div: `.toolbar-right > button`
-                    // styles direct children only, so wrapping these strips
-                    // their padding and hover state and jams them together.
                     right: (
                         <>
                             <Show when={props.isTemplate}>
@@ -414,7 +354,6 @@ export function ChatPresetEditor(props: {
 
             <div class="preset-editor-body">
             <div class="flex-1 overflow-y-auto">
-                {/* Banner + avatar — click to upload */}
                 <div
                     class="chat-detail-banner"
                     classList={{ 'is-empty': !draft.bannerUrl, 'is-drop-target': bannerDrop.over() }}
@@ -462,7 +401,6 @@ export function ChatPresetEditor(props: {
                 </div>
 
                 <div class="chat-detail-body">
-                    {/* Title */}
                     <section class="mb-4">
                         <Heading level={4} class="mb-1">Title</Heading>
                         <input
@@ -473,7 +411,6 @@ export function ChatPresetEditor(props: {
                         />
                     </section>
 
-                    {/* Description */}
                     <section class="mb-4">
                         <Heading level={4} class="mb-1">Description</Heading>
                         <textarea
@@ -484,9 +421,6 @@ export function ChatPresetEditor(props: {
                         />
                     </section>
 
-                    {/* Actors + Notes — mirror the conversation drawer sidebar:
-                        only show this chat's refs, with a + that opens the same
-                        picker modal and a Remove dropdown action per row. */}
                     <section class="chat-detail-cast mb-4">
                         <div>
                             <div class="chat-detail-section-header">
@@ -529,9 +463,6 @@ export function ChatPresetEditor(props: {
                         </div>
                     </section>
 
-                    {/* Images the agent can bring on screen by key (list_images
-                        / show_image). Curated here only — images it generates
-                        mid-story are never added to this library. */}
                     <section class="mb-4">
                         <div class="chat-detail-section-header">
                             <Heading level={2}>Images</Heading>
@@ -556,7 +487,6 @@ export function ChatPresetEditor(props: {
                         </div>
                     </section>
 
-                    {/* Bottom actions — duplicated exits */}
                     <div class="chat-detail-footer">
                         <button class="modal-btn modal-btn-cancel" onClick={cancel}>Cancel</button>
                         <button class="modal-btn modal-btn-confirm" onClick={save}>Save</button>
@@ -564,9 +494,6 @@ export function ChatPresetEditor(props: {
                 </div>
             </div>
 
-            {/* Docked, not overlaid: opening it narrows the editor, the same
-                way the actors/notes panel behaves in a chat. Wide only — a
-                phone opens the collaborator as its own screen. */}
             <Show when={props.isTemplate && wide()}>
                 <aside class="chat-side-panel" classList={{ open: collabOpen() }} aria-hidden={!collabOpen()}>
                     <div class="chat-side-panel-inner">

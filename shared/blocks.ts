@@ -1,4 +1,3 @@
-// ── Block types ──
 
 export type TextBlock = { type: 'text'; content: string }
 export type SpeechBlock = {
@@ -9,9 +8,6 @@ export type SpeechBlock = {
     expression?: string
 }
 export type PauseBlock = { type: 'pause'; seconds: number }
-// `aspect` is only set by generate_image, and only describes the shape the
-// image was rendered at — the feed lays the block out from it (and reserves the
-// box before the image loads). Gallery images have none and size to their file.
 export type ImageBlock = {
     type: 'image'
     src: string
@@ -27,49 +23,26 @@ export type LeaveActorsBlock = { type: 'leaveActors'; actors: string[] }
 export type SetHpBlock = { type: 'setHp'; actorId: string; value: number }
 export type DamageBlock = { type: 'damage'; actorId: string; amount: number }
 export type HealBlock = { type: 'heal'; actorId: string; amount: number }
-// `name` is the item's inventory key: a defineItem `key` for content written
-// since item definitions existed, or free-text display name in older chats.
-// Both resolve through the same lookup, so legacy content replays unchanged.
 export type GiveItemBlock = { type: 'giveItem'; name: string; qty: number }
 export type TakeItemBlock = { type: 'takeItem'; name: string; qty: number }
-// A persisting item definition. Like every other block this is replayed from
-// history rather than stored as a row — `icon` is a URL into /uploads, already
-// generated and written to disk by the time the block is serialized.
-// Redefining the same key overwrites (last write wins).
 export type DefineItemBlock = {
     type: 'defineItem'
     key: string
     label: string
     description?: string
-    /** Long-form appearance used as the icon prompt; never rendered. */
     visualDescription?: string
     icon?: string
 }
 export type SetFlagBlock = { type: 'setFlag'; key: string; value: import('./types').FlagValue }
 export type ClearFlagBlock = { type: 'clearFlag'; key: string }
 export type SetLocationBlock = { type: 'setLocation'; description: string }
-// The agent's optional end-of-turn multiple-choice menu.
 export type ChoicePromptBlock = { type: 'choicePrompt'; options: string[] }
-// A user's pick from a ChoicePromptBlock — distinct from a free-typed
-// `unformatted` action so renderer and agent can tell a menu pick apart.
 export type ChoiceBlock = { type: 'choice'; text: string }
-// A user's mechanical attempt to use something on something, produced by
-// drag-and-drop in the HUD (not typed text). `what`/`on` are prefixed refs
-// ("item:Potion", "actor:vega") so the format can later cover other source
-// and target kinds. An attempt, not an outcome — the agent adjudicates it
-// via the `use_item` tool.
 export type TryUseBlock = { type: 'tryUse'; what: string; on: string }
-// The agent's adjudicated outcome of a use attempt: consumes qty of the item
-// from the party inventory. Item effects are separate follow-up blocks.
 export type UseItemBlock = { type: 'useItem'; item: string; target: string; qty: number }
-// A user's request to look closer at something, produced by picking "Inspect"
-// off a speech portrait (not typed text). `target` is an actor customId, the
-// same identifier speech and every game-state tool use. Like tryUse it is a
-// request, not an outcome: the agent answers it with narration.
 export type InspectBlock = { type: 'inspect'; target: string }
 
 export type Block =
-    // Rendering commands
     | TextBlock
     | SpeechBlock
     | PauseBlock
@@ -97,8 +70,6 @@ export type Block =
     | TryUseBlock
     | InspectBlock
 
-// ── Blocking semantics (visual-novel-style playback) ──
-
 /**
  * Block types that pause the playback queue. The frontend renders blocks one
  * at a time during the initial play of a newly-arrived assistant turn; on
@@ -111,16 +82,6 @@ export function isBlockingBlock(b: Block): boolean {
     return BLOCKING_BLOCK_TYPES.has(b.type)
 }
 
-
-// ── Parser ──
-
-// Parse results are deterministic per content string, and message content is
-// immutable (edits produce a new string via serializeBlocks), so results are
-// cached. Callers must treat the returned Block[] as read-only — mutating a
-// block in place would corrupt the cache for every other reader.
-// FIFO eviction (drop oldest insertion) rather than clear-on-overflow: a full
-// clear right at the cap thrashes when one chat's message count is near it,
-// forcing complete re-parses on every replay.
 const parseCache = new Map<string, Block[]>()
 const PARSE_CACHE_MAX = 50_000
 
@@ -136,7 +97,6 @@ export function parseBlocks(content: string): Block[] {
         },
         speech: (...args: any[]) => {
             if (typeof args[1] === 'string') {
-                // speech(actorId, dialogue, opts?)
                 const [actorId, dialogue, opts] = args as [string, string, { name?: string; expression?: string } | undefined]
                 blocks.push({
                     type: 'speech',
@@ -146,7 +106,6 @@ export function parseBlocks(content: string): Block[] {
                     ...(opts?.expression ? { expression: opts.expression } : {}),
                 })
             } else {
-                // speech(dialogue, { name })
                 const [dialogue, opts] = args as [string, { name: string }]
                 blocks.push({
                     type: 'speech',
@@ -236,8 +195,6 @@ export function parseBlocks(content: string): Block[] {
         inspect: (target: string) => {
             blocks.push({ type: 'inspect', target })
         },
-        // No-op parity with createScope (shared/game-state/scope.ts) so legacy
-        // content calling attack() doesn't abort the parse mid-message.
         attack: (_target: string) => {},
     }
 
@@ -260,8 +217,6 @@ export function parseBlocks(content: string): Block[] {
     return blocks
 }
 
-// ── Serializer ──
-
 function escapeTemplate(s: string): string {
     return s.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
 }
@@ -281,9 +236,6 @@ function str(s: string): string {
 export function serializeBlocks(blocks: Block[]): string {
     return blocks
         .filter((b) => {
-            // Empty text/speech blocks would round-trip as `text("");` / `speech("", "")`
-            // and re-render as empty blocks forever. Dropping them lets the user
-            // delete a block by blanking its contenteditable.
             if (b.type === 'text') return b.content.trim() !== ''
             if (b.type === 'speech') return b.dialogue.trim() !== ''
             return true
@@ -335,10 +287,6 @@ export function serializeBlocks(blocks: Block[]): string {
                 case 'defineItem': {
                     const parts = [`key: ${str(b.key)}`, `label: ${str(b.label)}`]
                     if (b.description) parts.push(`description: ${str(b.description)}`)
-                    // Template literal, not a quoted string: a paragraph of
-                    // appearance notes routinely contains newlines, which a
-                    // double-quoted JS string can't hold — the block would fail
-                    // to re-parse on replay.
                     if (b.visualDescription) parts.push(`visualDescription: ${tpl(b.visualDescription)}`)
                     if (b.icon) parts.push(`icon: ${str(b.icon)}`)
                     return `defineItem({ ${parts.join(', ')} });`

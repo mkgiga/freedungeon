@@ -8,9 +8,6 @@ import { inLibrary, homedIn } from '@shared/visibility'
 export const actorsRouter = router({
     list: procedure
         .query(() => {
-            // The global library is "not deleted, and not authored for a
-            // Scenario". Scenario residents are reachable through that
-            // Scenario, not here.
             return inLibrary(Object.values(state.assets.actors))
         }),
 
@@ -28,7 +25,6 @@ export const actorsRouter = router({
             avatarUrl: z.string().optional().default(''),
             customId: z.string().optional(),
             expressions: z.record(z.string(), z.string()).optional().default({}),
-            /** Author this actor into a Scenario instead of the global library. */
             homeChatId: z.string().nullish(),
         }))
         .mutation(({ input }) => {
@@ -44,8 +40,6 @@ export const actorsRouter = router({
                     avatarUrl: input.avatarUrl,
                     customId: input.customId ?? existing!.customId,
                     expressions: input.expressions,
-                    // Only when explicitly supplied — an edit from the Actors
-                    // screen omits it and must not relocate the actor.
                     ...(input.homeChatId !== undefined ? { homeChatId: input.homeChatId ?? null } : {}),
                     updatedAt: now,
                 } })
@@ -68,11 +62,6 @@ export const actorsRouter = router({
             return actor
         }),
 
-    /**
-     * Soft delete. The row stays so chat history keeps resolving this actor's
-     * portrait and expressions — every library, picker and agent tool filters
-     * on `deletedAt` instead. See shared/visibility.ts.
-     */
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
@@ -91,17 +80,10 @@ export const actorsRouter = router({
             return { success: true }
         }),
 
-    /** A Scenario's private cast — what it authored, not what it merely uses. */
     listHomedIn: procedure
         .input(z.object({ chatId: z.string() }))
         .query(({ input }) => homedIn(Object.values(state.assets.actors), input.chatId)),
 
-    /**
-     * Move an actor between the global library and a Scenario. `homeChatId:
-     * null` promotes it to the library; a chat id adopts it into that Scenario.
-     * Attachments are untouched — where something lives and where it's used are
-     * different questions.
-     */
     setHome: procedure
         .input(z.object({ id: z.string(), homeChatId: z.string().nullable() }))
         .mutation(({ input }) => {

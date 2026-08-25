@@ -43,11 +43,6 @@ export function GameStateActorStatus(props: Props): JSXElement {
                     </button>
                 </Match>
 
-                {/* Square avatar, nothing else — it sits in the composer rail
-                  * beside the inventory, where a name and a numeric HP would
-                  * cost more width than the whole rail has. The orb carries the
-                  * health: outline always drawn so the actor's full capacity
-                  * stays visible, fill rising from the bottom. */}
                 <Match when={props.variant === 'micro'}>
                     <button
                         type="button"
@@ -76,8 +71,6 @@ export function GameStateActorStatus(props: Props): JSXElement {
                             </div>
                         </div>
                         <Show when={description()}>
-                            {/* Descriptions are authored as multi-line text; without
-                              * pre-wrap the newlines collapse into spaces. */}
                             <Text size="sm" class="whitespace-pre-wrap">{description()}</Text>
                         </Show>
                     </div>

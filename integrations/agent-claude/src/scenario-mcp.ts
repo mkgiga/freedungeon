@@ -37,10 +37,6 @@ export function scenarioAllowedTools(): string[] {
     return Object.values(SCENARIO_TOOLS).map(spec => `mcp__scenario__${spec.name}`);
 }
 
-/**
- * The SDK's `tool()` wants a raw shape, not a ZodObject. Mirrors the helper in
- * mcp.ts — kept local so the two servers stay independently editable.
- */
 function unwrapToShape(schema: z.ZodTypeAny): Record<string, z.ZodTypeAny> {
     const def = (schema as unknown as { def?: { shape?: Record<string, z.ZodTypeAny> } }).def;
     if (def?.shape) return def.shape;

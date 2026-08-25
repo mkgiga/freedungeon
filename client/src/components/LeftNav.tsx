@@ -30,12 +30,7 @@ export function LeftNav() {
     const help = useHelp()
     const showLabels = () => viewport() === 'wide'
 
-    // The rail is mounted for the whole desktop session, so it's the natural
-    // owner of the two app-wide actions. Both are dialogs — they open over
-    // whatever you were doing rather than navigating away from it.
     useAction('app.preferences', preferences.open)
-    // No Help row any more — the docs live in the system menu. The rail still
-    // owns the shortcut, since it's what's mounted for the whole session.
     useAction('app.help', () => help.open())
 
     const player = () => {
@@ -49,9 +44,6 @@ export function LeftNav() {
 
     return (
         <menu class="left-nav" classList={{ compact: !showLabels() }}>
-            {/* Who you are on top, then secondary rows beneath — one line per
-                thing the session is currently bound to. On a tablet the rail is
-                56px, so every row degrades to just its icon. */}
             <section class="left-nav-header">
                 <div class="left-nav-primary">
                     <button
@@ -103,13 +95,6 @@ export function LeftNav() {
                     </button>
                 )}
             </For>
-            {/* Kept in the rail where it has always been, but it opens a dialog
-                rather than switching tabs — so it never costs you the screen you
-                were on. Outside NAV_ITEMS because that list is the set of tabs,
-                and this is no longer one. */}
-            {/* One button, several destinations. The pill mirrors the one on
-                the Notifications entry inside, so an unread notification is
-                visible without the menu being open. */}
             <button
                 type="button"
                 class="left-nav-preferences"

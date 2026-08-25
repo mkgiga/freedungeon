@@ -17,11 +17,6 @@ export class ActionableError extends Error {
     }
 }
 
-/**
- * How much history to keep on disk. Durable now, so without a ceiling a
- * long-lived install accumulates rows forever, and nothing in here is worth
- * keeping indefinitely.
- */
 const KEEP = 500;
 
 /**
@@ -44,8 +39,6 @@ export const notification = (notification: Omit<AppNotification, 'id' | 'created
     saveNotification(full);
     pruneNotifications(KEEP);
 
-    // Log-only entries are recorded but never counted: a badge the user cannot
-    // clear by looking at anything is worse than no badge at all.
     if (full.show) mutate(s => { s.notifications[full.id] = full });
 
     io.emit('notification', full);

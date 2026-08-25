@@ -30,11 +30,6 @@ import { state } from '../../state'
 import { usePlayback } from './playback'
 import { useRehydrationConfirm } from './rehydration'
 
-/**
- * Block types with no renderer in the Switch below — pure state mutations that
- * leave nothing on screen. Anything asking "what did the reader last see?"
- * has to skip them. Keep in sync with the Switch.
- */
 const SILENT_BLOCK_TYPES = new Set<Block['type']>([
     'enterActors', 'leaveActors', 'setHp', 'defineItem', 'setFlag', 'clearFlag',
 ])
@@ -53,23 +48,11 @@ export function lastRenderedBlock(content: string): Block | undefined {
 
 export function ChatMessage(props: {
     message: ChatMessageType
-    /**
-     * Last rendered block of the preceding message, supplied by the feed —
-     * agent turns emit one block per message, so a block's neighbour is
-     * usually in another message entirely.
-     */
     prevBlock?: Block
-    /** Side a portrait image in this message aligns to — alternates down the feed. */
     portraitSide?: 'left' | 'right'
 }) {
     const blocks = createMemo(() => parseBlocks(props.message.content))
 
-    /**
-     * The block the reader saw immediately before block `i`, skipping silent
-     * ones and crossing the message boundary when needed. Deliberately keyed on
-     * log order rather than playback reveal state: a layout that flipped as the
-     * typewriter advanced would be worse than either arrangement.
-     */
     const precedingRendered = (i: number): Block | undefined => {
         const bs = blocks()
         for (let k = i - 1; k >= 0; k--) {
@@ -82,45 +65,18 @@ export function ChatMessage(props: {
     const playback = usePlayback()
     const withRehydrationConfirm = useRehydrationConfirm()
 
-    // Whether a given block index is "in the future" of the current playback —
-    // i.e., this message is the playing one AND the block hasn't been revealed
-    // yet (`i >= cursor`). Future blocks still render to the DOM at their full
-    // height; they just get `visibility: hidden` via .chat-block-future so
-    // they reserve layout space without being painted. The result is a
-    // stable, full-final-height layout for the playing message from the
-    // moment it arrives — no reflow as the typewriter or cursor advances.
     const isFutureBlock = (i: number) =>
         props.message.id === playback.playingMessageId() && i >= playback.cursor()
 
     const isPlaying = () => props.message.id === playback.playingMessageId()
 
-    // Choice prompts are interactive only while they're the latest message and
-    // unanswered, and only when the global setting is on.
     const isLatest = () => latestMessageId() === props.message.id
     const choiceEnabled = () => featureEnabled(state.userPreferences, 'choicePrompts')
     const chosenIndex = () => props.message.metadata?.chosenIndex as number | undefined
 
-    // A future assistant message that playback hasn't reached yet stays hidden,
-    // so a fast provider can't show later dialogue/narration before the user
-    // taps to it. User/system messages (and already-played ones) always show.
     const isVisible = () =>
         props.message.role !== 'assistant' || playback.isMessageRevealed(props.message.id)
 
-    /**
-     * Message-level tap target. While this message is mid-playback, a tap
-     * anywhere in the message routes to `playback.tap()` (skip-scroll if the
-     * typewriter is still going, otherwise advance). Interactive descendants
-     * keep their own behavior:
-     *   - Past blocks' EditableText handles its own focus → editing.
-     *   - Past speech avatars (enabled buttons) open the expression picker.
-     *   - The chat-message-actions dropdown calls `e.stopPropagation()` on
-     *     its trigger, so it never reaches this handler.
-     *
-     * The filter `button:not(:disabled), .editable-text` lets clicks on
-     * interactive elements pass through unhandled, while everything else —
-     * the locked text/dialogue area, whitespace, the speech-block name, the
-     * disabled-while-active avatar — falls through to `tap()`.
-     */
     const handleMessageClick = (e: MouseEvent) => {
         if (!isPlaying()) return
         const target = e.target as HTMLElement | null
@@ -128,12 +84,6 @@ export function ChatMessage(props: {
         playback.tap()
     }
 
-    /**
-     * Answering the menu is a turn trigger, exactly like pressing send — so it
-     * takes the same two guards the composer applies: skip any unread playback
-     * (the pick supersedes it) and confirm the rebuild cost if this chat has no
-     * live agent session. Calling `chooseOption` bare would quietly skip both.
-     */
     const chooseOption = async (optionIndex: number) => {
         if (state.isGenerating) return
         await withRehydrationConfirm('Choose anyway', () => {

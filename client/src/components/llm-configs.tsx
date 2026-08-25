@@ -47,14 +47,12 @@ export function LLMConfigList(props: {
     configs: LLMConfig[]
     actions?: LLMConfigAction[]
     onConfigClick?: (config: LLMConfig) => void
-    /** Renders the create affordance as a row. See components/AddNew. */
     addNew?: AddNew
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<LLMConfig>('name')
 
     const sorted = createMemo(() => sort(props.configs))
 
-    /** name + model, plus the actions menu when shown. */
     const columns = () => 2 + (props.actions ? 1 : 0)
 
     return (
@@ -68,8 +66,6 @@ export function LLMConfigList(props: {
             </thead>
             <tbody>
                 <Show when={props.addNew && (props.addNew.position ?? 'start') === 'start'}>
-                    {/* No leading icon column here — the name is the first cell,
-                        so the `+` sits inline with the label instead. */}
                     <AddNewRow
                         label={props.addNew!.label}
                         onClick={props.addNew!.onClick}

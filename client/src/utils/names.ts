@@ -5,9 +5,7 @@ export function generateName({
     existingNames,
 }: {
     input: string
-    /** Prepended to `input`, e.g. "New" → "New Chat". Omit for no prefix. */
     prefix?: string
-    /** Joins the prefix, the input, and the numeric suffix. */
     separator?: string
     existingNames: string[]
 }) {

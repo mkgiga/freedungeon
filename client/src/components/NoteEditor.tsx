@@ -11,8 +11,6 @@ import { Text } from './typography/Text'
 import { TextEditor } from './TextEditor'
 import { Loader } from './Loader'
 
-// Normalize away the U+FE0F variation selector so keyword lookups line up
-// regardless of whether each side uses fully-qualified or unqualified forms.
 const stripVS = (s: string) => s.replace(/\uFE0F/g, '')
 const keywordsByEmoji: Record<string, string[]> = (() => {
     const out: Record<string, string[]> = {}
@@ -40,12 +38,7 @@ export function NoteEditor(props: {
     noteId: string
     edit: boolean
     chrome?: (ctx: NoteEditorChrome) => JSXElement
-    /** Rendered below the body — where a modal puts its Cancel/Save rail. */
     footer?: (ctx: NoteEditorChrome) => JSXElement
-    /**
-     * Authors the note into a Scenario rather than the global library. Only
-     * sent when set, so editing from the Notes screen can't relocate one.
-     */
     homeChatId?: string | null
     onSaved?: (id: string) => void
 }) {
@@ -91,8 +84,6 @@ export function NoteEditor(props: {
         const matches = (emoji: { name: string; slug: string; emoji: string }) => {
             const q = query().trim().toLowerCase()
             if (!q) return true
-            // AND-match each whitespace-separated term against name, slug, and the
-            // keyword list from emojilib (e.g. ❤️ → ["heart","love","like","valentines"]).
             const terms = q.split(/\s+/)
             const keywords = keywordsByEmoji[stripVS(emoji.emoji)] ?? []
             const haystack = `${emoji.name.toLowerCase()} ${emoji.slug} ${keywords.join(' ')}`
@@ -139,7 +130,6 @@ export function NoteEditor(props: {
             {props.chrome?.({ get title() { return draft.title }, editing: props.edit, save })}
 
             <div class="editor-body flex-1 overflow-y-auto p-4">
-                {/* Emoji + Title */}
                 <section class="mb-4 flex items-start gap-3">
                     <button
                         type="button"
@@ -165,7 +155,6 @@ export function NoteEditor(props: {
                     </div>
                 </section>
 
-                {/* Type */}
                 <section class="mb-4">
                     <Heading level={4} class="mb-1">Type</Heading>
                     <Show when={props.edit} fallback={
@@ -181,8 +170,6 @@ export function NoteEditor(props: {
                     </Show>
                 </section>
 
-                {/* Content — last section, so it takes the leftover height in a
-                    modal. Elsewhere it keeps its normal minimum. */}
                 <section class="editor-fill mb-6">
                     <TextEditor
                         title="Content"

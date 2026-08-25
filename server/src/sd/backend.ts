@@ -37,8 +37,6 @@ export async function nvidiaComputeCap(): Promise<string | null> {
         const cap = stdout.split('\n')[0]?.trim()
         return cap && /^\d+\.\d+$/.test(cap) ? cap : null
     } catch {
-        // Not installed, not on PATH, or no NVIDIA GPU. All mean the same thing
-        // here, and none of them are errors worth surfacing.
         return null
     }
 }
@@ -48,7 +46,6 @@ export async function resolveSdBuild(): Promise<SdBuildChoice> {
     const arch = process.arch
 
     if (platform === 'darwin') {
-        // Only an arm64 archive is published; Metal is the accelerator there.
         if (arch !== 'arm64') {
             return {
                 supported: false,
@@ -64,12 +61,6 @@ export async function resolveSdBuild(): Promise<SdBuildChoice> {
     const cap = await nvidiaComputeCap()
 
     if (platform === 'linux') {
-        // The one gap in "CUDA whenever NVIDIA is present": the project's Linux
-        // jobs publish CPU, Vulkan and ROCm archives, and no CUDA one. Falling
-        // back to Vulkan silently would work but would quietly cost an NVIDIA
-        // owner a large amount of speed with nothing said, so it is refused
-        // loudly instead until there is a real answer (a Docker image and a
-        // self-build both exist upstream).
         if (cap) {
             return {
                 supported: false,
@@ -84,9 +75,6 @@ export async function resolveSdBuild(): Promise<SdBuildChoice> {
     }
 
     if (platform === 'win32') {
-        // Covers Pascal through Blackwell: upstream builds with CUDA 12.8.1 for
-        // architectures 61;70;75;80;86;89;90;100;120, so an sm_120 card runs
-        // native SASS rather than JIT-ing from PTX.
         if (cap) return { supported: true, backend: 'cuda12', why: `NVIDIA compute ${cap} (CUDA 12)` }
         return { supported: true, backend: 'vulkan', why: 'Windows without NVIDIA (Vulkan)' }
     }
@@ -141,30 +129,23 @@ export async function nvidiaVramGiB(): Promise<number | null> {
  * memory is the binding constraint.
  */
 export function sdRuntimeFlags(backend: SdBackend, vramGiB: number | null): string[] {
-    // Apple Silicon shares one pool between CPU and GPU, so "offload to CPU"
-    // moves nothing and the machine's whole RAM is already available. Hand it
-    // straight to the runtime auto-detect.
     if (backend === 'metal') return ['--max-vram', '-1']
 
     const cuda = backend === 'cuda12'
     const flags: string[] = []
     if (cuda) flags.push('--diffusion-fa')
 
-    // VRAM is only cheaply measurable on NVIDIA, so unknown is the normal case
-    // for AMD and Intel — not a signal that the card is small. Treating it as
-    // small would put every such GPU on the slowest tier. Instead take the two
-    // cheap adaptive flags and let `--max-vram -1` size itself at runtime.
     if (vramGiB === null) return [...flags, '--offload-to-cpu', '--max-vram', '-1']
 
-    if (vramGiB >= 8) return flags                  // everything stays resident
+    if (vramGiB >= 8) return flags
 
-    if (!cuda) flags.push('--diffusion-fa')         // now worth the slowdown
-    flags.push('--offload-to-cpu')                  // weights in RAM, staged on use
+    if (!cuda) flags.push('--diffusion-fa')
+    flags.push('--offload-to-cpu')
     if (vramGiB >= 6) return flags
 
-    flags.push('--max-vram', '-1')                  // segment passes to fit free VRAM
+    flags.push('--max-vram', '-1')
     if (vramGiB >= 4) return flags
 
-    flags.push('--stream-layers')                   // stream transformer blocks
+    flags.push('--stream-layers')
     return flags
 }

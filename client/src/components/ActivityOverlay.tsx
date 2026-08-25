@@ -29,11 +29,6 @@ export function ActivityOverlay() {
 function ActivityRow(props: { activity: Activity }) {
     const data = () => props.activity.data as Record<string, any>
 
-    /**
-     * Either shape of progress: a 0..1 fraction (per-job, from Forge's
-     * /internal/progress) or a step pair. A queued job reports neither, because
-     * it hasn't started — no bar is honest there, a 0% one looks stalled.
-     */
     const percent = (): number | null => {
         const d = data()
         if (typeof d.progress === 'number') return Math.round(Math.max(0, Math.min(1, d.progress)) * 100)
@@ -66,8 +61,6 @@ function describe(activity: Activity): string {
     switch (activity.kind) {
         case 'generatingItemIcon':
             if (data.phase === 'removingBackground') return `Removing background for ${data.label ?? 'item'}…`
-            // Forge runs one generation at a time, so icons behind another job
-            // are genuinely waiting rather than running slowly.
             if (data.queued) return `Waiting to generate icon for ${data.label ?? 'item'}…`
             return `Generating icon for ${data.label ?? 'item'}…`
         case 'generatingImage':

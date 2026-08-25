@@ -63,9 +63,6 @@ export function ExtensionsList() {
                             'is-failed': info.status === 'failed',
                         }}
                     >
-                        {/* A rejected extension gets no switch at all. A disabled
-                            checkbox says "off, but you could turn it on"; this one
-                            cannot be turned on, so showing one would be a lie. */}
                         <Show
                             when={info.status !== 'invalid'}
                             fallback={
@@ -89,8 +86,6 @@ export function ExtensionsList() {
                             />
                         </Show>
 
-                        {/* Why it can't load, next to the extension — not only in
-                            a log the user has no reason to open. */}
                         <Show when={info.error}>
                             {(err) => (
                                 <div class="extension-error">
@@ -121,14 +116,6 @@ export function ExtensionsList() {
     )
 }
 
-/**
- * Install by dropping a `.zip`, or by clicking to browse.
- *
- * Posts the archive rather than a path: a browser hands over a File and never
- * tells the page where it came from, so there is nothing to pass to the
- * path-based installer. Only reacts to drags actually carrying a file, so
- * dragging text across it doesn't light it up.
- */
 function ExtensionDropZone() {
     const [over, setOver] = createSignal(false)
     const [busy, setBusy] = createSignal(false)
@@ -172,8 +159,6 @@ function ExtensionDropZone() {
                 onClick={browse}
                 onDragOver={(e) => {
                     if (!carriesFile(e.dataTransfer)) return
-                    // Needed on every dragover, not just dragenter, or the drop
-                    // never fires and the browser opens the file instead.
                     e.preventDefault()
                     setOver(true)
                 }}

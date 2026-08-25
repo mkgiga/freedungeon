@@ -1,27 +1,3 @@
-/**
- * Builds freedungeon into a single standalone executable.
- *
- *   bun run build              # host platform
- *   bun run build --skip-client   # reuse the existing client/dist
- *
- * What this has to work around, all verified against Bun 1.3.7:
- *
- *  - `import.meta.dirname` inside a compiled binary points at the virtual
- *    filesystem (`B:\~BUN\root`), and `readdirSync` on it fails outright, so
- *    nothing can be discovered at runtime.
- *  - Bun embeds a file only for a literal `import … with { type: 'file' }`.
- *    `compile.assets` (directory embedding) is accepted by the API but embeds
- *    nothing in 1.3.7, and there is no `import.meta.glob`. So the file set has
- *    to be fixed at build time. Rather than emitting one import per file, we
- *    pack everything into a single blob (src/asset-blob.ts) that the
- *    hand-written src/entry.ts imports — one static import regardless of how
- *    many files there are, and no generated source to typecheck or maintain.
- *  - sharp resolves its native binding with `require(path)` over a runtime
- *    array, so the bundler never sees those specifiers. We replace
- *    sharp/lib/sharp.js wholesale with a shim, and extract the real .node plus
- *    its libvips DLLs to the data dir at startup — Windows' loader needs the
- *    DLLs to sit next to the .node on a real filesystem.
- */
 
 import path from 'node:path'
 import fs from 'node:fs'
@@ -35,26 +11,15 @@ const PROMPTS = path.join(ROOT, 'src', 'prompts')
 const OUT_DIR = path.join(ROOT, 'dist')
 
 const skipClient = process.argv.includes('--skip-client')
-/** The Rust half is slow and rarely changing; skip it while iterating on the server. */
 const skipDesktop = process.argv.includes('--skip-desktop')
 
-// ── Native modules ──────────────────────────────────────────────────────────
-
-/** Platform-specific files that must reach a real filesystem to be loadable. */
 type Native = { src: string; name: string }
 
 const PLATFORM = `${process.platform}-${process.arch}`
-/** The binding sharp's shim will require, once extracted. */
 const SHARP_BINDING = `sharp-${PLATFORM}.node`
 
-/**
- * sharp's prebuilt binary lives in a separate per-platform package. Resolve it
- * through sharp's own tree (where bun's isolated store puts it) before falling
- * back to a hoisted top-level install.
- */
 function findSharpNatives(): Native[] {
     const pkg = `@img/sharp-${PLATFORM}`
-    // Resolve from the server package — sharp is its dependency, not the root's.
     const sharpRoot = path.join(path.dirname(Bun.resolveSync('sharp', ROOT)), '..')
     const candidates = [
         path.join(sharpRoot, '..', pkg, 'lib'),
@@ -65,24 +30,15 @@ function findSharpNatives(): Native[] {
     if (!dir) {
         throw new Error(`No ${pkg} found (looked in:\n  ${candidates.join('\n  ')}\n). Run \`bun install\` first.`)
     }
-    // The .node plus every DLL beside it — Windows resolves those siblings from
-    // the directory the binding is loaded from.
     return nativeFilesIn(dir)
 }
 
-/** Every loadable native file directly inside `dir`. */
 function nativeFilesIn(dir: string): Native[] {
     return fs.readdirSync(dir)
         .filter(f => /\.(node|dll|so|dylib)$/.test(f))
         .map(f => ({ src: path.join(dir, f), name: f }))
 }
 
-/**
- * onnxruntime-node keeps a per-platform binding under bin/napi-v6/, loaded via
- * a template-literal require the bundler can't see. Same treatment as sharp:
- * embed the binding plus the runtime DLLs it links against, and extract them
- * together so the loader resolves the siblings from a real directory.
- */
 function findOnnxNatives(): Native[] {
     const dir = path.join(
         path.dirname(Bun.resolveSync('onnxruntime-node', ROOT)), '..',
@@ -91,15 +47,9 @@ function findOnnxNatives(): Native[] {
     if (!fs.existsSync(dir)) {
         throw new Error(`No onnxruntime-node binding for ${PLATFORM} at ${dir}. Run \`bun install\` first.`)
     }
-    // The DirectML provider's libraries are ~37MB and bg-removal.ts pins
-    // EXECUTION_PROVIDERS to ['cpu'], so they never load. Verified by running
-    // background removal with them absent — inference is unaffected. If that
-    // provider list ever gains 'dml', drop this filter.
     const dmlOnly = /^(DirectML|dxcompiler|dxil)\.dll$/i
     return nativeFilesIn(dir).filter(n => !dmlOnly.test(n.name))
 }
-
-// ── Asset packing ───────────────────────────────────────────────────────────
 
 function walk(dir: string): string[] {
     return fs.readdirSync(dir, { withFileTypes: true, recursive: true })
@@ -107,19 +57,11 @@ function walk(dir: string): string[] {
         .map(e => path.relative(dir, path.join(e.parentPath, e.name)))
 }
 
-/**
- * Pack everything the binary can't read from disk into one blob. Keys are
- * prefixed by kind so entry.ts can sort them apart without a second index.
- */
 function buildAssetBlob(natives: Native[]): Uint8Array {
     const clientFiles = fs.existsSync(DIST) ? walk(DIST) : []
     if (clientFiles.length === 0) {
         throw new Error(`No client build at ${DIST}. Run without --skip-client.`)
     }
-    // .macro templates plus every .md prompt (RP_PROMPT, SCENARIO_AGENT, …).
-    // Matched by extension rather than by name: a prompt added later would
-    // otherwise work in dev, be silently absent from the binary, and leave the
-    // agent it belongs to running with no instructions at all.
     const promptFiles = fs.readdirSync(PROMPTS).filter(f => f.endsWith('.macro') || f.endsWith('.md'))
 
     const entries: BlobEntry[] = [
@@ -138,8 +80,6 @@ function buildAssetBlob(natives: Native[]): Uint8Array {
     return packBlob(entries)
 }
 
-// ── Plugin ──────────────────────────────────────────────────────────────────
-
 const sharpShim: BunPlugin = {
     name: 'sharp-native-shim',
     setup(build) {
@@ -153,10 +93,6 @@ const sharpShim: BunPlugin = {
     },
 }
 
-/**
- * Rewrites just the binding require in onnxruntime-node's loader, leaving the
- * rest of the module (initOrt and its log-level handling) intact.
- */
 const onnxShim: BunPlugin = {
     name: 'onnx-native-shim',
     setup(build) {
@@ -180,8 +116,6 @@ const onnxShim: BunPlugin = {
     },
 }
 
-// ── Build ───────────────────────────────────────────────────────────────────
-
 if (!skipClient) {
     console.log('› building client')
     const vite = Bun.spawnSync(['bun', 'run', 'build'], {
@@ -198,24 +132,12 @@ console.log(`› embedding ${natives.length} native files (${totalMb.toFixed(0)}
 
 fs.mkdirSync(OUT_DIR, { recursive: true })
 const blob = buildAssetBlob(natives)
-// entry.ts imports this path literally, so the name is part of the contract.
 fs.writeFileSync(path.join(OUT_DIR, 'assets.blob'), blob)
 const rawMb = natives.reduce((s, n) => s + fs.statSync(n.src).size, 0) / 1e6
 console.log(`› assets.blob ${(blob.length / 1e6).toFixed(1)}MB (from ~${rawMb.toFixed(0)}MB natives + client)`)
 
 const outfile = path.join(OUT_DIR, 'freedungeon.exe')
 
-/**
- * Bun compiles to a temp file in `process.cwd()` and moves it onto `outfile`
- * last. A move that fails leaves that temp behind — a full 129MB per failed
- * build, named `.<hex>-00000000.bun-build` — and since `bun run build` runs
- * from server/, they pile up there rather than in dist/.
- *
- * Nearly every such failure is the same one: Windows keeps a running image
- * locked, so rebuilding while freedungeon.exe is open fails with EPERM after
- * the entire two-minute compile has already finished. Unlinking the target
- * first turns that into an instant, legible error, and leaves nothing to sweep.
- */
 function checkOutfileWritable() {
     for (const dir of new Set([process.cwd(), OUT_DIR])) {
         for (const name of fs.readdirSync(dir)) {
@@ -223,9 +145,6 @@ function checkOutfileWritable() {
         }
     }
     if (!fs.existsSync(outfile)) return
-    // Opening for write, rather than deleting it: a running image reports EBUSY
-    // here just as reliably, and the old binary still stands if the compile
-    // below fails for some unrelated reason.
     try {
         fs.closeSync(fs.openSync(outfile, 'r+'))
     } catch {
@@ -242,8 +161,6 @@ const result = await Bun.build({
     compile: {
         target: 'bun-windows-x64',
         outfile,
-        // Bun rejects a PNG here ("image type is not icon"). logo.ico holds
-        // 16/24/32/48/64/96 so Windows never has to rescale.
         windows: { title: 'freedungeon', icon: path.join(REPO, 'client', 'public', 'logo.ico') },
     } as any,
 })
@@ -254,23 +171,10 @@ if (!result.success) {
 }
 console.log(`› ${path.relative(REPO, outfile)}  ${(fs.statSync(outfile).size / 1e6).toFixed(0)}MB`)
 
-// ── Desktop shell ───────────────────────────────────────────────────────────
-
 if (!skipDesktop) {
     await buildDesktopShell(outfile)
 }
 
-/**
- * Build the Tauri shell with the backend baked into it.
- *
- * The backend stays a separate process — it's a Bun binary with its own
- * embedded assets and a `bun:sqlite` dependency, so it can't be hosted inside
- * the shell — but it's embedded as bytes rather than shipped beside the exe,
- * so distribution is still one file. The shell writes it out on first run.
- *
- * `include_bytes!` needs a literal path at compile time, hence the env var:
- * `env!()` resolves to a literal, and build.rs re-runs when either changes.
- */
 async function buildDesktopShell(backend: string) {
     const crate = path.join(REPO, 'desktop', 'src-tauri')
     if (!fs.existsSync(crate)) {
@@ -278,8 +182,6 @@ async function buildDesktopShell(backend: string) {
         return
     }
 
-    // Identifies this exact backend build, so an upgraded shell replaces the
-    // copy a previous version extracted instead of reusing it.
     const stamp = Bun.hash(fs.readFileSync(backend)).toString(16)
 
     const proc = Bun.spawn(['cargo', 'build', '--release'], {

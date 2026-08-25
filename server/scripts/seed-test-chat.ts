@@ -1,13 +1,3 @@
-/**
- * Seeds a test chat with thousands of messages (varied block content) directly
- * into the sqlite DB — used to stress-test the chat virtualization.
- *
- * Run with:    bun run scripts/seed-test-chat.ts
- * Then restart the server so the new chat gets hydrated into state.
- *
- * Does NOT go through the db.ts module (which would trigger server startup via
- * the import chain); talks to sqlite directly with Bun's native driver.
- */
 import { Database } from 'bun:sqlite'
 import { nanoid } from 'nanoid'
 import path from 'node:path'
@@ -15,20 +5,17 @@ import path from 'node:path'
 const MESSAGE_COUNT = 10_000
 const MIN_BLOCKS_PER_MESSAGE = 3
 const MAX_BLOCKS_PER_MESSAGE = 18
-const MESSAGE_INTERVAL_MS = 60_000 // 1 min between messages → 10k msgs ≈ 7 days of history
+const MESSAGE_INTERVAL_MS = 60_000
 
 const DB_PATH = path.join(import.meta.dirname, '..', 'data', 'db', 'db.sqlite')
 
 const db = new Database(DB_PATH)
 
-// ── Grab real actor customIds if any exist, else fall back to fake ones.
-//    (speech() blocks look up the actor by customId on the client.)
 const actorRows = db.query(`SELECT customId FROM actors`).all() as { customId: string }[]
 const ACTOR_IDS: string[] = actorRows.length > 0
     ? actorRows.map(r => r.customId)
     : ['test-a', 'test-b', 'test-c']
 
-// ── Sample content pools (varied enough to make scroll-testing interesting)
 const NARRATION = [
     'The corridor narrows as you step through the arch.',
     'A distant hum rises behind the walls, too rhythmic to be natural.',
@@ -88,7 +75,6 @@ function randomMessage(): string {
     return Array.from({ length: count }, randomBlock).join('\n')
 }
 
-// ── Insert the chat row.
 const chatId = nanoid()
 const now = Date.now()
 const title = `Test Chat — ${MESSAGE_COUNT.toLocaleString()} messages`
@@ -96,8 +82,6 @@ const title = `Test Chat — ${MESSAGE_COUNT.toLocaleString()} messages`
 db.query(`INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`)
     .run(chatId, title, now, now)
 
-// ── Insert all messages in a single transaction (2-3 orders of magnitude
-//    faster than 10k individual transactions on sqlite).
 const insertMsg = db.query(
     `INSERT INTO chat_messages (id, chat_id, role, content, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)`

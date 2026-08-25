@@ -10,30 +10,17 @@ import type { GameStateContext } from '../types';
  */
 export type QueryDeps = {
     ctx: GameStateContext;
-    /**
-     * Actor profiles for actors referenced by this chat (or all known actors).
-     *
-     * NOTE: the `id` field here is the agent-facing identifier — it's
-     * backed by the DB's `Actor.customId` column (user-authored, stable,
-     * friendly). The Actor type also has a separate `id` nanoid primary
-     * key that the agent NEVER sees. The aliasing happens in
-     * server/src/agent.ts handleQuery. Keeping that internal name out of
-     * the agent's vocabulary avoids two things being called "id" at the
-     * same layer.
-     */
     actors: Array<{
         id: string;
         name: string;
         description: string;
         expressions: string[];
     }>;
-    /** Notes attached to this chat (enabled ones only — disabled notes excluded). */
     notes: Array<{
         title: string;
         type: string;
         content: string;
     }>;
-    /** Curated images attached to this chat, addressable by `key`. */
     images: Array<{
         key: string;
         label: string;
@@ -44,7 +31,6 @@ export type QuerySpec<S extends z.ZodTypeAny = z.ZodTypeAny> = {
     name: string;
     description: string;
     schema: S;
-    /** Returns the textual result the agent sees as tool_result. */
     run: (args: z.infer<S>, deps: QueryDeps) => string;
 };
 

@@ -11,26 +11,15 @@ import {
 } from '../../dependencies'
 import { DEPENDENCIES, type DependencyKey } from '@shared/dependencies'
 
-// Derived from the registry rather than restated, so adding a dependency can't
-// leave an endpoint that refuses to accept it.
 const key = z.object({
     key: z.enum(Object.keys(DEPENDENCIES) as [DependencyKey, ...DependencyKey[]]),
 })
 
 export const dependenciesRouter = router({
-    /**
-     * What turning something on would download, so it can be confirmed first.
-     *
-     * Feature-agnostic: it answers for whatever keys it is given. The caller
-     * decides which those are, because that can depend on the machine — the
-     * image generator needs a CUDA runtime on an NVIDIA box and not otherwise.
-     */
     plan: procedure
         .input(z.object({ keys: z.array(z.enum(Object.keys(DEPENDENCIES) as [DependencyKey, ...DependencyKey[]])) }))
         .query(({ input }) => planDependencies(input.keys)),
 
-    /** Start (or join) a download. Resolves when it settles; progress arrives
-     *  over the socket, so the client doesn't need this promise's result. */
     ensure: procedure
         .input(key)
         .mutation(async ({ input }) => {
@@ -38,7 +27,6 @@ export const dependenciesRouter = router({
             return { success: true }
         }),
 
-    /** Give up on a failed download and unblock the UI. */
     dismiss: procedure
         .input(key)
         .mutation(async ({ input }) => {
@@ -46,21 +34,18 @@ export const dependenciesRouter = router({
             return { success: true }
         }),
 
-    /** Re-check against disk — for a file deleted or replaced behind our back. */
     verify: procedure
         .input(key)
         .mutation(async ({ input }) => {
             return { status: await verifyDependency(input.key) }
         }),
 
-    /** Kick off the Claude CLI's OAuth flow; the URL arrives over the socket. */
     signIn: procedure
         .mutation(async () => {
             await beginClaudeSignIn()
             return { success: true }
         }),
 
-    /** Hand the CLI the code the browser showed, when it can't self-redirect. */
     submitAuthCode: procedure
         .input(z.object({ code: z.string().min(1) }))
         .mutation(({ input }) => {

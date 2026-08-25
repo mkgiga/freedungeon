@@ -10,15 +10,12 @@ export type NoteAction = {
     callback: (note: Note) => void
     danger?: boolean
     icon?: JSXElement
-    /** If provided, action is only rendered for notes where this returns true. */
     show?: (note: Note) => boolean
 }
 
 function NoteListItem(props: {
     note: Note
     actions?: NoteAction[]
-    /** Dims the row and strikes the title. Presentation only — changing the
-     *  state is an ordinary entry in the actions menu. */
     disabled?: (note: Note) => boolean
     flashing?: boolean
     onClick?: () => void
@@ -70,33 +67,19 @@ function NoteListItem(props: {
 export function NoteList(props: {
     notes: Note[]
     actions?: NoteAction[]
-    /** Dims rows this returns true for. See NoteListItem. */
     disabled?: (note: Note) => boolean
-    /** Renders the create affordance as a row. See components/AddNew. */
     addNew?: AddNew
-    /** Pulses a row that just changed. */
     isFlashing?: (note: Note) => boolean
-    /** Higher sorts earlier, after the normal sort. Use a timestamp. */
     priority?: (note: Note) => number
     onNoteClick?: (note: Note) => void
     isSelected?: (note: Note) => boolean
     showType?: boolean
     hideHeader?: boolean
-    /** Optional JSX rendered in a consistent toolbar row above the table
-     *  (typically search inputs, filter pills, etc.). */
     toolbar?: JSXElement
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Note>('title')
     const showType = () => props.showType ?? true
 
-    /**
-     * Sorted normally, then floated by `priority`. Done here rather than by the
-     * caller because the sort is this component's own — a pre-ordered list would
-     * just be re-sorted by title.
-     *
-     * Deliberately separate from `isFlashing`: ordering by the flash itself
-     * would slide the row back down the moment the pulse expired.
-     */
     const sorted = createMemo(() => {
         const rows = sort(props.notes)
         const priority = props.priority
@@ -104,7 +87,6 @@ export function NoteList(props: {
         return [...rows].sort((a, b) => priority(b) - priority(a))
     })
 
-    /** emoji + title, plus type and the actions menu when shown. */
     const columns = () => 2 + (showType() ? 1 : 0) + (props.actions ? 1 : 0)
 
     return (

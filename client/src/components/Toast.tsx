@@ -5,8 +5,6 @@ import { useLlmConfigs } from './LlmConfigsDialog'
 import { useNotificationActions } from '../notification-actions'
 import type { NotificationAction } from '@shared/types'
 
-// ── Types ──
-
 type ToastType = 'info' | 'success' | 'error' | 'warning'
 
 type ToastConfig = {
@@ -33,8 +31,6 @@ type ToastAPI = {
     dismiss: (id: string) => void
 }
 
-// ── Context ──
-
 const ToastContext = createContext<ToastAPI>()
 
 export function useToast(): ToastAPI {
@@ -43,16 +39,12 @@ export function useToast(): ToastAPI {
     return ctx
 }
 
-// ── Provider ──
-
 let nextId = 0
 
 export function ToastProvider(props: { children: JSXElement }) {
     const [toasts, setToasts] = createSignal<ToastEntry[]>([])
     const configs = useLlmConfigs()
 
-    // Shared with the notification log, so acting on something you missed
-    // behaves exactly like acting on it live.
     const runAction = useNotificationActions()
 
     const dismiss = (id: string) => {
@@ -85,9 +77,6 @@ export function ToastProvider(props: { children: JSXElement }) {
                     backgroundColor: notification.backgroundColor || undefined,
                     textColor: notification.textColor || undefined,
                     action: notification.action,
-                    // An offer to fix something has to outlast the glance that
-                    // notices it: four seconds isn't long enough to read the
-                    // message and decide to act. Dismissed by clicking instead.
                     duration: notification.action ? 0 : undefined,
                 })
             }
@@ -121,10 +110,6 @@ export function ToastProvider(props: { children: JSXElement }) {
                                 <div class="toast-message">{toast.message}</div>
                                 <Show when={toast.action}>
                                     {(action) => (
-                                        // The toast as a whole dismisses on click, so
-                                        // the action has to stop the event or it would
-                                        // fire and immediately be dismissed by its own
-                                        // bubble — losing the toast either way.
                                         <button
                                             type="button"
                                             class="toast-action"

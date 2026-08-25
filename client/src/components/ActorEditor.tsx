@@ -15,10 +15,6 @@ import { TextEditor } from './TextEditor'
 import { ImageIcon } from './ImageIcon'
 import { useMediaViewer } from './MediaViewer'
 
-/**
- * One expression's image slot: click to pick, or drop a file on it. Its own
- * component because each row needs its own drop-hover state.
- */
 function ExpressionImage(props: {
     name: string
     url: string
@@ -66,14 +62,8 @@ export function ActorEditor(props: {
     customId: string
     edit: boolean
     chrome?: (ctx: ActorEditorChrome) => JSXElement
-    /** Rendered below the body — where a modal puts its Cancel/Save rail. */
     footer?: (ctx: ActorEditorChrome) => JSXElement
-    /**
-     * Authors the actor into a Scenario rather than the global library. Only
-     * sent when set, so editing from the Actors screen can't relocate one.
-     */
     homeChatId?: string | null
-    /** Called after a successful save with the actor the server settled on. */
     onSaved?: (actor: Actor) => void
 }) {
     const mediaViewer = useMediaViewer()
@@ -118,16 +108,6 @@ export function ActorEditor(props: {
 
     const initials = () => draft.name?.charAt(0)?.toUpperCase() ?? '?'
 
-    // Rename an expression. Expressions are keyed by name, so this rebuilds the
-    // record with the key swapped — iterating preserves insertion order, so the
-    // renamed row stays put instead of jumping to the end. Committed to the draft
-    // only (persists on Save). Caller guards against empty/duplicate names.
-    //
-    // Assigned inside `produce` rather than as `setDraft('expressions', rebuilt)`,
-    // which MERGES: the old key survived the merge and the new one was added
-    // beside it, so every rename produced a duplicate row sharing one image.
-    // `reconcile` also removes the stale key but reorders the renamed row to the
-    // end; replacing the reference keeps it where it was.
     const renameExpression = (oldName: string, newName: string) => {
         if (newName === oldName) return
         const rebuilt: Record<string, string> = {}
@@ -137,10 +117,6 @@ export function ActorEditor(props: {
         setDraft(produce((d) => { d.expressions = rebuilt }))
     }
 
-    // Adds the row straight away rather than gating it behind a dialog: the
-    // name is editable in place and the image slot is one click, so a form that
-    // demands both up front is a detour. The image starts empty and shows an
-    // upload target until one is picked.
     const addExpression = () => {
         const name = generateName({
             input: 'new_expression',
@@ -165,7 +141,6 @@ export function ActorEditor(props: {
             {props.chrome?.({ get name() { return draft.name }, editing: props.edit, save })}
 
             <div class="flex-1 overflow-y-auto overflow-x-hidden p-4">
-                {/* Header card — avatar + name + ID */}
                 <section class="flex items-start gap-4 mb-6">
                     <div
                         class="relative block cursor-pointer"
@@ -220,7 +195,6 @@ export function ActorEditor(props: {
                     </div>
                 </section>
 
-                {/* Description */}
                 <section class="mb-6">
                     <TextEditor
                         title="Description"
@@ -231,7 +205,6 @@ export function ActorEditor(props: {
                     />
                 </section>
 
-                {/* Expressions */}
                 <section>
                     <Heading level={2} class="mb-1">Expressions</Heading>
                     <Show when={Object.keys(draft.expressions ?? {}).length > 0} fallback={
@@ -261,9 +234,6 @@ export function ActorEditor(props: {
                                             <td class="py-2">
                                                 <Show when={props.edit} fallback={<span>{name}</span>}>
                                                     {(() => {
-                                                        // Local buffer so each keystroke doesn't re-key the
-                                                        // record (which would reorder rows + drop focus). Commit
-                                                        // on blur/Enter; revert on empty, no-op, duplicate, or Esc.
                                                         const [val, setVal] = createSignal(name)
                                                         const commit = () => {
                                                             const trimmed = val().trim()

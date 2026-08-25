@@ -3,35 +3,20 @@ import emojiKeywords from 'emojilib'
 type Entry = {
     char: string
     keywords: string[]
-    /** All keyword sub-tokens (including canonical). */
     tokens: Set<string>
-    /** Sub-tokens drawn from the FIRST keyword — the emoji's canonical name.
-     *  Matches here score higher so "Watch" picks ⌚ (canonical "watch") over
-     *  👀 (which has "watch" only as a non-canonical synonym). */
     canonicalTokens: Set<string>
 }
 
 const tokenize = (s: string) => s.toLowerCase().split(/[\s_\-]+/).filter(Boolean)
 
-// Stop words we strip from item names before scoring — they're semantically
-// empty in RPG item context and would otherwise match irrelevant emojis (e.g.
-// "the" or "and" aren't keywords but "for" can appear via "forest" tokenization).
 const STOPWORDS = new Set([
     'of', 'the', 'a', 'an', 'and', 'or',
     'in', 'on', 'at', 'to', 'with', 'by', 'from', 'for',
     'upon', 'under', 'over', 'about',
 ])
 
-// Same preposition set used by `pluralizeItem` in blocks/itemText.ts — keeps
-// the head-noun detection consistent across both utilities.
 const FIRST_PREP_RE = /\s+(of|in|for|by|from|with|to|at|on|upon|under|over|about)\s+/i
 
-// Build once per module load: ~1,800 entries. For each emoji we keep both the
-// raw (lowercased) keywords AND flattened token lists (all + canonical). The
-// token list lets a single-word item name like "apple" match the "apple"
-// sub-token inside compound keywords like "red_apple" — without it, the fruit
-// emojis would lose to ⌚ (whose keyword list has a standalone "apple"
-// referencing the Apple Watch brand).
 const ALL: Entry[] = Object.entries(emojiKeywords as Record<string, string[]>)
     .map(([char, keywords]) => {
         const lower = keywords.map(k => k.toLowerCase())
@@ -40,15 +25,6 @@ const ALL: Entry[] = Object.entries(emojiKeywords as Record<string, string[]>)
         return { char, keywords: lower, tokens, canonicalTokens }
     })
 
-/**
- * Split an item name into its head noun and modifiers.
- *
- *   "Red Sword"               → head: [sword], mods: [red]
- *   "Tear of the Goddess"     → head: [tear], mods: [goddess]  (stopwords dropped)
- *   "Sword King's Tear"       → head: [tear], mods: [sword, king's]  (saxon genitive → head is last word)
- *   "Potion of Healing"       → head: [potion], mods: [healing]
- *   "Sword"                   → head: [sword], mods: []
- */
 function segmentItemName(name: string): { head: string[]; mods: string[] } {
     const prep = name.match(FIRST_PREP_RE)
     if (prep && prep.index !== undefined) {
@@ -76,12 +52,12 @@ export function pickEmojiForItem(itemName: string): string {
     const exact = score(ALL, (e) => {
         let total = 0
         for (const w of head) {
-            if (e.canonicalTokens.has(w)) total += 6       // head + canonical = strongest
-            else if (e.tokens.has(w)) total += 4           // head + synonym
+            if (e.canonicalTokens.has(w)) total += 6
+            else if (e.tokens.has(w)) total += 4
         }
         for (const w of mods) {
-            if (e.canonicalTokens.has(w)) total += 3       // modifier + canonical
-            else if (e.tokens.has(w)) total += 2           // modifier + synonym
+            if (e.canonicalTokens.has(w)) total += 3
+            else if (e.tokens.has(w)) total += 2
         }
         return total
     })

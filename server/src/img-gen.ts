@@ -1,14 +1,3 @@
-// Image generation — stable-diffusion.cpp sidecar provider.
-//
-// Replaces a provider that talked to a Stable Diffusion WebUI Forge server the
-// user had to install, configure and run themselves. The model now arrives as a
-// managed dependency and the server is our own child process, so there is no
-// endpoint to configure and no "is it running?" for anyone to answer.
-//
-// The wire protocol is sd.cpp's native async API (`/sdcpp/v1`) rather than its
-// A1111-compatible surface. The compatibility route would have been a smaller
-// diff, but it is synchronous — and async submit-then-poll is exactly the shape
-// the old code faked with Forge's `force_task_id` and `/internal/progress`.
 
 import { log } from './logger';
 import { SD_URL, ensureSdServer } from './sd/server';
@@ -20,17 +9,10 @@ export interface GenerationOptions {
     height?: number;
     steps?: number;
     cfgScale?: number;
-    /** -1 (the default) lets the sampler pick a random seed. */
     seed?: number;
     samplerName?: string;
     scheduler?: string;
-    /**
-     * Caller-supplied correlation id, so progress for *this* request can be
-     * looked up while it runs. sd-server mints its own job id, so this maps onto
-     * that one — see `jobs` below.
-     */
     taskId?: string;
-    /** Escape hatch: extra raw fields merged into the request body. */
     raw?: Record<string, unknown>;
     signal?: AbortSignal;
 }
@@ -42,7 +24,6 @@ export interface GeneratedImage {
 
 export interface GenerationResult {
     images: GeneratedImage[];
-    /** Echoed generation parameters, for debugging and metadata. */
     info: Record<string, any>;
 }
 
@@ -50,12 +31,6 @@ export interface TaskProgress {
     active: boolean;
     queued: boolean;
     completed: boolean;
-    /**
-     * Always null. sd-server reports a job's *state* and its queue position but
-     * no completion fraction — there is no per-step signal on its HTTP surface.
-     * Kept in the shape so a caller rendering a bar can show an indeterminate
-     * one, rather than every caller growing a special case.
-     */
     progress: number | null;
     etaSeconds: number | null;
 }
@@ -68,7 +43,6 @@ type SdJob = {
     error?: { code?: string; message?: string } | null;
 };
 
-/** Caller correlation id -> sd-server job id, for in-flight requests only. */
 const jobs = new Map<string, string>();
 
 async function sd(path: string, init?: RequestInit): Promise<any> {
@@ -86,8 +60,6 @@ async function sd(path: string, init?: RequestInit): Promise<any> {
 export async function generateImage(options: string | GenerationOptions): Promise<GenerationResult> {
     const opts: GenerationOptions = typeof options === 'string' ? { prompt: options } : options;
 
-    // Lazy: the weights are only paid for once something actually asks for an
-    // image, and the first call absorbs the model load.
     await ensureSdServer();
 
     const body = {
@@ -121,8 +93,6 @@ export async function generateImage(options: string | GenerationOptions): Promis
         }
         const images = (job.result?.images ?? []).map((img) => ({
             png: Buffer.from(img.b64_json, 'base64'),
-            // sd-server doesn't echo a resolved seed per image. A caller that
-            // pinned one already knows it; -1 means it was never pinned.
             seed: opts.seed ?? -1,
         }));
         return { images, info: { jobId: job.id, request: body } };

@@ -8,18 +8,6 @@ import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
 import { createInitialContext } from '@shared/game-state'
 
-/**
- * Refuse to start a turn while a file an enabled feature needs is still coming
- * down.
- *
- * The alternative is a turn that runs and then fails partway through, because a
- * tool the agent was told it had isn't there yet — which costs the user tokens
- * and leaves half a scene written. Better to not start.
- *
- * Turning the feature back off is a legitimate way out and needs no special
- * case: `turnBlockers` only counts dependencies whose feature is enabled, so
- * the block lifts the moment it is switched off.
- */
 function assertTurnAllowed(): void {
     const blockers = turnBlockers(state.dependencies, state.userPreferences.features)
     if (blockers.length === 0) return
@@ -72,18 +60,12 @@ export const chatRouter = router({
                 updatedAt: now,
             }
 
-            // Add to in-memory asset library; auto-save handles persistence
             mutate(s => { s.assets.chats[newId] = chat })
 
-            // Populate currentChat only for regular chats — templates are edited
-            // via the detail view, not the conversation view.
             if (!input.isTemplate) {
                 mutate(s => { s.currentChat = {
                     id: newId,
                     title: chat.title,
-                    // `images` was missing here: setStore replaces `assets`
-                    // wholesale rather than deep-merging, so a new chat's
-                    // currentChat.assets.images was silently undefined.
                     assets: { actors: [...chat.assets.actors], notes: { ...chat.assets.notes }, images: [...chat.assets.images] },
                     messages: {},
                     gameState: createInitialContext(),
@@ -140,9 +122,6 @@ export const chatRouter = router({
                 if (isCurrent) mutate(s => { s.currentChat.assets.images = images })
             }
             if (notes !== undefined) {
-                // Diff per-key: Solid stores merge object writes, so setting a
-                // whole Record would leave removed keys behind. New notes
-                // default to enabled; retained notes keep their flag.
                 const prev = chat.assets.notes
                 const keep = new Set(notes)
                 for (const id of Object.keys(prev)) {
@@ -174,7 +153,6 @@ export const chatRouter = router({
             const now = Date.now()
             mutate(s => { s.assets.chats[input.id]!.title = input.title })
             mutate(s => { s.assets.chats[input.id]!.updatedAt = now })
-            // If it's the current chat, also update its title in currentChat
             if (state.currentChat.id === input.id) {
                 mutate(s => { s.currentChat.title = input.title })
                 mutate(s => { s.currentChat.updatedAt = now })
@@ -292,14 +270,9 @@ export const chatRouter = router({
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
-            // Eviction of residents and removal of the collaborator
-            // conversation are declared in cascade.ts and run from deleteState.
 
-            // DB delete via persistPath; CASCADE removes chat_messages,
-            // chat_actor_refs, and chat_note_refs for this chat.
             mutate(s => { delete s.assets.chats[input.id] })
 
-            // If the deleted chat was current, clear currentChat
             if (state.currentChat.id === input.id) {
                 mutate(s => { s.currentChat = {
                     id: null,
@@ -353,8 +326,6 @@ export const chatRouter = router({
             const optionText = promptBlock.options[input.optionIndex]
             if (optionText === undefined) throw new Error('Invalid option index')
 
-            // Stamp the chosen index so history renders the pick (highlight +
-            // dim the rest). Mirrors the metadata-stamp pattern in agent.ts.
             const updated = {
                 ...msg,
                 metadata: { ...(msg.metadata ?? {}), chosenIndex: input.optionIndex },
@@ -362,8 +333,6 @@ export const chatRouter = router({
             }
             mutate(s => { s.currentChat.messages[input.messageId] = updated })
 
-            // Submit the pick as a distinct `choice(...)` user message (vs the
-            // normal `unformatted(...)`), then let the agent respond.
             CurrentChat.prompt({ message: `choice(${JSON.stringify(optionText)});` })
             return { success: true }
         }),

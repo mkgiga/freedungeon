@@ -8,10 +8,6 @@ export const Route = createFileRoute('/scenarios/$id/')({
     }),
 })
 
-/**
- * Same editor as /chat/$id — a Scenario is a chat with `isTemplate` set — but
- * reached from, and returning to, the Scenarios screen.
- */
 function ScenarioDetailRoute() {
     const params = Route.useParams()
     const navigate = useNavigate()
@@ -21,8 +17,6 @@ function ScenarioDetailRoute() {
             id={params().id}
             isTemplate
             onDone={() => navigate({ to: '/scenarios' })}
-            // Phones have no room to dock the collaborator; it gets its own
-            // screen in this same nav stack.
             onOpenCollaborator={() => navigate({
                 to: '/scenarios/$id/collaborate',
                 params: { id: params().id },

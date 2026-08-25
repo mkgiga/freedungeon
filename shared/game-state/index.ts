@@ -1,6 +1,4 @@
 import type { ChatMessage, GameStateContext } from '@shared/types';
-// Relative (not '@shared/blocks'): shared/ has no tsconfig of its own, so a
-// runtime value import via the alias won't resolve when Bun executes it.
 import { parseBlocks } from '../blocks';
 import { createInitialContext, applyBlockToCtx } from './scope';
 
@@ -9,9 +7,6 @@ export type { ScopeBinding } from './scope';
 
 export type SharedTurnResult = {
     ctx: GameStateContext;
-    /** Per-message side-effect log (e.g., "Received 1x Potion"). Server uses it
-     *  to inject `last-assistant-effects` / `user-effects` sections into the
-     *  prompt; client doesn't need it but is welcome to ignore it. */
     messageResults: Map<string, string[]>;
 };
 

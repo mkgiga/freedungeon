@@ -5,26 +5,19 @@ import {
 import { Portal } from 'solid-js/web'
 import { MdOutlineInfo } from 'solid-icons/md'
 
-// ── Types ──
-
 export type TooltipPlacement = 'top' | 'bottom' | 'left' | 'right'
 
 export type TooltipConfig = {
     content: () => JSXElement
-    /** Where to point. Usually a trigger's getBoundingClientRect(). */
     anchor: DOMRect
-    /** Tried first; the tooltip falls back to whichever side actually fits. */
     placement?: TooltipPlacement
 }
 
 type TooltipAPI = {
-    /** `owner` identifies the caller so it can hide only its own tooltip. */
     show: (owner: object, config: TooltipConfig) => void
     hide: (owner?: object) => void
     isShowing: (owner: object) => boolean
 }
-
-// ── Context ──
 
 const TooltipContext = createContext<TooltipAPI>()
 
@@ -34,11 +27,8 @@ export function useTooltip(): TooltipAPI {
     return ctx
 }
 
-// ── Positioning ──
-
 const GAP = 8
 const MARGIN = 8
-/** Fallback order per preferred side — first one that fits wins. */
 const FALLBACKS: Record<TooltipPlacement, TooltipPlacement[]> = {
     top: ['top', 'bottom', 'right', 'left'],
     bottom: ['bottom', 'top', 'right', 'left'],
@@ -49,7 +39,6 @@ const FALLBACKS: Record<TooltipPlacement, TooltipPlacement[]> = {
 const clamp = (value: number, min: number, max: number) =>
     Math.min(Math.max(value, min), Math.max(min, max))
 
-/** Top-left for `box` on `side` of `anchor`, before any clamping. */
 function offer(side: TooltipPlacement, anchor: DOMRect, box: { width: number; height: number }) {
     switch (side) {
         case 'top':
@@ -94,15 +83,10 @@ export function placeTooltip(
     }
 }
 
-// ── Provider ──
-
 export function TooltipProvider(props: { children: JSXElement }) {
     const [current, setCurrent] = createSignal<{ owner: object; config: TooltipConfig } | null>(null)
     const [pos, setPos] = createSignal({ top: 0, left: 0 })
     const [side, setSide] = createSignal<TooltipPlacement>('bottom')
-    // Hidden for the first layout pass: the box has to be in the DOM to be
-    // measured, and an unplaced tooltip flashing at the wrong spot is worse
-    // than one frame of nothing.
     const [visible, setVisible] = createSignal(false)
     let boxRef: HTMLDivElement | undefined
 
@@ -112,15 +96,11 @@ export function TooltipProvider(props: { children: JSXElement }) {
         isShowing: (owner) => current()?.owner === owner,
     }
 
-    // Re-runs whenever the tooltip changes — including swapping straight from
-    // one trigger to another, where the element is reused and no ref fires.
     createEffect(() => {
         const t = current()
         if (!t) return
 
         setVisible(false)
-        // Park it at the anchor so measurement happens at roughly the final
-        // width; a box measured mid-viewport can wrap differently.
         const placement = t.config.placement ?? 'bottom'
         setSide(placement)
         setPos({ top: t.config.anchor.bottom + GAP, left: t.config.anchor.left })
@@ -144,8 +124,6 @@ export function TooltipProvider(props: { children: JSXElement }) {
     const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') dismiss() }
 
     onMount(() => {
-        // Capture phase: a tooltip should go away even if the thing underneath
-        // stops the event.
         document.addEventListener('keydown', onKeydown)
         window.addEventListener('scroll', dismiss, true)
         window.addEventListener('resize', dismiss)
@@ -178,8 +156,6 @@ export function TooltipProvider(props: { children: JSXElement }) {
     )
 }
 
-// ── Trigger ──
-
 /**
  * An ⓘ that explains something on hover, and stays put when clicked.
  *
@@ -189,12 +165,10 @@ export function TooltipProvider(props: { children: JSXElement }) {
 export function InfoTooltip(props: {
     children: JSXElement
     placement?: TooltipPlacement
-    /** Replaces the ⓘ glyph. */
     trigger?: JSXElement
     size?: number
 }) {
     const tooltip = useTooltip()
-    // Identity only — never rendered.
     const owner = {}
     const [pinned, setPinned] = createSignal(false)
     let ref: HTMLButtonElement | undefined
@@ -213,8 +187,6 @@ export function InfoTooltip(props: {
         tooltip.hide(owner)
     }
 
-    // The provider drops the tooltip on Escape/scroll without telling us, so a
-    // stale `pinned` would make the next click a no-op.
     createEffect(() => {
         if (pinned() && !tooltip.isShowing(owner)) setPinned(false)
     })

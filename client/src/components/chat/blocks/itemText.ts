@@ -1,11 +1,5 @@
 import pluralize from 'pluralize'
 
-/**
- * Matches the first English preposition that separates a noun phrase's head
- * from its modifier. "Tear of the Goddess" → head: "Tear", modifier: "of the Goddess".
- * Plain compound nouns without a preposition ("Health Potion") fall through
- * to `pluralize` which pluralizes the last word — the correct head in that case.
- */
 const FIRST_PREP_RE = /\s+(of|in|for|by|from|with|to|at|on|upon|under|over|about)\s+/i
 
 /**

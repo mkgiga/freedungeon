@@ -7,17 +7,11 @@ import { usePlayback } from '../playback'
 export function TextBlock(props: {
     block: TextBlockType
     onUpdate: (block: TextBlockType) => void
-    /** True only while this block is the currently-blocked-on block during
-     *  playback. Reveal progress + tap routing are owned by the playback
-     *  context — this component just renders what playback says is visible. */
     isActive?: boolean
-    /** Kept for API compatibility; advance is now driven by the message-level
-     *  click handler in ChatMessage via `playback.tap()`. */
     onAdvance?: () => void
 }) {
     const playback = usePlayback()
 
-    // Playback types out the same resolved string, so reveal counts line up.
     const shown = createMemo(() => resolveMentions(props.block.content))
 
     const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : shown().length)
@@ -38,10 +32,6 @@ export function TextBlock(props: {
             >
                 <div class="chat-block-text-content chat-block-text-locked">
                     {shown().slice(0, revealedCount())}
-                    {/* Pending text is rendered with `visibility: hidden` so it
-                     * still contributes to layout — the block sits at its
-                     * final wrapped size from character 0 and the surrounding
-                     * message height doesn't grow as the typewriter reveals. */}
                     <span class="chat-block-text-pending">
                         {shown().slice(revealedCount())}
                     </span>

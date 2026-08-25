@@ -9,30 +9,6 @@ import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
 import { Em } from './typography/Em'
 
-/**
- * First-run setup. Blocks the app until the user has an LLM config or
- * explicitly skips, because without one nothing in freedungeon does anything —
- * and the place to create one is a screen the user has no reason to visit yet.
- *
- * Shown purely off `userPreferences.onboardingCompletedAt`; see the note on
- * that field for why it isn't inferred from whether configs exist. Gated on
- * `hydrated()` as well, since before the server's first state that field is
- * absent and absent looks exactly like "never onboarded".
- *
- * Always mounted, hidden by the shared `.fade`/`.is-hidden` pair rather than
- * swapped in — an element can only transition if it's already in the DOM.
- *
- * Mounted alongside PatcherOverlay in app.tsx. The patcher sits above this one,
- * which is what you want: picking Anthropic here kicks off the Claude Code
- * download, and that progress needs to be visible over the top.
- */
-/**
- * First-run copy for the presets, kept here rather than on the presets
- * themselves: at this point the user is picking a *provider*, not a model, so
- * "Claude Opus 4.7" and an endpoint URL are detail they can't act on yet. Both
- * are editable straight afterwards. Unknown keys fall back to the preset's own
- * name, so adding a preset degrades gracefully instead of rendering blank.
- */
 const CHOICES: Record<string, { label: string; hint?: string }> = {
     'openai-gpt4o': { label: 'OpenAI' },
     'anthropic-claude': { label: 'Claude' },
@@ -48,9 +24,6 @@ export function OnboardingOverlay() {
     const [error, setError] = createSignal<string | null>(null)
     const configs = useLlmConfigs()
 
-    // Gated on hydration: before the server's first state arrives the store
-    // holds defaults, and "no timestamp yet" is indistinguishable from "never
-    // onboarded" — which is what made this flash up on every load.
     const needed = () => hydrated() && !state.userPreferences.onboardingCompletedAt
 
     const complete = () => trpc.preferences.update.mutate({ onboardingCompletedAt: Date.now() })
@@ -59,20 +32,12 @@ export function OnboardingOverlay() {
         setBusy(true)
         setError(null)
         try {
-            // Saving an Anthropic config can block on the CLI download and
-            // sign-in, and refuses outright if those fail — so only mark
-            // onboarding done once we actually have a config.
             const config = await trpc.llmConfigs.createFromPreset.mutate({ presetKey })
             await trpc.preferences.update.mutate({
                 activeLLMConfigId: config.id,
                 onboardingCompletedAt: Date.now(),
             })
 
-            // Hand the user straight into the config they just made, in edit
-            // mode. Dismissing to an unchanged-looking app reads as though the
-            // click did nothing — and for the custom preset there's still a
-            // required step, since its endpoint is a placeholder until the user
-            // points it at their own server.
             setPendingConfigEdit({
                 id: config.id,
                 focusEndpoint: LLM_PRESETS[presetKey]?.editable === true,
@@ -87,14 +52,6 @@ export function OnboardingOverlay() {
 
     let panel: HTMLDivElement | undefined
 
-    /**
-     * Clicking the backdrop does nothing, which on its own reads as the app
-     * being broken. Shake the panel instead so the refusal is legible.
-     *
-     * The class is removed and re-added around a forced reflow because a CSS
-     * animation won't restart just by re-applying its class — an impatient
-     * second click would otherwise get no feedback at all.
-     */
     const refuseDismiss = () => {
         if (!panel) return
         panel.classList.remove('is-refusing')
@@ -103,9 +60,6 @@ export function OnboardingOverlay() {
     }
 
     return (
-        // Mounted from the start and hidden with a class rather than swapped in
-        // by a Show: an element has to already be in the DOM to transition, and
-        // `needed()` only flips once the server's state has arrived.
         <Portal>
             <div
                 class="onboarding-overlay fade"
@@ -148,10 +102,6 @@ export function OnboardingOverlay() {
                         <Text size="sm" class="onboarding-error">{error()}</Text>
                     </Show>
 
-                    {/* Dismisses on one click. Accidental dismissal is still
-                        guarded against by the overlay itself, which has no
-                        click-outside and no Escape handler — so this is a
-                        deliberate press, and doesn't need confirming. */}
                     <div class="onboarding-actions">
                         <button class="onboarding-skip" disabled={busy()} onClick={complete}>
                             Skip for now

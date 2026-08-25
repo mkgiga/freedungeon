@@ -45,9 +45,6 @@ export function useSystemMenu() {
             },
         ]
 
-        // Only while something is in flight — an "Active downloads" row that
-        // opens an empty screen is worse than no row. The percentage rides on
-        // the label so the menu itself is the status readout.
         if (downloads.active()) {
             list.push({
                 label: `Active downloads${downloads.summary() ? ` — ${downloads.summary()}` : ''}`,
@@ -58,8 +55,6 @@ export function useSystemMenu() {
 
         list.push({ label: 'Documentation', icon: <MdFillHelp size={22} />, onClick: () => help.open() })
 
-        // Hidden in a browser tab: a page cannot close a tab it did not open,
-        // so the entry would be present and inert.
         if (isDesktopApp()) {
             list.push({
                 label: 'Quit freedungeon',

@@ -11,10 +11,6 @@ export const Route = createFileRoute('/notes/$id/')({
   }),
 })
 
-/**
- * The note editor as a screen. The editor itself is a component because the
- * Scenario editor opens the same UI in a modal — see components/NoteEditor.
- */
 function RouteComponent() {
   const params = Route.useParams()
   const search = Route.useSearch()
@@ -37,7 +33,6 @@ function RouteComponent() {
           }}
         />
       )}
-      // A new note is minted server-side, so land on the id it settled on.
       onSaved={(id) => {
         if (search().edit) {
           navigate({ to: '/notes/$id', params: { id }, search: { edit: false }, replace: true })

@@ -24,7 +24,6 @@ export const notesRouter = router({
             type: z.string().optional().default(''),
             content: z.string().optional().default(''),
             emoji: z.string().optional(),
-            /** Author this note into a Scenario instead of the global library. */
             homeChatId: z.string().nullish(),
         }))
         .mutation(({ input }) => {
@@ -39,7 +38,6 @@ export const notesRouter = router({
                     type: input.type,
                     content: input.content,
                     emoji: input.emoji,
-                    // Only when explicitly supplied — see actors.upsert.
                     ...(input.homeChatId !== undefined ? { homeChatId: input.homeChatId ?? null } : {}),
                     updatedAt: now,
                 } })
@@ -61,7 +59,6 @@ export const notesRouter = router({
             return note
         }),
 
-    /** Soft delete — see actors.delete and shared/visibility.ts. */
     delete: procedure
         .input(z.object({ id: z.string() }))
         .mutation(({ input }) => {
@@ -80,12 +77,10 @@ export const notesRouter = router({
             return { success: true }
         }),
 
-    /** A Scenario's private notes — what it authored, not what it merely uses. */
     listHomedIn: procedure
         .input(z.object({ chatId: z.string() }))
         .query(({ input }) => homedIn(Object.values(state.assets.notes), input.chatId)),
 
-    /** See actors.setHome. */
     setHome: procedure
         .input(z.object({ id: z.string(), homeChatId: z.string().nullable() }))
         .mutation(({ input }) => {

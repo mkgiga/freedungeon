@@ -1,40 +1,12 @@
-/**
- * Launch-parameter parsing, run as a pre-init pass before any application
- * module loads.
- *
- * The ordering is the whole point. Several modules resolve configuration at
- * IMPORT time — `paths.ts` computes `DATA_DIR` from the environment the moment
- * it's first imported, and everything that touches the database or uploads
- * imports it transitively. So a flag like `--data-dir` has to be parsed and
- * applied before that first import happens, which is why this lives in its own
- * module with no application imports at all (only `node:util` and
- * `node:path`). Importing anything from the app here would defeat it.
- *
- * On naive parsing: `process.argv.includes('--agent')` looks fine and isn't.
- * It matches the flag anywhere, including where it is a *value*
- * (`--data-dir --agent`) or a positional, so a path or chat title containing
- * the string silently changes what the process does. `util.parseArgs` knows
- * which tokens are values and which are flags.
- *
- * On argv shape: `bun script.ts` and a compiled binary both put two entries
- * before the real arguments, so `parseArgs`'s default `slice(2)` is correct in
- * both — verified, not assumed. What differs is those first two entries: in a
- * compiled binary `argv[0]` is the literal string "bun" and `argv[1]` is a
- * `B:/~BUN/root/...` virtual path. Neither locates anything on disk; use
- * `process.execPath` for that.
- */
 
 import { parseArgs } from 'node:util'
 import path from 'node:path'
 
 export type LaunchOptions = {
-    /** Run the bundled agent instead of the server (internal; set on re-exec). */
     agent: boolean
-    /** Override the data directory root. */
     dataDir?: string
     port?: number
     wsPort?: number
-    /** Serve a TLS listener alongside HTTP, so phones can install the PWA. */
     https: boolean
     httpsPort?: number
     host?: string
@@ -95,8 +67,6 @@ export function parseLaunchOptions(argv?: string[]): LaunchOptions {
             help: { type: 'boolean', short: 'h', default: false },
             version: { type: 'boolean', short: 'v', default: false },
         },
-        // Reject unknown flags: silently ignoring a misspelling is how someone
-        // ends up wondering why --datadir didn't move their database.
         strict: true,
         allowPositionals: false,
     })
@@ -121,15 +91,9 @@ export function parseLaunchOptions(argv?: string[]): LaunchOptions {
 export function applyLaunchOptions(opts: LaunchOptions): void {
     if (opts.dataDir) process.env.FREEDUNGEON_DATA_DIR = opts.dataDir
     if (opts.https) process.env.FREEDUNGEON_HTTPS = '1'
-    // Only the base port is taken: the TLS socket listener is always its
-    // neighbour, for the same reason --port moves the ws port with it.
     if (opts.httpsPort !== undefined) process.env.FREEDUNGEON_HTTPS_PORT = String(opts.httpsPort)
     if (opts.port !== undefined) {
         process.env.FREEDUNGEON_PORT = String(opts.port)
-        // The client derives the socket port from the one it was served on
-        // (port + 1), so moving the HTTP port has to move its partner — or the
-        // app renders perfectly and silently never syncs. An explicit
-        // --ws-port below still wins.
         process.env.FREEDUNGEON_WS_PORT = String(opts.port + 1)
     }
     if (opts.wsPort !== undefined) process.env.FREEDUNGEON_WS_PORT = String(opts.wsPort)

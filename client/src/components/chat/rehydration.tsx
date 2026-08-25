@@ -15,10 +15,6 @@ import { Em } from '../typography/Em'
 export function useRehydrationConfirm() {
     const modal = useModal()
 
-    /**
-     * Runs `run`, first confirming if this chat would need rehydrating.
-     * Resolves true when the action ran, false when the user cancelled.
-     */
     return (actionLabel: string, run: () => Promise<void> | void): Promise<boolean> => {
         const rehydration = state.currentChat.agentRehydration
         if (!rehydration) {

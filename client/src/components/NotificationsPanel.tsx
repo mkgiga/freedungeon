@@ -38,8 +38,6 @@ export function NotificationsPanel(props: { onAction: (a: NotificationAction) =>
         setDone(page.length < 50)
         const last = page.at(-1)
         setCursor(last && { createdAt: last.createdAt, id: last.id })
-        // Seen on open, not per row — one stamp, and it happens because the
-        // list was actually rendered.
         await trpc.notifications.markSeen.mutate()
         return true
     })

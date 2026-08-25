@@ -9,16 +9,6 @@ import { notification } from '../../notifications'
 import { DEPENDENCIES } from '@shared/dependencies'
 
 export const preferencesRouter = router({
-    /**
-     * Whether this machine can generate images, and what enabling it downloads.
-     *
-     * Both answers live server-side because both depend on hardware the client
-     * cannot see: which GPU is present decides the backend, and the backend
-     * decides whether a CUDA runtime is part of the bill.
-     *
-     * An empty `items` with `supported: true` means everything is already on
-     * disk and the toggle can simply be flipped.
-     */
     imageGenPlan: procedure.query(async () => {
         const choice = getSdBuildChoice()
         if (choice && !choice.supported) {
@@ -62,23 +52,12 @@ export const preferencesRouter = router({
                 values: input.values ? { ...prev.values, ...input.values } : prev.values,
             }
 
-            // Same rule as background removal below, for a much larger payload:
-            // fetch the image generator the moment the user opts in, so the
-            // patcher shows the ~3GB arriving instead of a turn hanging later.
-            // The client has already shown the plan and been told yes — this is
-            // where that answer is acted on.
             const wantsImages = next.enabled
             const hadImages = prev.enabled
             if (input.key === 'imageGen' && wantsImages && !hadImages) {
                 const choice = getSdBuildChoice()
                 if (choice && !choice.supported) throw new Error(choice.message)
 
-                // Switching this on mid-scene makes the running turn unsafe:
-                // from here until the weights land, any image tool the agent
-                // reaches for would fail. Stopping it now costs the rest of one
-                // turn; letting it continue costs tokens and leaves half a beat
-                // written before it breaks. Announced rather than done silently
-                // — the user pressed a settings toggle, not Stop.
                 if (state.isGenerating) {
                     await cancelAgentTurn()
                     notification({
@@ -101,9 +80,6 @@ export const preferencesRouter = router({
                 }
             }
 
-            // Background removal needs its weights on disk before it can run.
-            // Fetch them at the moment the user opts in, rather than stalling a
-            // turn later — the patcher renders the progress.
             const wantsBgRemoval = next.enabled && next.values.removeIconBackground === true
             const hadBgRemoval = prev.enabled && prev.values.removeIconBackground === true
             if (input.key === 'imageGen' && wantsBgRemoval && !hadBgRemoval) {
@@ -114,8 +90,6 @@ export const preferencesRouter = router({
                     )
                 }
             }
-            // `features` is initialized to {} in initial state, so this nested
-            // path set is safe and emits a granular reactive update.
             mutate(s => { s.userPreferences.features![input.key] = next })
             return state.userPreferences.features?.[input.key]
         }),

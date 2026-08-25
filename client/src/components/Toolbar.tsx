@@ -27,7 +27,6 @@ export const Toolbar = (props: ToolbarProps) => {
     const mergedStyle = () => {
         const base = { height: local.height || '60px' } as Record<string, string>
         if (local.style && typeof local.style === 'object') {
-            // User's style wins over our baseline for any keys they set.
             return { ...base, ...(local.style as Record<string, string>) }
         }
         return base

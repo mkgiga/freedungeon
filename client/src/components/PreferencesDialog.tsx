@@ -18,16 +18,6 @@ import { useImageGenConsent } from './ImageGenConsent'
 import { installAvailable, isStandalone, triggerInstall } from '../pwa-install'
 import { ShowOn } from './ShowOn'
 
-/**
- * Preferences, as a dialog with a jump-nav rail.
- *
- * Every section is rendered into one scrolling container on every viewport, and
- * the rail scrolls to them rather than swapping panes. Settings are short and
- * worth skimming end to end; hiding four of five behind a click makes you hunt
- * for the one you want. The rail is a table of contents, not a router — which is
- * also why a phone can simply drop it and lose nothing.
- */
-
 type SectionId = 'general' | 'interface' | 'keybinds' | 'features' | 'extensions' | 'install'
 
 export function PreferencesDialog() {
@@ -35,14 +25,6 @@ export function PreferencesDialog() {
     const configs = useLlmConfigs()
     const confirmImageGen = useImageGenConsent()
 
-    /**
-     * Flip a feature, asking first where saying yes costs something.
-     *
-     * Only image generation has anything to ask about — it pulls gigabytes of
-     * weights. Everything else, and every switch-off, goes straight through.
-     * The toggle is driven from replicated state, so declining simply leaves it
-     * where it was; there is nothing to roll back.
-     */
     const setFeatureEnabled = async (key: FeatureKey, enabled: boolean) => {
         if (key === 'imageGen' && enabled && !(await confirmImageGen())) return
         await trpc.preferences.setFeature.mutate({ key, enabled })
@@ -51,7 +33,6 @@ export function PreferencesDialog() {
     const sections = (): { id: SectionId; label: string }[] => [
         { id: 'general', label: 'General' },
         { id: 'interface', label: 'Interface' },
-        // Desktop only: a touch screen has no keys to bind.
         ...(viewport() === 'phone' ? [] : [{ id: 'keybinds' as const, label: 'Keybinds' }]),
         { id: 'features', label: 'Features' },
         { id: 'extensions', label: 'Extensions' },
@@ -62,21 +43,9 @@ export function PreferencesDialog() {
     const anchors = new Map<SectionId, HTMLElement>()
     const [current, setCurrent] = createSignal<SectionId>('general')
 
-    /**
-     * Which section the reader is in: the last one whose top has passed the
-     * container's top edge, plus a small offset so a heading counts as soon as
-     * it's comfortably in view rather than exactly at the boundary.
-     *
-     * Measured on scroll rather than with an IntersectionObserver because the
-     * final section is usually shorter than the viewport and can never reach the
-     * top — with observers that leaves the highlight stuck on the second-to-last
-     * entry no matter how far you scroll.
-     */
     const OFFSET = 24
     const syncCurrent = () => {
         if (!scroller) return
-        // At the very bottom the last section is current by definition, however
-        // short it is.
         const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2
         const ids = sections().map(s => s.id)
         if (atBottom) {
@@ -102,8 +71,6 @@ export function PreferencesDialog() {
     const jumpTo = (id: SectionId) => {
         const el = anchors.get(id)
         if (!el || !scroller) return
-        // `.prefs-scroll` is the sections' offsetParent (it's positioned), so
-        // offsetTop is already a scroll position within it.
         scroller.scrollTo({ top: el.offsetTop, behavior: 'smooth' })
     }
 
@@ -155,10 +122,6 @@ export function PreferencesDialog() {
             <div class="prefs-scroll" ref={scroller}>
                 <Section id="general" label="General">
                     <SettingsGroup>
-                        {/* Opens the models library rather than a separate
-                            picker: it already lists every config, marks the one
-                            in use and can switch to another, so a second dialog
-                            that only did the switching was one screen too many. */}
                         <SettingsField label="Model">
                             <button type="button" class="settings-picker" onClick={() => configs.open()}>
                                 <Show
@@ -225,10 +188,6 @@ export function PreferencesDialog() {
                     </Section>
                 </Show>
 
-                {/* Turning image generation on downloads several gigabytes, so
-                    it asks first; everything else flips straight through. The
-                    consent step resolves false on cancel, which leaves the
-                    toggle as it was. */}
                 <Section id="features" label="Features">
                     <SettingsGroup>
                         <For each={Object.values(FEATURES)}>

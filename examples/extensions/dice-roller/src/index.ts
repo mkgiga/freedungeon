@@ -12,8 +12,6 @@ export default {
     activate(fd: FreedungeonHost) {
         const value = roll(20)
 
-        // Persisted and replicated to the client through the same funnel the
-        // rest of the app uses. Assigning a new key just works — no setup.
         fd.state.update((d) => {
             d.rolls = ((d.rolls as number) ?? 0) + 1
             d.last = value

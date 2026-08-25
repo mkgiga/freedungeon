@@ -15,15 +15,6 @@ export type FeatureSpec = {
     description: string
     schema: SchemaField[]
     defaults: Record<string, unknown>
-    /**
-     * Working state this feature owns, declared so it has defaults and a home.
-     *
-     * Distinct from `schema`/`defaults`, which are *settings* — user-authored,
-     * rendered into the preferences form, and rewritten wholesale on change.
-     * This never appears in a form; it's what the feature keeps for itself, and
-     * it lives in `state.extensionState[key]` where writes persist and reach
-     * the client through the same setState funnel as everything else.
-     */
     state?: Record<string, { default: unknown }>
 }
 
@@ -78,7 +69,6 @@ export const FEATURES: Record<string, FeatureSpec> = {
             {
                 path: ['iconSize'],
                 label: 'Icon size (px)',
-                // No description — the label already says everything it said.
                 default: 512,
                 control: { type: 'slider', min: 128, max: 1024, step: 64 },
             },

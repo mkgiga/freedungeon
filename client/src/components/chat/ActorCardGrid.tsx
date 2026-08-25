@@ -15,25 +15,17 @@ import type { Actor } from '@shared/types'
  */
 export function ActorCardGrid(props: {
     actors: Actor[]
-    /** Called when a card's remove control is used. */
     onRemove?: (actor: Actor) => void
     onActorClick?: (actor: Actor) => void
-    /** Renders the add affordance as the first card. See components/AddNew. */
     addNew?: { label: string; onClick: () => void }
-    /** Pulses a card that just changed. Ordering is the caller's job. */
     isFlashing?: (actor: Actor) => boolean
     emptyLabel?: string
 }) {
     return (
         <Show
-            // The add-new card is content in its own right, so an otherwise
-            // empty grid isn't empty — falling back to "no actors yet" would
-            // hide the only thing there is to press.
             when={props.actors.length > 0 || props.addNew}
             fallback={<Text size="sm" class="opacity-50">{props.emptyLabel ?? 'No actors yet.'}</Text>}
         >
-            {/* Same treatment as the party rail: cards slide to their new
-                position instead of teleporting when the order changes. */}
             <div class="actor-card-grid" ref={(el) => autoAnimate(el)}>
                 <Show when={props.addNew}>
                     {(add) => <AddNewCard label={add().label} onClick={add().onClick} />}

@@ -37,17 +37,12 @@ export function LlmConfigsDialog(props: { initialId?: string | null }) {
         return id ? state.assets.llmConfigs?.[id] ?? null : null
     }
 
-    // With both halves on screen there's no "nothing selected" state to render.
-    // Also covers a resize: a phone-width window sitting on the list and then
-    // widened would otherwise show an empty pane beside the list.
     createEffect(() => {
         if (isPhone() || activeId() !== null) return
         const first = configs()[0]
         if (first) setActiveId(first.id)
     })
 
-    // A config deleted out from under the pane (here or from another window)
-    // leaves the pane pointed at nothing.
     createEffect(() => {
         const id = activeId()
         if (id && !state.assets.llmConfigs?.[id]) setActiveId(null)
@@ -106,15 +101,6 @@ export function LlmConfigsDialog(props: { initialId?: string | null }) {
                                             {config.model || config.provider}
                                         </Text>
                                     </span>
-                                    {/* This dialog is also how you switch models,
-                                        so activating has to be reachable from the
-                                        list itself — routing it through the editor
-                                        pane would make the common case (change
-                                        model, leave) the long way round.
-
-                                        Deliberately not the row's own click:
-                                        someone opening a config to edit it hasn't
-                                        asked to start using it. */}
                                     <Show
                                         when={state.userPreferences.activeLLMConfigId !== config.id}
                                         fallback={<MdFillCheck size={18} class="rail-dialog-item-badge" title="In use" />}
@@ -171,9 +157,6 @@ export function LlmConfigsDialog(props: { initialId?: string | null }) {
                             }
                         >
                             {(config) => (
-                                // Keyed on id so switching configs rebuilds the
-                                // editor's draft store rather than merging two
-                                // configs' fields.
                                 <Show when={config().id} keyed>
                                     <LlmConfigEditor
                                         id={config().id}

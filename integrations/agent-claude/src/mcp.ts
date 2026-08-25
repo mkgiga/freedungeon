@@ -77,11 +77,6 @@ export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableScen
         );
     });
 
-    // When the multiple-choice setting is on, `end_turn` gains an optional
-    // `choices` arg: an enumerated set of candidate next actions for the focus
-    // actor at this branch point. The block is persisted by reusing the
-    // internal `choice_prompt` command (its schema/toBlock/serialize), so this
-    // stays a thin agent-side wrapper.
     const endTurnBase = 'Call this when the causal chain initiated by the user\'s prompt is fully resolved and you have nothing more to do. After end_turn, the conversation hands control back to the user.';
     const endTurnDescription = enableChoicePrompts
         ? `${endTurnBase} You may optionally pass \`choices\`: an enumerated set of 2+ candidate next actions salient to the focus actor at this branch point. The focus actor's controller may take one — it returns next tick as \`choice("...")\` — or disregard the set and supply any other action via \`unformatted(...)\`. Enumerate only when the branch genuinely narrows to a few distinct, material actions; otherwise leave the next move open.`
@@ -130,23 +125,11 @@ export function allTools(enableSceneImages = false): string[] {
     return [...cmds, ...queries, 'mcp__game_state__end_turn'];
 }
 
-/**
- * The directly-exposed command tools. `choice_prompt` is excluded — it's an
- * internal block-builder invoked by `end_turn` (via RPC) when given `choices`,
- * not a standalone tool. `generate_image` is excluded unless the imageGen
- * feature's scene-image toggle is on, so the agent is never shown a tool the
- * server would refuse to execute. Keeping this in one place keeps the MCP
- * server's tool set and the `allowedTools` allowlist in agreement.
- */
 function commandEntries(enableSceneImages: boolean): [string, (typeof COMMANDS)[keyof typeof COMMANDS]][] {
     return Object.entries(COMMANDS).filter(([key]) =>
         key !== 'choice_prompt' && (key !== 'generate_image' || enableSceneImages));
 }
 
-/**
- * The `tool()` factory expects a ZodRawShape (`{ key: ZodType, ... }`) but
- * our specs hold ZodObject<shape>. Unwrap the inner shape.
- */
 function unwrapToShape(schema: z.ZodTypeAny): Record<string, z.ZodTypeAny> {
     if (schema instanceof z.ZodObject) {
         return (schema as z.ZodObject<any>).shape as Record<string, z.ZodTypeAny>;

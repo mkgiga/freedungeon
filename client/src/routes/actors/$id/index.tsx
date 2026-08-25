@@ -11,10 +11,6 @@ export const Route = createFileRoute('/actors/$id/')({
   }),
 })
 
-/**
- * The actor editor as a screen. The editor itself is a component because the
- * Scenario editor opens the same UI in a modal — see components/ActorEditor.
- */
 function RouteComponent() {
   const params = Route.useParams()
   const search = Route.useSearch()
@@ -37,9 +33,6 @@ function RouteComponent() {
           }}
         />
       )}
-      // Back to the list rather than into a read-only view of what you just
-      // wrote: saving is the end of the task, and staying on the page reads as
-      // "nothing happened" — the only visible change is fields greying out.
       onSaved={() => navigate({ to: '/actors' })}
     />
   )

@@ -8,48 +8,20 @@ import { getEmbeddedPrompts } from "./embedded"
 
 const promptsDir = path.join(import.meta.dirname, 'prompts')
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Types
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * A registered macro is either a built-in function (pure: args -> string) or a
- * file-based template body that is evaluated inline within the calling
- * context — so cycles between template macros are detected by the shared
- * call stack rather than each template starting with a fresh one.
- */
 type RegistryEntry =
     | { kind: 'fn'; fn: (args: Record<string, unknown>) => string }
     | { kind: 'template'; body: string }
 
-/**
- * Context carried through recursive evaluation. Tracks the call stack (for
- * cycle detection), expansion depth (defense-in-depth backstop), the args of
- * the enclosing macro frame, and lazily-built scope objects.
- */
 class EvalContext {
     stack = new Set<string>()
     depth = 0
     args: Record<string, unknown> = {}
-    /**
-     * Lazily-built scope objects keyed by name (e.g. `Player`). Populated on
-     * first reference within an evaluation. A fresh context is built for each
-     * top-level `parseMacros` call, so any mutation during one prompt cannot
-     * leak into the next.
-     */
     scopes: Record<string, unknown> = {}
 
-    /**
-     * Signals collected while expanding. Each registered macro that is invoked
-     * sets its own key to `true`, letting callers detect which macros the user
-     * placed (e.g. to avoid auto-appending content already positioned by hand).
-     * Typed `unknown` so a macro can surface richer data here in the future.
-     */
     features: Record<string, unknown> = {}
 
     static readonly MAX_DEPTH = 256
 
-    /** Enter a macro frame. Returns false if `name` is already on the stack. */
     enter(name: string): boolean {
         if (this.stack.has(name)) return false
         this.stack.add(name)
@@ -71,13 +43,7 @@ class EvalContext {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Macro registry
-// ═══════════════════════════════════════════════════════════════════════════
-
 const registry = new Map<string, RegistryEntry>()
-
-// ── Built-in macros ──────────────────────────────────────────────────────────
 
 registry.set('ACTORS', { kind: 'fn', fn: () => {
     const currentChat = state.currentChat
@@ -98,7 +64,6 @@ registry.set('ACTORS', { kind: 'fn', fn: () => {
         }
     }
 
-    // Always include the player character
     if (playerCharacterId !== null) {
         const pc = state.assets.actors[playerCharacterId]
         if (pc) {
@@ -120,7 +85,6 @@ registry.set('NOTES', { kind: 'fn', fn: () => {
 
     const result: Array<{ type: string; content: string }> = []
     for (const [id, ref] of Object.entries(currentChat.assets.notes)) {
-        // Disabled notes are suppressed from the LLM prompt.
         if (!ref.enabled) continue
         const note = state.assets.notes[id]
         if (!note) continue
@@ -160,25 +124,8 @@ You can render an image into the story with \`generate_image\`. Pass a \`descrip
 The image is generated on the spot and the turn blocks until it is done, so spend it where a visual does work prose would not: arriving somewhere the party has never seen, a reveal whose look carries the beat. At most one per beat, and never as decoration for a moment you have already described well.`
 
 registry.set('IMAGE_GENERATION_INSTRUCTIONS', { kind: 'fn', fn: () => {
-    // Reads the same predicate that decides whether the tool is exposed, so the
-    // two can't drift apart. (item-icons.ts imports parseMacros from here, so
-    // this closes an import cycle — benign, as with agent.ts/ai-agent.ts: both
-    // sides only reach across it inside function bodies, never at module init.)
     return sceneImagesEnabled() ? IMAGE_GENERATION_INSTRUCTIONS : ''
 } });
-
-// ── Scope builders ───────────────────────────────────────────────────────────
-//
-// Scopes are named values accessible without parens: `{{ @Player }}` or
-// `{{ @Player.id }}`. They differ from registry macros (which are functions
-// called with `()`): scopes resolve to a single object whose fields can be
-// walked via dotted paths.
-//
-// A builder is invoked the first time its scope is referenced within an
-// EvalContext, and the resulting object is cached on `ctx.scopes` for the
-// rest of that evaluation. Because each `parseMacros` call starts with a
-// fresh `scopes: {}`, builders are re-run for every prompt — there is no
-// process-wide cache for the scope object to mutate.
 
 type ScopeBuilder = () => unknown
 
@@ -197,12 +144,6 @@ scopeBuilders.set('Player', () => {
     }
 })
 
-/**
- * The item description an icon is being generated for. Set immediately before
- * expanding GENERATE_ITEM_ICON_PROMPT and cleared after. A module-level value
- * is safe because macro expansion is fully synchronous — no other expansion can
- * interleave between the set and the read.
- */
 let currentItemDescription = ''
 
 export function withItemDescription<T>(description: string, fn: () => T): T {
@@ -215,14 +156,8 @@ export function withItemDescription<T>(description: string, fn: () => T): T {
     }
 }
 
-// Referenced without parens by GENERATE_ITEM_ICON_PROMPT.macro, so it must be
-// a scope rather than a registry fn.
 scopeBuilders.set('mcp_item_description', () => currentItemDescription)
 
-/**
- * The agent's description of the image being generated. Same single-slot pattern
- * as `currentItemDescription` above — safe because expansion is synchronous.
- */
 let currentImagePrompt = ''
 
 export function withImagePrompt<T>(prompt: string, fn: () => T): T {
@@ -235,31 +170,20 @@ export function withImagePrompt<T>(prompt: string, fn: () => T): T {
     }
 }
 
-// Read by GENERATE_IMAGE_VISUAL.macro.
 scopeBuilders.set('agent_image_prompt', () => currentImagePrompt)
 
-/**
- * The user's configured style, shared by both image templates. Blank (or the
- * feature being off) falls back to the default so a template never expands to
- * an empty style block.
- */
 scopeBuilders.set('user_style_preference', () => {
     const cfg = resolveFeatureConfig('imageGen', state.userPreferences.features?.['imageGen'])
     const style = String((cfg.values as { stylePreference?: unknown }).stylePreference ?? '').trim()
     return style || DEFAULT_STYLE_PREFERENCE
 })
 
-// ── File-based macros ────────────────────────────────────────────────────────
-
 /** Loads .macro files from the prompts dir into the registry as template entries. */
 export function loadMacroFiles() {
-    // Compiled builds have no prompts dir to scan — the files were embedded at
-    // build time, so read them from there instead.
     const embedded = getEmbeddedPrompts()
     if (embedded) {
         const decoder = new TextDecoder()
         for (const [file, bytes] of embedded) {
-            // The blob also carries the .md prompts, which aren't templates.
             if (!file.endsWith('.macro')) continue
             const name = path.basename(file, '.macro')
             registry.set(name, { kind: 'template', body: decoder.decode(bytes) })
@@ -279,16 +203,8 @@ export function loadMacroFiles() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Public API
-// ═══════════════════════════════════════════════════════════════════════════
-
 export type MacroResult = {
-    /** The fully expanded text. */
     parsed: string
-    /** Signals collected during expansion — see `EvalContext.features`. Each
-     *  invoked macro name maps to `true`; check membership to know whether the
-     *  user placed a given macro themselves. */
     features: Record<string, unknown>
 }
 
@@ -298,10 +214,6 @@ export function parseMacros(raw: string): MacroResult {
     const parsed = evaluate(raw, ctx)
     return { parsed, features: ctx.features }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Core evaluator — walks the text, expanding `{{ @macro(...) }}` and `<[$var]>`
-// ═══════════════════════════════════════════════════════════════════════════
 
 function evaluate(text: string, ctx: EvalContext): string {
     ctx.bumpDepth()
@@ -313,12 +225,6 @@ function evaluate(text: string, ctx: EvalContext): string {
         while (i < len) {
             const char = text[i]
 
-            // ── Escape handling ─────────────────────────────────────────────────
-            // Only `\{`, `\<`, and `\\` are treated as escapes — those are the
-            // only characters that actually introduce macro syntax. Any other
-            // backslash is preserved verbatim so JSON strings (and any other
-            // content carrying backslash escapes like `\n`, `\"`) pass through
-            // re-evaluation unchanged.
             if (char === '\\' && i + 1 < len) {
                 const next = text[i + 1]
                 if (next === '{' || next === '<' || next === '\\') {
@@ -328,7 +234,6 @@ function evaluate(text: string, ctx: EvalContext): string {
                 }
             }
 
-            // ── Macro call: {{ @name(args) }} ───────────────────────────────────
             if (char === '{' && text[i + 1] === '{') {
                 const closeIdx = findMatching(text, i + 2, '{{', '}}')
                 if (closeIdx !== -1) {
@@ -339,7 +244,6 @@ function evaluate(text: string, ctx: EvalContext): string {
                 }
             }
 
-            // ── Variable substitution: <[$name]> or <[$name || default]> ────────
             if (char === '<' && text[i + 1] === '[') {
                 const closeIdx = findMatching(text, i + 2, '<[', ']>')
                 if (closeIdx !== -1) {
@@ -360,25 +264,19 @@ function evaluate(text: string, ctx: EvalContext): string {
     }
 }
 
-// ── Macro call evaluation ────────────────────────────────────────────────────
-
 function evaluateMacroCall(inner: string, ctx: EvalContext): string {
-    // inner looks like: " @name(args) " or " @Scope.path " (whitespace stripped below)
     const trimmed = inner.trim()
 
-    // Must start with @
     if (!trimmed.startsWith('@')) {
-        return `{{${inner}}}` // not a macro, leave as-is
+        return `{{${inner}}}`
     }
 
     const parenIdx = trimmed.indexOf('(')
 
-    // No parens → scope variable access: `@Scope` or `@Scope.path.to.field`
     if (parenIdx === -1) {
         return evaluateScopeAccess(trimmed.slice(1), ctx)
     }
 
-    // Parse name and args
     if (!trimmed.endsWith(')')) {
         throw new Error(`Malformed macro call: ${trimmed}`)
     }
@@ -391,11 +289,8 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
         throw new Error(`Macro not found: @${name}`)
     }
 
-    // Record that this macro was referenced (before cycle/arg handling) so
-    // callers can detect user-placed injections regardless of output.
     ctx.features[name] = true
 
-    // Evaluate args in the CALLER's frame, before pushing `name` onto the stack.
     let parsedArgs: Record<string, unknown> = {}
     if (argsText.length > 0) {
         const preprocessed = evaluate(argsText, ctx)
@@ -405,19 +300,13 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
         }
     }
 
-    // Push frame; on cycle (self or mutual), render empty.
     if (!ctx.enter(name)) return ''
     const prevArgs = ctx.args
     ctx.args = parsedArgs
     try {
         if (entry.kind === 'template') {
-            // Template body evaluates with the SAME ctx — shared stack/depth/scopes
-            // means mutual cycles between template macros are detected on contact.
             return evaluate(entry.body, ctx)
         }
-        // Built-in fn: produces text; re-parse so any macro syntax it emits is
-        // expanded against the same ctx (with `name` on the stack to catch
-        // cycles in the emitted output too).
         const output = entry.fn(parsedArgs)
         return evaluate(output, ctx)
     } finally {
@@ -426,14 +315,6 @@ function evaluateMacroCall(inner: string, ctx: EvalContext): string {
     }
 }
 
-// ── Scope access evaluation ──────────────────────────────────────────────────
-
-/**
- * Resolves `@Scope` or `@Scope.path.to.field`. The scope object is built by
- * its `ScopeBuilder` on first reference and cached on `ctx.scopes` for the
- * remainder of the evaluation. If a path step is null/undefined or a
- * non-object, the result is the empty string.
- */
 function evaluateScopeAccess(pathExpr: string, ctx: EvalContext): string {
     const parts = pathExpr.split('.').map(p => p.trim()).filter(p => p.length > 0)
     const [head, ...rest] = parts
@@ -458,15 +339,11 @@ function evaluateScopeAccess(pathExpr: string, ctx: EvalContext): string {
     return stringifyValue(value)
 }
 
-// ── Variable substitution evaluation ─────────────────────────────────────────
-
 function evaluateVariable(inner: string, ctx: EvalContext): string {
-    // inner looks like: " $name " or " $name || default "
     const parts = splitTopLevel(inner, '||')
     const head = (parts[0] ?? '').trim()
     const defaultExpr = parts.length > 1 ? parts.slice(1).join('||').trim() : null
 
-    // Must start with $
     if (!head.startsWith('$')) {
         throw new Error(`Malformed variable reference: ${inner}`)
     }
@@ -479,16 +356,11 @@ function evaluateVariable(inner: string, ctx: EvalContext): string {
 
     if (defaultExpr === null) return ''
 
-    // Preprocess the default expression for any nested macros/vars first,
-    // then evaluate as a JS expression. Macros that produce strings get
-    // embedded as JSON-quoted literals so they're valid JS.
     const preprocessed = evaluate(defaultExpr, ctx)
     try {
         const evaluated = safeEval(preprocessed, ctx.args)
         return stringifyValue(evaluated)
     } catch {
-        // If the preprocessed text isn't valid JS (e.g. it was just plain text),
-        // return it as-is.
         return preprocessed
     }
 }
@@ -504,36 +376,14 @@ function stringifyValue(value: unknown): string {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Sandboxed JS eval
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Evaluates a JS expression in a minimally-sandboxed Function.
- *
- * SECURITY: `new Function` has access to the global scope. This is OK for our
- * single-user local app where macro content is authored by the user themselves.
- * Do NOT expose this to untrusted input without a proper sandbox (realms, SES,
- * QuickJS, etc.).
- */
 function safeEval(expression: string, args: Record<string, unknown>): unknown {
     const argNames = Object.keys(args)
     const argValues = argNames.map(k => args[k])
-    // Wrap in parens so object literals aren't parsed as statement blocks.
     const body = `"use strict"; return (${expression});`
     const fn = new Function(...argNames, body)
     return fn(...argValues)
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Helpers: delimiter matching + top-level splitting
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Finds the matching close delimiter for an open delimiter at `startIdx`,
- * handling nested pairs, string literals, and escape sequences.
- * Returns the index of the close delimiter, or -1 if unclosed.
- */
 function findMatching(text: string, startIdx: number, open: string, close: string): number {
     let depth = 1
     let i = startIdx
@@ -547,7 +397,6 @@ function findMatching(text: string, startIdx: number, open: string, close: strin
             continue
         }
 
-        // Skip over string literals
         if (char === '"' || char === "'" || char === '`') {
             const quote = char
             i++
@@ -577,10 +426,6 @@ function findMatching(text: string, startIdx: number, open: string, close: strin
     return -1
 }
 
-/**
- * Splits a string on a separator, but only at the top level — ignoring the
- * separator when it appears inside `{{ }}`, `<[ ]>`, quotes, or parens/brackets.
- */
 function splitTopLevel(text: string, separator: string): string[] {
     const result: string[] = []
     let depth = 0
@@ -631,9 +476,5 @@ function splitTopLevel(text: string, separator: string): string[] {
     result.push(text.slice(start))
     return result
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Initialization
-// ═══════════════════════════════════════════════════════════════════════════
 
 loadMacroFiles()

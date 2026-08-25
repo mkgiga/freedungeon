@@ -6,11 +6,7 @@ export type DropdownItem = {
     icon?: JSXElement
     onClick: () => void
     danger?: boolean
-    /** Shown greyed and inert. Prefer this over omitting the item: a menu whose
-     *  entries come and go teaches nothing, while a disabled row says the action
-     *  exists and why it isn't available right now (via `title`). */
     disabled?: boolean
-    /** Tooltip — the place to explain a `disabled`. */
     title?: string
 }
 
@@ -30,15 +26,11 @@ export function AnchoredMenu(props: {
     items: DropdownItem[]
     onClose: () => void
 }) {
-    // Initial pos is a best-guess from the anchor; clamped after mount.
     const r = props.anchor.getBoundingClientRect()
     const [pos, setPos] = createSignal({ top: r.bottom + 4, right: window.innerWidth - r.right })
-    // Hidden during the first layout pass so the pre-clamp position never flashes.
     const [visible, setVisible] = createSignal(false)
     let menuRef: HTMLDivElement | undefined
 
-    // After the menu mounts we know its real size — clamp it inside the viewport,
-    // flipping above the anchor if it would overflow the bottom.
     const clampToViewport = () => {
         if (!menuRef) return
         const menu = menuRef.getBoundingClientRect()
@@ -74,9 +66,6 @@ export function AnchoredMenu(props: {
         if (e.key === 'Escape') props.onClose()
     }
 
-    // The menu is positioned in viewport coordinates, so anything that moves the
-    // anchor invalidates it. Closing is the honest response — the alternative is
-    // tracking the anchor every frame for a menu that lives a second.
     const handleReposition = () => props.onClose()
 
     document.addEventListener('click', handleClickOutside)
@@ -95,8 +84,6 @@ export function AnchoredMenu(props: {
             <div
                 ref={(el) => {
                     menuRef = el
-                    // Menu is in the DOM now — measure on the next frame so
-                    // styles are settled, then clamp + reveal.
                     requestAnimationFrame(clampToViewport)
                 }}
                 class="dropdown-menu dropdown-menu-portal"

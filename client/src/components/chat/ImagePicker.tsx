@@ -6,7 +6,6 @@ import { Text } from '../typography/Text'
 import { Em } from '../typography/Em'
 import type { ImageAsset } from '@shared/types'
 
-/** Slug a label into a usable snake_case key: "The Prancing Pony" → prancing_pony. */
 function slugify(label: string): string {
     const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
     return /^[a-z]/.test(slug) ? slug : `img_${slug}`

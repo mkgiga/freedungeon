@@ -20,11 +20,6 @@ import type { SdBackend } from './backend'
  */
 export const SD_RELEASE = 'master-820-de298c2'
 
-/**
- * Asset filenames use `master-<shorthash>` while the tag is
- * `master-<count>-<shorthash>`, so the two genuinely differ and the prefix
- * cannot be derived from the tag.
- */
 const SD_ASSET = 'sd-master-de298c2'
 
 const SD_DL = `https://github.com/leejet/stable-diffusion.cpp/releases/download/${SD_RELEASE}`
@@ -87,34 +82,6 @@ export const SD_BINARIES: Record<SdTarget, SdArtifact[]> = {
     }],
 }
 
-/**
- * The three components sd-server is started with: the diffusion transformer,
- * the VAE decoder, and the text encoder. They are separate files rather than
- * one checkpoint because that is how this pipeline is distributed upstream —
- * see the project's docs/anima.md, which names these exact repositories.
- *
- * Anima is Q8_0 quantised: ~2.2 GB against ~4.4 GB at bf16, for a ~4% speed
- * cost per the publisher's own benchmark, and no visible quality loss at this
- * quant level.
- *
- * Licensing: Anima and its VAE are CircleStone Labs Non-Commercial v1.2 —
- * hobby and personal use, which is what freedungeon is. Its §3(b) attribution
- * notice should be shown where these are downloaded. Qwen3-0.6B-Base is
- * Apache-2.0.
- */
-/**
- * HuggingFace repo revisions, pinned.
- *
- * `resolve/main/...` is a *branch*: the owner can push a commit that changes
- * the file underneath a URL that never changed. The recorded sha256 would then
- * stop matching and the feature would break with no version of this app having
- * changed. A commit hash is immutable, so the bytes behind these URLs are fixed
- * for good — which also removes the only real hazard in resuming a download
- * days later, since there is nothing upstream that can move.
- *
- * Re-pin with:
- *   curl -s https://huggingface.co/api/models/<repo> | jq -r .sha
- */
 const HF_REV = {
     anima: '51ddc6044dc6f2bd96979f00465284470ce5b6bc',        // Bedovyy/Anima-GGUF
     animaVae: 'f7382c4bf9d7ffe4ceea593a0adbb470c56dd79b',     // circlestone-labs/Anima

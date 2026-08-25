@@ -8,12 +8,6 @@ import { createEffect, onMount } from 'solid-js'
  */
 export function EditableText(props: {
     initial: string
-    /**
-     * What to show while not focused, when that differs from the source —
-     * `<@actor_id>` mentions rendered as names, say. Focusing swaps back to
-     * `initial` so edits are always made against the real text; without that,
-     * committing would bake the resolved form in permanently.
-     */
     display?: string
     onCommit: (value: string) => void
     class?: string
@@ -27,7 +21,6 @@ export function EditableText(props: {
         if (el) el.innerText = shown()
     })
 
-    // External changes sync only when not focused
     createEffect(() => {
         const text = shown()
         if (el && document.activeElement !== el) {
@@ -47,8 +40,6 @@ export function EditableText(props: {
                 if (value !== props.initial) {
                     props.onCommit(value)
                 }
-                // Nothing to re-render against if the value didn't change, so
-                // restore the display form by hand.
                 e.currentTarget.innerText = value === props.initial ? shown() : value
             }}
         />

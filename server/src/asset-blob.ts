@@ -1,20 +1,3 @@
-/**
- * The container the compiled binary carries its assets in.
- *
- * Everything the server needs but can't read from disk — the built client, the
- * .macro prompts, the native modules — is packed into one file at build time
- * and imported with `{ type: 'file' }`. One import, no generated source.
- *
- * Layout:
- *
- *   [4 bytes  ] little-endian length of the index
- *   [N bytes  ] JSON index: { "path/in/blob": [offset, length] }
- *   [remainder] zstd-compressed payloads, concatenated; offsets are into the
- *               DECOMPRESSED payload section
- *
- * The index sits outside the compressed section so the format stays
- * inspectable, and because it costs nothing to leave it there.
- */
 
 const HEADER_BYTES = 4
 

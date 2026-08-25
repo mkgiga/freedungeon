@@ -27,10 +27,7 @@ export const logChat = (message: string) => {
 
 export class CurrentChat {
     static async loadChat(id: string) {
-        // The outgoing chat needs no flush — every mutation (messages, chat
-        // row, refs) persisted at write time via persistPath.
 
-        // Load the new chat
         const loadedChat = await loadChatById(id);
         if (loadedChat) {
             mutate(s => { s.currentChat = loadedChat });
@@ -90,7 +87,6 @@ export class CurrentChat {
         return currentChat.messages[message.id];
     }
 
-    /** Removes a message from the currently-loaded chat (DB delete via persistPath). */
     static deleteMessage(messageId: string) {
         const currentChat = state.currentChat;
         if (!currentChat.id) {
@@ -102,14 +98,6 @@ export class CurrentChat {
         mutate(s => { delete s.currentChat.messages[messageId] });
     }
 
-    /**
-     * Single "generate next assistant turn" primitive used by both `prompt`
-     * (normal user-initiated send) and `regenerateMessage` (retry flow).
-     *
-     * The agent process owns the LLM conversation. We just hand it the chat
-     * id and the user message id we want it to respond to; it streams Block
-     * emissions back via /agent-rpc which append assistant ChatMessages.
-     */
     private static async generateResponse(userMessageId: string, userContent: string) {
         if (!state.currentChat.id) {
             logChat('No active chat. Cannot generate a response.');
@@ -121,18 +109,6 @@ export class CurrentChat {
             return;
         }
 
-        // Game-state recompute happens in dispatchPromptToAgent (which runs
-        // immediately below and is the consumer via @GAME_STATE()) — doing it
-        // here too would replay the full history twice per prompt.
-
-        // Critical: NEVER let this method's rejection escape. The tRPC
-        // mutation that triggers it is fire-and-forget (it doesn't
-        // await CurrentChat.prompt), so any rejection here becomes an
-        // unhandled rejection — which on Bun means process exit.
-        // SDK errors (Overloaded), transport closes, and aborts that
-        // don't surface as "AbortError" all reach this point. We
-        // catch, surface to the user via notification, and ensure
-        // isGenerating is cleared so the UI unfreezes.
         try {
             await dispatchPromptToAgent({
                 chatId: state.currentChat.id,
@@ -150,15 +126,9 @@ export class CurrentChat {
                 show: true,
                 toast: true,
                 push: false,
-                // Carried from wherever the failure was actually diagnosed, so
-                // this catch doesn't have to recognise causes by their message.
                 action: err instanceof ActionableError ? err.action : undefined,
             });
         } finally {
-            // Always clear isGenerating so the UI's Send button
-            // re-enables after a failure. The agent's turn_ended
-            // RPC clears this on the happy path; the finally covers
-            // every other path.
             if (state.isGenerating) {
                 mutate(s => { s.isGenerating = false });
             }
@@ -182,7 +152,6 @@ export class CurrentChat {
             createdAt: Date.now(),
             updatedAt: Date.now(),
             metadata: {
-                // what actor the user was playing as when they sent this message, if any
                 actorId: state.userPreferences.playerCharacterId,
             }
         });
@@ -238,14 +207,6 @@ export class CurrentChat {
         return sortedMessages.slice(0, sliceEnd);
     }
 
-    /**
-     * Deletes messages from a target forward to the end of the chat. Shared by
-     * `regenerateMessage` (prune + re-prompt) and `rewindToMessage` (prune only).
-     *
-     * `includeTarget` controls whether the target itself is also deleted:
-     *   - true  → target + all messages after it are deleted
-     *   - false → only messages strictly after the target are deleted
-     */
     static pruneFromMessage(messageId: string, { includeTarget }: { includeTarget: boolean }) {
         const targetMessage = CurrentChat.getMessage(messageId);
         if (!targetMessage) {
@@ -264,21 +225,6 @@ export class CurrentChat {
         }
     }
 
-    /**
-     * Regenerates the assistant reply that followed (or replaced) a message.
-     *
-     * Semantics:
-     *   - Assistant target: drop it + everything after, then generate from what's left.
-     *   - User target: drop everything after (the stale reply + follow-ups), then
-     *     generate using history ending in this user turn.
-     *
-     * Forks the SDK session at the turn-closer anchor of the message just
-     * BEFORE the surviving user prompt — so the forked session ends right
-     * before that prompt and we re-send it fresh. If no anchor is
-     * available (first turn, or no prior turn has been stamped) the
-     * session is left intact and we just append a new prompt; the model
-     * will see the prior response in context.
-     */
     static async regenerateMessage(messageId: string) {
         const targetMessage = CurrentChat.getMessage(messageId);
         if (!targetMessage) {
@@ -293,12 +239,6 @@ export class CurrentChat {
         const lastUser = CurrentChat.lastUserMessage();
         if (!lastUser) return;
 
-        // Fork before lastUser so the SDK doesn't carry the now-pruned
-        // response. The previous-turn closer is the natural anchor —
-        // find it by stepping back from the message immediately before
-        // lastUser. If nothing before, no fork happens (acceptable: the
-        // session stays intact, the prior response is in the model's
-        // context when re-prompted).
         const messageBeforeLastUser = CurrentChat.messageImmediatelyBefore(lastUser.id);
         if (messageBeforeLastUser) {
             await forkAgentSession({
@@ -306,13 +246,6 @@ export class CurrentChat {
                 keepUntilMessageId: messageBeforeLastUser.id,
             });
         } else {
-            // Nothing survives before the prompt (e.g. regenerating the very
-            // first message): there's no turn boundary to fork at, so reset the
-            // agent's memory entirely. The next dispatch rehydrates from the
-            // pruned log (just this prompt) instead of resuming the full
-            // pre-prune conversation — which is what made regenerate silently
-            // "continue" instead of rewinding. Covers both loops (invalidate
-            // clears the Claude session AND the AI-SDK transcript).
             await invalidateAgentSession(state.currentChat.id!);
         }
 
@@ -320,15 +253,6 @@ export class CurrentChat {
         await CurrentChat.generateResponse(lastUser.id, lastUser.content);
     }
 
-    /**
-     * Rewinds the chat to a specific message: keeps everything up to and including
-     * the target, deletes all subsequent messages. No LLM call — the user stops
-     * "here" and can resume from this point by sending a new message.
-     *
-     * Forks the SDK session at the target's turn-closer anchor so the
-     * SDK transcript matches the displayed history. If no anchor is
-     * available the session is left intact.
-     */
     static async rewindToMessage(messageId: string) {
         CurrentChat.pruneFromMessage(messageId, { includeTarget: false });
         await forkAgentSession({
@@ -338,14 +262,6 @@ export class CurrentChat {
         await CurrentChat.refreshStateAndResetSnapshot();
     }
 
-    /**
-     * Recompute gameState from current message history and reset the
-     * agent flags snapshot to the resulting flags. Called after
-     * destructive ops (regen, rewind) that re-replay history so the
-     * next prompt's <system_notice> delta uses the post-mutation
-     * state as the baseline — otherwise pruned-away flag changes
-     * would surface as spurious "removed" / "reverted" deltas.
-     */
     private static async refreshStateAndResetSnapshot() {
         if (!state.currentChat.id) return;
         const turnResult = runTurn(Object.values(state.currentChat.messages));
@@ -385,17 +301,11 @@ export class CurrentChat {
             title: `${state.currentChat.title} -> ${newTitle}`,
             assets: {
                 actors: [...state.currentChat.assets.actors],
-                // Clone note refs (with enabled flags) so the branched chat has
-                // its own entries. saveChat writes fresh nanoid() junction rows
-                // scoped to newChat.id, so there's no cross-referencing with the
-                // source chat's rows.
                 notes: Object.fromEntries(
                     Object.entries(state.currentChat.assets.notes).map(([id, v]) => [id, { ...v }])
                 ),
                 images: [...(state.currentChat.assets.images ?? [])],
             },
-            // Branching a template produces a regular chat — you shouldn't need to
-            // clear the flag manually when you start a new chat from a template.
             isTemplate: false,
             kind: 'roleplay' as const,
             createdAt: Date.now(),
@@ -419,16 +329,6 @@ export class CurrentChat {
         logChat(`Branched new chat "${newChat.title}" with id ${newChat.id} from message ${messageId}.`);
         logChat(`[BRANCH] Source chat ${sourceChatId} had ${sourceChatTotal} messages; branch slice has ${Object.keys(newChatMessagesObject).length} messages.`);
 
-        // The branch's agent memory is rebuilt from its sliced messages on the
-        // first prompt (rehydration), NOT forked from the source session. A
-        // branch slice ends at an arbitrary message (often a turn-starting user
-        // prompt), but SDK forks can only land on turn boundaries — so a fork
-        // can't match the slice and over-copies the source's memory (the bug
-        // where a branch "remembered" events not in its visible history). The
-        // new chat starts with no session/transcript, so the next dispatch
-        // rehydrates from exactly the displayed slice for whichever provider
-        // runs it. (Branch only — clone/template still fully copy below.)
-
         const countAfterSave = await countChatMessages(newChat.id);
         const sourceCountAfterSave = await countChatMessages(sourceChatId);
         logChat(`[BRANCH] After saveChat: DB count for new ${newChat.id} = ${countAfterSave}, DB count for source ${sourceChatId} = ${sourceCountAfterSave}`);
@@ -444,14 +344,6 @@ export class CurrentChat {
         logChat(`[BRANCH] After loadChat: DB count for new ${newChat.id} = ${countAfterLoad}, DB count for source ${sourceChatId} = ${sourceCountAfterLoad}`);
     }
 
-    /**
-     * Duplicates an entire chat (metadata + asset refs with enabled flags + all
-     * messages) with fresh ids. Used by "Save as Template" and "Use Template" flows.
-     *
-     * Does NOT load the new chat into currentChat — the caller decides whether to.
-     * Source can be any chat (not just the currently-loaded one); messages are
-     * fetched from the DB via `loadChatById`.
-     */
     static async cloneChat(sourceChatId: string, { newTitle, asTemplate }: { newTitle: string, asTemplate: boolean }): Promise<string> {
         const sourceMeta = state.assets.chats[sourceChatId];
         if (!sourceMeta) throw new Error(`Source chat ${sourceChatId} not found`);
@@ -468,13 +360,8 @@ export class CurrentChat {
                 notes: Object.fromEntries(
                     Object.entries(sourceMeta.assets.notes).map(([id, v]) => [id, { ...v }])
                 ),
-                // Refs, not copies: an image is a shared library asset, so a
-                // chat made from a template points at the same rows.
                 images: [...(sourceMeta.assets.images ?? [])],
             },
-            // Presentation carries over too. A Scenario's premise and art are
-            // most of what it *is*, so a chat played from one should look like
-            // the thing you picked rather than an untitled blank.
             description: sourceMeta.description,
             avatarUrl: sourceMeta.avatarUrl,
             bannerUrl: sourceMeta.bannerUrl,
@@ -491,7 +378,6 @@ export class CurrentChat {
                 ...m,
                 id: msgId,
                 chatId: newId,
-                // Preserve original timestamps to maintain ordering.
                 createdAt: m.createdAt,
                 updatedAt: m.updatedAt,
             };
@@ -500,8 +386,6 @@ export class CurrentChat {
         saveChat(newChat, newMessages);
         mutate(s => { s.assets.chats[newId] = newChat });
 
-        // Full copy of the source SDK session so the clone inherits the
-        // agent's memory. No anchor needed since we copied every message.
         await forkAgentSessionForChat({
             sourceChatId,
             targetChatId: newId,

@@ -72,22 +72,8 @@ export interface DB {
         banner_url: string | null;
         description: string | null;
         agent_session_id: string | null;
-        /**
-         * JSON snapshot of GameStateContext.flags taken at the end of the
-         * most recent agent turn. dispatchPromptToAgent diffs against this
-         * to build a <state_changes_since_last_turn> block in the next
-         * user prompt, so the agent notices out-of-band flag changes
-         * (e.g. user toggles via UI) without having to call list_flags
-         * defensively every turn.
-         */
         last_agent_flags_snapshot: string | null;
-        /** OpenAI-v1 agentic loop transcript (JSON ModelMessage[]) — the model's
-         *  memory for the AI SDK path, the provider-agnostic analog of
-         *  agent_session_id (which points at the Claude SDK's own session). */
         ai_transcript: string | null;
-        /** Which agent loop last advanced this chat ('claude' | 'ai-sdk'). On a
-         *  provider switch the now-active loop rehydrates from the ChatMessage
-         *  log instead of resuming its (stale) private memory. */
         last_agent_loop: string | null;
         created_at: Generated<number>;
         updated_at: Generated<number>;
@@ -127,7 +113,6 @@ export interface DB {
     extension_state: {
         extension: string;
         name: string;
-        /** JSON-encoded. */
         value: string;
     };
 }
@@ -158,20 +143,13 @@ export async function initDb() {
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .execute();
 
-    // Self-healing migrations: add columns to pre-existing actors tables.
-    // Purely additive ALTERs (no drop/recreate) so existing data is preserved.
     const actorCols = await sql<{ name: string }>`PRAGMA table_info(actors)`.execute(db);
     if (!actorCols.rows.some(r => r.name === 'group')) {
         await db.schema.alterTable('actors').addColumn('group', 'text').execute();
     }
-    // Soft-delete tombstone. Nullable and unset for every existing row, so
-    // nothing changes visibility on upgrade.
     if (!actorCols.rows.some(r => r.name === 'deleted_at')) {
         await db.schema.alterTable('actors').addColumn('deleted_at', 'integer').execute();
     }
-    // Home Scenario. ON DELETE SET NULL makes eviction a database guarantee
-    // rather than something application code has to remember: delete a Scenario
-    // and its private cast falls back into the global library intact.
     if (!actorCols.rows.some(r => r.name === 'home_chat_id')) {
         await sql`ALTER TABLE actors ADD COLUMN home_chat_id TEXT REFERENCES chats(id) ON DELETE SET NULL`.execute(db);
     }
@@ -205,9 +183,6 @@ export async function initDb() {
         await sql`ALTER TABLE notes ADD COLUMN home_chat_id TEXT REFERENCES chats(id) ON DELETE SET NULL`.execute(db);
     }
 
-    // Self-healing migration: add `emoji` column to existing notes tables that
-    // predate it. `createTable().ifNotExists()` is a no-op if the table already
-    // exists, so new columns don't reach old DBs without an explicit ALTER.
     const notesCols = await sql<{ name: string }>`PRAGMA table_info(notes)`.execute(db);
     if (!notesCols.rows.some(r => r.name === 'emoji')) {
         await db.schema.alterTable('notes').addColumn('emoji', 'text').execute();
@@ -237,7 +212,6 @@ export async function initDb() {
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .execute();
 
-    // Self-healing migrations: add new columns to pre-existing chats tables.
     const chatCols = await sql<{ name: string }>`PRAGMA table_info(chats)`.execute(db);
     const haveChatCol = (name: string) => chatCols.rows.some(r => r.name === name);
     if (!haveChatCol('is_template')) {
@@ -246,14 +220,9 @@ export async function initDb() {
     if (!haveChatCol('avatar_url')) {
         await db.schema.alterTable('chats').addColumn('avatar_url', 'text').execute();
     }
-    // What drives this chat: the roleplaying agent, or the authoring
-    // collaborator. Absent on older rows, which are all roleplay.
     if (!haveChatCol('kind')) {
         await db.schema.alterTable('chats').addColumn('kind', 'text').execute();
     }
-    // CASCADE, not SET NULL: a collaborator conversation is meaningless without
-    // the Scenario it was authoring. Deliberately inverts the eviction rule used
-    // for actors and notes, where an orphan is still worth keeping.
     if (!haveChatCol('home_chat_id')) {
         await sql`ALTER TABLE chats ADD COLUMN home_chat_id TEXT REFERENCES chats(id) ON DELETE CASCADE`.execute(db);
     }
@@ -301,17 +270,11 @@ export async function initDb() {
         .addColumn('enabled', 'integer', (col) => col.notNull().defaultTo(1))
         .execute();
 
-    // Self-healing migration: per-ref `enabled` flag (replaces the hotbar-notes feature).
     const noteRefCols = await sql<{ name: string }>`PRAGMA table_info(chat_note_refs)`.execute(db);
     if (!noteRefCols.rows.some(r => r.name === 'enabled')) {
         await db.schema.alterTable('chat_note_refs').addColumn('enabled', 'integer', (col) => col.notNull().defaultTo(1)).execute();
     }
 
-    // ── One-time hotbar-notes teardown ──
-    // Carry disabled flags into chat_note_refs, then drop the table. Guarded on
-    // table existence so it's idempotent — a no-op on fresh DBs and on re-run.
-    // Hotbar rows for notes not attached to the chat had no prompt effect and
-    // are intentionally dropped.
     const hotbarTable = await sql<{ name: string }>`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'chat_hotbar_notes'`.execute(db);
     if (hotbarTable.rows.length > 0) {
         await sql`
@@ -352,12 +315,6 @@ export async function initDb() {
         .addColumn('updated_at', 'integer', (col) => col.notNull().defaultTo(sql`(CAST(unixepoch('subsec') * 1000 AS INTEGER))`))
         .execute();
 
-    // Extension-owned state. Composite key rather than one namespaced string so
-    // an extension's rows can be read, counted or dropped as a set — the thing
-    // you need the moment an extension is uninstalled.
-    //
-    // `value` is JSON: this table stores whatever an extension declared, and the
-    // shape is the extension's business, not the schema's.
     await db.schema
         .createTable('extension_state')
         .ifNotExists()
@@ -381,18 +338,11 @@ export async function initDb() {
         .addColumn('action', 'text')
         .execute();
 
-    // The table predates any use of it, so an existing install has it without
-    // the action column. Additive, nullable — nothing to backfill.
     const notifCols = await sql<{ name: string }>`PRAGMA table_info(notifications)`.execute(db);
     if (!notifCols.rows.some(r => r.name === 'action')) {
         await db.schema.alterTable('notifications').addColumn('action', 'text').execute();
     }
 
-    // ── One-time TTS teardown ──
-    // The DramaBox voice-acting feature was removed; drop its columns and strip
-    // its message metadata if present. Guarded + idempotent: a no-op on DBs that
-    // never had the feature and safe to re-run. No data loss beyond the dead TTS
-    // fields. (SQLite DROP COLUMN needs 3.35+, which Bun bundles.)
     const ttsActorCols = await sql<{ name: string }>`PRAGMA table_info(actors)`.execute(db);
     if (ttsActorCols.rows.some(r => r.name === 'voice_ref')) {
         await db.schema.alterTable('actors').dropColumn('voice_ref').execute();
@@ -405,8 +355,6 @@ export async function initDb() {
 
     console.log('Database initialized.');
 }
-
-// ── Hydration ──
 
 import type { Selectable } from 'kysely';
 
@@ -515,8 +463,6 @@ export function saveNotification(n: AppNotification) {
         text_color: n.textColor,
         show: n.show ? 1 : 0,
         push: n.push ? 1 : 0,
-        // Stored as JSON so the fix-it button survives a restart — a
-        // notification you can still act on is most of the value of keeping it.
         action: n.action ? JSON.stringify(n.action) : null,
         created_at: n.createdAt,
     };
@@ -539,8 +485,6 @@ export function hydrateNotification(row: NotificationRow): AppNotification {
         textColor: row.text_color,
         show: row.show === 1,
         push: row.push === 1,
-        // A stored action whose target is gone is harmless: every kind resolves
-        // against current client state rather than an id saved with it.
         action: row.action ? safeJson(row.action) : undefined,
         createdAt: row.created_at,
     };
@@ -560,8 +504,6 @@ export function hydrateImage(row: Selectable<DB['images']>): ImageAsset {
         updatedAt: row.updated_at,
     };
 }
-
-// ── Dehydration (App → DB) ──
 
 export function dehydrateImage(image: ImageAsset): Omit<Selectable<DB['images']>, 'id'> {
     return {
@@ -628,8 +570,6 @@ export function dehydrateCurrentChat(chat: CurrentChatState) {
     };
 }
 
-// ── Queries ──
-
 export function listChats({ offset = 0, limit = 20 }) {
     return db.selectFrom('chats')
         .selectAll()
@@ -684,16 +624,6 @@ export async function loadChatById(chatId: string) {
         const m = hydrateChatMessage(row);
         messagesRecord[m.id] = m;
     }
-    // Compute the "next prompt will rehydrate the agent's memory" flag.
-    // Non-null iff there's no SDK session yet but the chat has messages
-    // whose history needs to be replayed into the model on the next
-    // prompt. Estimated tokens use a char/4 heuristic — fast and good
-    // enough for a warning; real token count comes from the API on the
-    // first response.
-    // Only when neither loop has live memory — no Claude session AND no AI-SDK
-    // transcript — does the next prompt actually rehydrate. An AI-SDK chat keeps
-    // its memory in ai_transcript (agent_session_id stays null), so without the
-    // transcript check the warning would show on every AI-SDK chat load.
     let agentRehydration: { messageCount: number; estimatedTokens: number } | null = null;
     if ((loadedChat.agent_session_id ?? null) === null && !loadedChat.ai_transcript) {
         const msgs = Object.values(messagesRecord);
@@ -715,8 +645,6 @@ export async function loadChatById(chatId: string) {
             images: imageRefs.map(r => r.image_id),
         },
         messages: messagesRecord,
-        // Placeholder — CurrentChat.loadChat recomputes this from messages via
-        // runTurn immediately after setState('currentChat', loadedChat).
         gameState: createInitialContext(),
         agentRehydration,
         pendingSystemNotice: '',
@@ -803,9 +731,6 @@ export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences
         llmConfigs[row.id] = hydrateLLMConfig(row);
     }
 
-    // One row per declared value; grouped back into the nested shape the state
-    // tree uses. A row whose JSON no longer parses is skipped rather than
-    // failing the boot — one bad extension value must not cost you the app.
     const extensionState: Record<string, Record<string, unknown>> = {};
     for (const row of await db.selectFrom('extension_state').selectAll().execute()) {
         try {
@@ -815,18 +740,11 @@ export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences
         }
     }
 
-    // Preferences deliberately absent: they live in preferences.json, loaded by
-    // loadPreferences() at startup. A `settings` table used to hold them and was
-    // read here, but start() overwrote the result on the very next line — the
-    // row on disk was stale and every key in it was already in the JSON file.
     return {
         assets: { actors, notes, images, llmConfigs, chats },
         extensionState,
-        // Always empty on boot: activities are runtime-only and never persisted.
         activities: {},
-        // Rebuilt by scanning the extensions directory; the folder is the truth.
         extensions: {},
-        // Likewise re-derived from disk by refreshDependencies() at startup.
         dependencies: {},
         currentChat: {
             id: null,
@@ -840,8 +758,6 @@ export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences
             updatedAt: null,
         },
         isGenerating: false,
-        // Unseen only, rebuilt from the log against the user's last-seen stamp,
-        // so closing the app doesn't quietly mark everything read.
         notifications: await loadUnseenNotifications(),
     };
 }
@@ -873,30 +789,19 @@ export function pruneNotifications(keep: number) {
         .execute();
 }
 
-// ── Delete helpers ──
-// Foreign-key CASCADE (set up in initDb) handles all children when a parent row
-// is deleted. These are called at the site of deletion (inside tRPC mutations)
-// so in-memory state and the DB stay in lockstep — no "sync on save" sweep.
-
 export function deleteActor(id: string) {
-    // CASCADE: actor_expressions, chat_actor_refs
     db.deleteFrom('actors').where('id', '=', id).execute()
 }
 
 export function deleteNote(id: string) {
-    // CASCADE: chat_note_refs
     db.deleteFrom('notes').where('id', '=', id).execute()
 }
 
 export function deleteImage(id: string) {
-    // CASCADE: chat_image_refs. The file under /uploads is left in place —
-    // uploads are content-addressed, so another image row (or a message block
-    // in any chat) may point at the same bytes.
     db.deleteFrom('images').where('id', '=', id).execute()
 }
 
 export function deleteChat(id: string) {
-    // CASCADE: chat_messages, chat_actor_refs, chat_note_refs, chat_image_refs
     db.deleteFrom('chats').where('id', '=', id).execute()
 }
 
@@ -948,8 +853,6 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
     }
 
     if (messages) {
-        // SAVEPOINT so a large message set commits once instead of once per
-        // row.
         rawDb.exec('SAVEPOINT save_chat_messages')
         try {
             for (const msg of Object.values(messages)) {
@@ -1004,28 +907,6 @@ export function saveLLMConfig(config: LLMConfig) {
         .execute()
 }
 
-/**
- * Persist whatever entity a state path touches. Called by the `setState`/
- * `deleteState` wrappers in server.ts — the same interception point that
- * emits socket patches to the client — so the DB stays in sync with app
- * state without call sites remembering to save.
- *
- * Entity present in state → upsert; absent → delete. That single rule covers
- * both setState and deleteState. Non-persistable roots (currentChat.gameState,
- * isGenerating, notifications, …) fall through. All writes are synchronous
- * (bun:sqlite) and per-entity, ~tens of µs each.
- *
- * NOTE: whole-collection writes (path shorter than [root, collection, id])
- * are intentionally ignored — the only such write is boot hydration, whose
- * data just came FROM the db.
- */
-/**
- * Write one extension value, or drop its row when the value is gone.
- *
- * `undefined` means deleted rather than "store undefined": JSON has no such
- * value, so round-tripping it would produce the string "undefined" and load
- * back as a parse error.
- */
 function saveExtensionValue(extension: string, name: string, value: unknown): void {
     if (value === undefined) {
         db.deleteFrom('extension_state')
@@ -1051,9 +932,6 @@ export function persistPath(path: readonly unknown[]) {
         savePreferences(state.userPreferences)
         return
     }
-    // Extension state. Any write below `extensionState.<ext>.<name>` persists
-    // that whole `name` value, because the row holds one serialized value —
-    // there is nothing finer to write. Deleting the value drops the row.
     if (root === 'extensionState' && typeof a === 'string') {
         const bag = state.extensionState[a]
         if (!bag) {
@@ -1074,7 +952,6 @@ export function persistPath(path: readonly unknown[]) {
     switch (a) {
         case 'chats': {
             const chat = state.assets.chats[b]
-            // CASCADE removes chat_messages and ref rows on delete.
             if (chat) saveChat(chat)
             else deleteChat(b)
             return

@@ -1,13 +1,3 @@
-/**
- * Whether the app is running inside the Tauri desktop shell.
- *
- * `__TAURI_INTERNALS__` is the IPC bridge Tauri v2 injects into every webview it
- * owns. It is checked rather than `__TAURI__` because that global only exists
- * when `withGlobalTauri` is on, and this app has it off — so the friendlier
- * name is absent even on desktop.
- *
- * Evaluated once: a page cannot move between a browser tab and the shell.
- */
 const tauri = (): { invoke?: (cmd: string, args?: unknown) => Promise<unknown> } | undefined =>
     (globalThis as Record<string, any>).__TAURI_INTERNALS__
 

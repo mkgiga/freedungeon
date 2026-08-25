@@ -4,8 +4,6 @@ import { MdFillClose } from 'solid-icons/md'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
 
-// ── Types ──
-
 type ModalConfig = {
     title?: string
     content: () => JSXElement
@@ -21,8 +19,6 @@ type ModalAPI = {
     confirm: (opts: { title?: string; message: string; onConfirm: () => void; onCancel?: () => void }) => void
 }
 
-// ── Context ──
-
 const ModalContext = createContext<ModalAPI>()
 
 export function useModal(): ModalAPI {
@@ -31,13 +27,7 @@ export function useModal(): ModalAPI {
     return ctx
 }
 
-// ── Provider ──
-
 export function ModalProvider(props: { children: JSXElement }) {
-    // A stack, not a single slot: a modal can open another one (the actor
-    // editor opens Add Expression), and replacing it would unmount the editor
-    // along with its unsaved draft. Every entry stays mounted; only the top one
-    // is reachable, since each overlay covers the whole viewport.
     const [stack, setStack] = createSignal<ModalConfig[]>([])
     const top = () => stack()[stack().length - 1]
 
@@ -83,8 +73,6 @@ export function ModalProvider(props: { children: JSXElement }) {
     return (
         <ModalContext.Provider value={api}>
             {props.children}
-            {/* For, not Show: entries below the top must stay mounted so their
-                state survives the one above them being opened and closed. */}
             <For each={stack()}>
                 {(modal) => (
                     <Portal>

@@ -15,20 +15,6 @@ import {
 } from '@shared/extensions'
 import type { ExtensionModule, FreedungeonHost } from './sdk'
 
-/**
- * Loads, activates and tears down extensions.
- *
- * An extension is a directory under `~/.freedungeon/extensions/<id>/` holding a
- * `manifest.json` and its source. No build step: the runtime transpiles the
- * author's TypeScript on import, resolves their relative imports, and resolves
- * bare specifiers against a `node_modules/` they ship alongside — all of which
- * works identically inside the compiled binary, because that binary embeds the
- * whole Bun runtime.
- *
- * Extensions run with the same reach as the rest of the server. That is a
- * deliberate choice, not an oversight: installing one is trusting it, the same
- * way installing anything else is.
- */
 const EXTENSIONS_DIR = path.join(DATA_DIR, 'extensions')
 
 type Loaded = {
@@ -79,10 +65,6 @@ export function scanExtensions(): ExtensionInfo[] {
         const problem = validateManifest(parsed)
         const manifest = parsed as ExtensionManifest
         if (problem) {
-            // Keyed by the FOLDER, not by whatever id the broken manifest
-            // claims: an unusable manifest's id is not to be trusted, and two
-            // of them claiming the same one would collapse into a single row —
-            // hiding one of the two things the user actually has to go fix.
             found.push({
                 manifest: { ...manifest, id: entry.name, name: manifest?.name ?? entry.name, version: manifest?.version ?? '0', main: manifest?.main ?? '' },
                 status: 'invalid', dir, error: problem,
@@ -95,7 +77,6 @@ export function scanExtensions(): ExtensionInfo[] {
     return found
 }
 
-/** Publish the current list into app state so the UI can render it. */
 function publish(list: ExtensionInfo[]): void {
     mutate(s => { s.extensions = Object.fromEntries(list.map(e => [e.manifest.id, e])) })
 }
@@ -119,12 +100,6 @@ function buildHost(info: ExtensionInfo, disposers: (() => void)[]): FreedungeonH
     }
 }
 
-/**
- * Import and activate one extension.
- *
- * A throwing extension is recorded as `failed` and otherwise ignored: one bad
- * plugin must not take the server down or prevent the others from loading.
- */
 async function activate(info: ExtensionInfo): Promise<ExtensionInfo> {
     const id = info.manifest.id
     const entry = path.join(info.dir, backgroundEntry(info.manifest))
@@ -133,8 +108,6 @@ async function activate(info: ExtensionInfo): Promise<ExtensionInfo> {
     }
 
     try {
-        // Cache-busted so a reload after an edit actually re-reads the file
-        // rather than handing back the module already in the registry.
         const mod = await import(`${Bun.pathToFileURL(entry).href}?v=${Date.now()}`)
         const module: ExtensionModule = mod.default ?? mod
         const disposers: (() => void)[] = []
@@ -149,7 +122,6 @@ async function activate(info: ExtensionInfo): Promise<ExtensionInfo> {
     }
 }
 
-/** Run an extension's teardown, tolerating one that throws. */
 async function deactivate(id: string): Promise<void> {
     const entry = loaded.get(id)
     if (!entry) return
@@ -186,7 +158,6 @@ export async function rescanExtensions(): Promise<ExtensionInfo[]> {
         results.push(info.status === 'installed' && enabledFlag(id) ? await activate(info) : info)
     }
 
-    // Folder deleted out from under a running extension.
     for (const id of [...loaded.keys()]) {
         if (!found.some(f => f.manifest.id === id)) {
             log.server.warn(`Extension ${id} disappeared from disk; stopping it`)
@@ -232,36 +203,16 @@ export async function installFromZip(zipPath: string): Promise<ExtensionInfo> {
     return installFromZipBytes(new Uint8Array(fs.readFileSync(zipPath)))
 }
 
-/**
- * An archive entry name, as a canonical POSIX-ish string.
- *
- * ZIP stores names with `/` regardless of platform, so they are parsed as
- * POSIX and never handed to the host `path` module, whose behaviour differs by
- * OS. The backslash fold is a compatibility shim, not an OS branch: Windows'
- * own Compress-Archive writes `src\index.ts` in violation of the spec, and
- * folding it everywhere means one canonical form on every platform — which is
- * also what stops `..\..\x` from being a separate case to remember.
- */
 function normalizeEntry(name: string): string {
     return name.split('\\').join('/')
 }
 
-/**
- * Split a normalized entry into path segments that are safe to join onto the
- * extension's directory, or null if it must be refused.
- *
- * Validates the *segments* rather than resolving and comparing prefixes.
- * Resolution asks the OS to interpret an attacker-controlled string and then
- * tries to prove the answer was harmless; this never lets it be interpreted at
- * all. Absolute paths, drive letters, UNC roots and any `..` are rejected
- * outright, so the result can only ever be a descendant.
- */
 function safeSegments(entry: string): string[] | null {
-    if (entry.startsWith('/')) return null            // absolute
-    if (/^[a-zA-Z]:/.test(entry)) return null         // C:\… drive-relative
+    if (entry.startsWith('/')) return null
+    if (/^[a-zA-Z]:/.test(entry)) return null
     const segments = entry.split('/').filter(s => s !== '' && s !== '.')
     if (segments.length === 0) return null
-    if (segments.some(s => s === '..')) return null   // traversal
+    if (segments.some(s => s === '..')) return null
     return segments
 }
 
@@ -284,14 +235,8 @@ export async function installFromZipBytes(bytes: Uint8Array): Promise<ExtensionI
     const problem = validateManifest(manifest)
     if (problem) throw new Error(`invalid manifest: ${problem}`)
 
-    // Unpacked under the id, not the archive name, so reinstalling the same
-    // extension replaces it instead of accumulating copies.
     const dir = path.join(EXTENSIONS_DIR, manifest.id)
 
-    // Everything about the archive is checked BEFORE anything is written or the
-    // existing copy is removed. Validating as we go would let a bad archive
-    // delete a working extension and leave half of its replacement behind —
-    // the install has to either happen or not.
     const entryRel = backgroundEntry(manifest)
     if (!files[root + entryRel]) {
         throw new Error(`manifest points at "${entryRel}", which is not in the archive`)

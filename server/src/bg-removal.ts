@@ -1,56 +1,22 @@
-/**
- * Background removal for generated images, via BRIA RMBG-1.4 run locally
- * through onnxruntime-node.
- *
- * Model choice: RMBG-1.4 rather than 2.0 because 2.0's HF repo is gated
- * (`gated: "auto"` — a form grants access, but downloads then need a token),
- * while 1.4 is a plain 88MB fp16 fetch with no credentials. Both carry BRIA's
- * non-commercial terms, which this project satisfies. Swapping to 2.0 means
- * changing the rmbgModel spec's URL and MEAN/STD (2.0 uses ImageNet
- * normalization) — the rest of this file is model-agnostic.
- *
- * The weights themselves are fetched and checksum-verified by the dependency
- * system (server/src/dependencies.ts) when the user enables background removal.
- * Nothing is committed to the repo.
- */
 
 import sharp from 'sharp'
 import type * as ortTypes from 'onnxruntime-node'
 import { dependencyPath } from './dependencies'
 
-/** RMBG-1.4's preprocessor_config.json: rescale 1/255, mean 0.5, std 1.0. */
 const MEAN = 0.5
 const STD = 1.0
-/** Both RMBG generations take a fixed 1024x1024 input. */
 const SIZE = 1024
 
-/**
- * CPU rather than dml/webgpu: measured within noise of DirectML for a model
- * this size (~1s either way), and the GPU is typically already saturated by
- * the Stable Diffusion job that produced the image we're now matting.
- */
 const EXECUTION_PROVIDERS: string[] = ['cpu']
 
 let sessionPromise: Promise<ortTypes.InferenceSession> | null = null
 
-/**
- * Loaded on first use rather than at import time. onnxruntime-node pulls in a
- * native addon; keeping it off the startup path means a build that can't load
- * it degrades to "background removal fails" instead of "server won't boot".
- */
 let ortPromise: Promise<typeof ortTypes> | null = null
 function loadOrt(): Promise<typeof ortTypes> {
     if (!ortPromise) ortPromise = import('onnxruntime-node')
     return ortPromise
 }
 
-/**
- * The weights are fetched through the dependency system when the user enables
- * background removal, not lazily here — a mid-turn 88MB download would stall
- * the turn with no way to show progress. This only asserts the verified file is
- * still there, so a deleted or truncated model surfaces as a clear error rather
- * than a confusing onnxruntime failure.
- */
 async function requireModel(): Promise<string> {
     const file = await dependencyPath('rmbgModel')
     if (!file) {
@@ -61,7 +27,6 @@ async function requireModel(): Promise<string> {
     return file
 }
 
-/** Lazily create (and reuse) the inference session. */
 function getSession(): Promise<ortTypes.InferenceSession> {
     if (!sessionPromise) {
         sessionPromise = (async () => {
@@ -71,8 +36,6 @@ function getSession(): Promise<ortTypes.InferenceSession> {
                 executionProviders: EXECUTION_PROVIDERS as any,
             })
         })().catch((err) => {
-            // Don't cache a failed init — a later call should retry rather than
-            // inherit a permanently rejected promise.
             sessionPromise = null
             throw err
         })
@@ -93,13 +56,6 @@ export async function removeBackground(png: Uint8Array): Promise<Uint8Array> {
     const width = meta.width ?? SIZE
     const height = meta.height ?? SIZE
 
-    // Preprocess: resize to the model's fixed input, drop alpha, convert
-    // interleaved RGB to planar NCHW float.
-    // `kernel: 'linear'` (bilinear) matches the reference implementation's
-    // `F.interpolate(..., mode='bilinear')` and preprocessor_config.json's
-    // `"resample": 2` (PIL BILINEAR). sharp defaults to lanczos3, whose ringing
-    // shows up as edge halos in the resulting matte. `fit: 'fill'` is likewise
-    // deliberate — the reference does not preserve aspect ratio.
     const { data } = await sharp(Buffer.from(png))
         .resize(SIZE, SIZE, { fit: 'fill', kernel: 'linear' })
         .removeAlpha()
@@ -120,11 +76,6 @@ export async function removeBackground(png: Uint8Array): Promise<Uint8Array> {
     })
     const matte = outputs[session.outputNames[0]!]!.data as Float32Array
 
-    // Min-max stretch, per the reference `postprocess_image`. It normalizes
-    // after resizing to the source dimensions whereas we normalize first;
-    // bilinear interpolation can't produce values outside the source range, so
-    // the two differ only when the extreme is an isolated outlier that
-    // resampling smooths away. The `|| 1` guards a uniform matte.
     let lo = Infinity
     let hi = -Infinity
     for (const v of matte) {
@@ -138,13 +89,6 @@ export async function removeBackground(png: Uint8Array): Promise<Uint8Array> {
         alpha[i] = Math.round(Math.max(0, Math.min(1, (matte[i]! - lo) / span)) * 255)
     }
 
-    // Back to the source resolution, then interleave into RGBA by hand.
-    // `joinChannel` looks like the natural fit here but yields a 3-channel PNG
-    // with no alpha — sharp doesn't treat the joined plane as alpha on this
-    // path. Building the RGBA buffer directly is unambiguous.
-    // `toColourspace('b-w')` is load-bearing: sharp otherwise promotes a
-    // 1-channel raw input to 3-channel sRGB, and indexing that as if it were
-    // single-channel misreads the matte at a 3x stride.
     const alphaAtSize = await sharp(alpha, { raw: { width: SIZE, height: SIZE, channels: 1 } })
         .resize(width, height, { fit: 'fill', kernel: 'linear' })
         .toColourspace('b-w')

@@ -14,12 +14,8 @@ export function TryUseBlock(props: {
     block: TryUseBlockType
     onUpdate: (block: TryUseBlockType) => void
 }) {
-    // "item:Potion" / "actor:vega" — strip the kind prefix, keep the ref.
     const refName = (ref: string) => ref.slice(ref.indexOf(':') + 1)
 
-    // The ref holds the item's definition key; show its label. Read from the
-    // live gameState rather than a per-block snapshot — definitions persist for
-    // the chat, so the current one is the right name for a historical block.
     const item = () => resolveItem(state.currentChat.gameState, refName(props.block.what))
     const targetName = () => {
         const id = refName(props.block.on)

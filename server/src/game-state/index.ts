@@ -36,13 +36,6 @@ export function runTurn(messages: ChatMessage[]): TurnResult {
     return { ...shared, systemPromptGameState, mostRecentUserMessageState };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LEFT BLANK — user will implement.
-// Returns the two transient strings injected at prompt-build time:
-//   systemPromptGameState      → expanded into the system prompt at {{@GAME_STATE()}}
-//   mostRecentUserMessageState → appended only to the final user message as
-//                                 a `current-game-state` section
-// ─────────────────────────────────────────────────────────────────────────────
 export function formatGameStateAsString(_ctx: GameStateContext): {
     systemPromptGameState: string;
     mostRecentUserMessageState: string;
@@ -78,8 +71,6 @@ export function buildHistoryForLLM(
         if (prevAssistantEffects.length > 0) {
             parts.push(section('last-assistant-effects', prevAssistantEffects.join('\n')));
         }
-        // user-input is raw JS — no comment wrapper so the LLM sees it as
-        // executable content, not contextual notes.
         parts.push(m.content);
         if (thisUserEffects.length > 0) {
             parts.push(section('user-effects', thisUserEffects.join('\n')));

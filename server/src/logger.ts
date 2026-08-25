@@ -79,9 +79,6 @@ export function startupBanner(info: {
         ['Play', `http://localhost:${info.port}`],
     ]
 
-    // Bound to 0.0.0.0 means phones and tablets on the same network can reach
-    // it, which is worth surfacing — the private-IP gate already allows exactly
-    // those peers and nothing else.
     if (info.host === '0.0.0.0') {
         const lan = lanAddress()
         if (lan) rows.push(['Network', `http://${lan}:${info.port}`])
@@ -90,10 +87,7 @@ export function startupBanner(info: {
     rows.push(['Data', tildify(info.dataDir)])
 
     const title = ` freedungeon ${dim_(`v${info.version}`)} `
-    // Styled strings carry escape codes, so measure the plain text.
     const titleWidth = ` freedungeon v${info.version} `.length
-    // Sized from the URLs only. Letting a long data path drive the width
-    // stretches the box across the terminal for no benefit.
     const urlWidth = Math.max(...rows
         .filter(([, v]) => v.startsWith('http'))
         .map(([k, v]) => k.length + v.length + 4))
@@ -110,13 +104,11 @@ export function startupBanner(info: {
     console.log('')
 }
 
-/** `C:\Users\Emil\.freedungeon` → `~\.freedungeon`, for a readable banner. */
 function tildify(p: string): string {
     const home = homedir()
     return p.startsWith(home) ? `~${p.slice(home.length)}` : p
 }
 
-/** First non-internal IPv4 address, or null when there's no usable network. */
 function lanAddress(): string | null {
     for (const addresses of Object.values(networkInterfaces())) {
         for (const addr of addresses ?? []) {

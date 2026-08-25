@@ -18,7 +18,6 @@ function RouteComponent() {
   const navigate = useNavigate()
   const modal = useModal()
 
-  // Shared by the toolbar + and the add-new row, so the two can't diverge.
   const createActor = () => {
     navigate({ to: '/actors/$id', params: { id: nanoid() }, search: { edit: true } })
   }

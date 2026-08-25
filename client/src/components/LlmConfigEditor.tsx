@@ -26,28 +26,17 @@ export function LlmConfigEditor(props: {
     id: string
     onSaved?: (id: string) => void
     onDelete?: () => void
-    /** Omit to leave the button out — the rail renders whatever it's given. */
     onCancel?: () => void
 }) {
     const serverConfig = () => state.assets.llmConfigs[props.id]
 
     const [draft, setDraft] = createStore(blankConfig())
 
-    // Re-seed when the pane is pointed at a different config. `reconcile` rather
-    // than a fresh store so the SchemaForm's field components are updated in
-    // place instead of being torn down and rebuilt on every switch.
     createEffect(() => {
         const config = serverConfig()
         if (config) setDraft(reconcile({ ...blankConfig(), ...config }))
     })
 
-    /**
-     * Arriving here straight from onboarding with a custom (OpenAI-compatible)
-     * preset: its endpoint is a placeholder until the user points it at their
-     * own server, so bring the field into view and mark it. Runs once — the
-     * request is cleared as soon as it's honoured, so opening the config later
-     * is an ordinary edit.
-     */
     let endpointInput: HTMLInputElement | undefined
     createEffect(() => {
         const pending = pendingConfigEdit()
@@ -56,8 +45,6 @@ export function LlmConfigEditor(props: {
         if (!pending.focusEndpoint) return
 
         const el = endpointInput
-        // Next frame: the pane has just mounted, so layout isn't settled and
-        // scrollIntoView would measure the wrong position.
         requestAnimationFrame(() => {
             el.scrollIntoView({ block: 'center', behavior: 'smooth' })
             el.focus()
@@ -67,8 +54,6 @@ export function LlmConfigEditor(props: {
         })
     })
 
-    // A preset's parameter set is fixed: the values are yours to change, the
-    // structure isn't.
     const isPresetSchema = () => Object.values(LLM_PRESETS).some(
         p => !p.editable && JSON.stringify(p.schema) === JSON.stringify(draft.schema)
     )
@@ -103,10 +88,6 @@ export function LlmConfigEditor(props: {
         onSchemaChange: (fields) => setDraft('schema', fields),
     })
 
-    // Two children, deliberately: the fields scroll, the action rail doesn't.
-    // Save used to be the last thing in the scrolling column, which meant that
-    // on a config with a long system prompt or a big parameter set it only
-    // existed if you scrolled to the very bottom looking for it.
     return (
         <div class="editor-pane">
             <div class="editor-pane-scroll">
@@ -151,10 +132,6 @@ export function LlmConfigEditor(props: {
                     />
                 </SettingsField>
 
-                {/* Anthropic configs drive the Claude Code CLI, which
-                    authenticates with its own stored sign-in — a key here would
-                    never be sent anywhere, so the field is simply absent. The
-                    notice above is what stands in for it. */}
                 <Show when={draft.provider !== 'anthropic'}>
                     <SettingsField label="API Key">
                         <SettingsInput
@@ -195,9 +172,6 @@ export function LlmConfigEditor(props: {
             </SettingsGroup>
             </div>
 
-            {/* Sibling of the scroller, not its last child — that's what keeps
-                it on screen. Delete sits apart from the pair on the right so a
-                misfire lands on Cancel rather than on the destructive one. */}
             <div class="editor-pane-footer">
                 <Show when={props.onDelete}>
                     <button type="button" class="modal-btn modal-btn-danger" onClick={() => props.onDelete!()}>
@@ -216,26 +190,9 @@ export function LlmConfigEditor(props: {
     )
 }
 
-/**
- * Anthropic's readiness, at the top of the config it affects.
- *
- * The Agent SDK has no programmatic auth of its own — it spawns the Claude Code
- * CLI and inherits whatever credentials that CLI has stored. So there is no key
- * to type here, and "is this config usable?" is answered by the CLI's own login
- * state, which the server already derives (`claude auth status --json`) and
- * publishes as `dependencies.claudeCli`.
- *
- * The button only *starts* the flow. Everything after that — the OAuth URL, the
- * paste-a-code fallback, cancelling — is PatcherOverlay's, which covers the
- * screen for any dependency in a blocking state. Duplicating it here would mean
- * two sign-in UIs racing the same subprocess.
- */
 function ClaudeAuthNotice() {
     const dep = () => state.dependencies?.claudeCli
 
-    // 'satisfied' is the only state with nothing to say. Absent means the server
-    // hasn't reported yet, and claiming a problem before we know of one would be
-    // worse than staying quiet.
     const problem = () => {
         const status = dep()?.status
         if (!status || status === 'satisfied') return null
@@ -256,9 +213,6 @@ function ClaudeAuthNotice() {
                     run: () => trpc.dependencies.ensure.mutate({ key: 'claudeCli' }),
                 }
             default:
-                // 'missing' and 'corrupt' both resolve the same way: fetch it.
-                // Once the bytes are there the server re-derives status, which
-                // lands on 'unauthenticated' and the patcher offers sign-in.
                 return {
                     message: 'Claude Code isn\'t installed yet. Anthropic models run through it.',
                     action: 'Download Claude Code',

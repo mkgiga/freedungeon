@@ -1,14 +1,3 @@
-/**
- * Server side of the Scenario collaborator.
- *
- * The scoping guarantee lives here, in how `deps` is built — not inside the
- * tools. Every list is derived from *this* Scenario's attachments, so a tool
- * physically cannot see another Scenario's cast or the global library except
- * through `search_library`, which is explicit and named.
- *
- * Both agent paths call `runScenarioTool`: the AI-SDK loop in-process, and the
- * Claude subprocess over /agent-rpc. Neither knows how deps are assembled.
- */
 
 import { nanoid } from 'nanoid'
 import { SCENARIO_TOOLS, type ScenarioAgentDeps, type ScenarioToolName } from '@shared/scenario-agent/tools'
@@ -16,7 +5,6 @@ import { visible, inLibrary } from '@shared/visibility'
 import { mutate, state } from './server'
 import type { Actor, Note } from '@shared/types'
 
-/** Attachments of the Scenario, minus anything soft-deleted. */
 function scenarioActors(chatId: string): Actor[] {
     const chat = state.assets.chats[chatId]
     if (!chat) return []
@@ -94,7 +82,6 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
                 description: description ?? '',
                 avatarUrl: '',
                 expressions: {},
-                // Authored for this Scenario: stays out of the global library.
                 homeChatId: chatId,
                 deletedAt: null,
                 createdAt: now,
@@ -106,7 +93,6 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
         },
 
         updateCharacter: async ({ id, ...patch }) => {
-            // Scoped lookup: the agent can only edit what this Scenario contains.
             const existing = scenarioActors(chatId).find(a => a.id === id)
             if (!existing) throw new Error(`No character ${id} in this scenario`)
             const next: Actor = {
@@ -123,8 +109,6 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
             const existing = scenarioActors(chatId).find(a => a.id === id)
             if (!existing) throw new Error(`No character ${id} in this scenario`)
             detach(chatId, id, 'actor')
-            // Only soft-delete what this Scenario authored. An imported library
-            // character is used elsewhere, so removing it here just unlinks it.
             if (existing.homeChatId === chatId) {
                 mutate(s => { s.assets.actors[id] = { ...existing, deletedAt: Date.now() } })
             }
@@ -205,8 +189,6 @@ export function buildScenarioDeps(chatId: string): ScenarioAgentDeps {
             throw new Error(`Nothing in the library with id ${id}`)
         },
 
-        // Overridden per provider by buildScenarioDeps' caller; the default is
-        // the honest answer for everything except Claude.
         fetchUrl: async () => WEB_FETCH_UNAVAILABLE,
     }
 }

@@ -10,7 +10,6 @@ type ImageIconProps = JSX.HTMLAttributes<HTMLDivElement> & {
 
 export function ImageIcon(props: ImageIconProps) {
     const [local, rest] = splitProps(props, ['size', 'url', 'class', 'placeholder'])
-    // size undefined → fill parent via `.image-icon-autogrow`. size number → inline px.
     const sizeStyle = () => local.size !== undefined
         ? { width: `${local.size}px`, height: `${local.size}px` }
         : undefined
@@ -27,7 +26,6 @@ export function ImageIcon(props: ImageIconProps) {
         local.url ? 'loading' : 'idle'
     )
 
-    // Reset status when url changes
     createEffect(on(() => local.url, (url) => {
         setStatus(url ? 'loading' : 'idle')
     }, { defer: true }))
@@ -42,7 +40,6 @@ export function ImageIcon(props: ImageIconProps) {
                 }>
                     <img src={local.url} class="image-icon-img" alt="" />
                 </Show>
-                {/* Hidden preloader */}
                 <img
                     src={local.url}
                     style={{ display: 'none' }}

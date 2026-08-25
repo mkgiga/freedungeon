@@ -84,9 +84,6 @@ export const [state, _setState] = createStore({
     }
 } as AppState);
 
-
-// Patch generation for `mutate`. Auto-freeze must be off: Solid's store mutates
-// in place, and a frozen result would throw the first time anything touched it.
 enablePatches();
 setAutoFreeze(false);
 
@@ -121,15 +118,6 @@ export function mutate(fn: (draft: AppState) => void): void {
     }
 }
 
-/**
- * Write a value at a path, REPLACING rather than merging.
- *
- * `setStore(path, obj)` merges an object into whatever is already there, so
- * keys the new value dropped would survive — assigning a rebuilt map would
- * leave the removed entries behind. Immer emits one `replace` patch for a
- * whole-object assignment, and it has to mean replace. Scalars take the plain
- * path write, which has no such ambiguity.
- */
 function applyValue(path: (string | number)[], value: unknown): void {
     if (value === null || typeof value !== 'object') {
         (_setState as Function)(...path, value);
@@ -142,15 +130,6 @@ function applyValue(path: (string | number)[], value: unknown): void {
     }));
 }
 
-/**
- * Remove one key, with the same semantics `deleteState` has — including the
- * cascade rules, which exist in the store rather than only in the database
- * (see cascade.ts) and would otherwise be skipped by a mutate-driven delete.
- *
- * Goes through `produce` because Solid's setStore MERGES a plain object rather
- * than replacing it, so handing it a copy with the key missing silently does
- * nothing.
- */
 function removeAt(path: (string | number)[]): void {
     const parentPath = path.slice(0, -1);
     const key = path.at(-1)!;
@@ -182,14 +161,9 @@ export function setState(...args: any[]) {
     (_setState as Function)(...args);
     const path = args.slice(0, -1);
     persistPath(path);
-    // Emit what the state now IS at this path, not the argument that produced
-    // it. Identical for a plain value, and the only correct thing for a
-    // `produce(...)` writer — whose last argument is a function, and would
-    // otherwise be put on the wire as one.
     io.emit('state', { path, value: readPath(path) });
 }
 
-/** Current value at a state path, or undefined if any level is missing. */
 function readPath(path: unknown[]): unknown {
     let node: any = state;
     for (const part of path) {
@@ -200,8 +174,6 @@ function readPath(path: unknown[]): unknown {
 }
 
 export function deleteState(...path: string[]) {
-    // Foreign keys handle this on disk, but the store is what everything reads
-    // — see cascade.ts. Runs first so a rule can still inspect the entity.
     applyDeleteCascades(path, state, {
         set: (root, id, value) => setState('assets', root, id, value),
         remove: (root, id) => deleteState('assets', root, id),
@@ -218,23 +190,10 @@ export function deleteState(...path: string[]) {
     io.emit('delete', { path: parentPath, key });
 }
 
-/**
- * Give every declaring feature its bag, defaults merged over what was stored.
- *
- * Not just a convenience: Solid's setState cannot create intermediate objects,
- * so `setState('extensionState', 'myext', 'counter', 1)` throws unless
- * `extensionState.myext` already exists. Seeding here is what makes an
- * extension's ordinary nested writes work at all — and it applies defaults on
- * read the same way feature settings do, so a variable added in a later version
- * arrives without a migration.
- */
 function seedExtensionState(stored: Record<string, Record<string, unknown>>) {
     const keys = new Set([...Object.keys(FEATURES), ...Object.keys(stored ?? {})]);
     for (const key of keys) {
         const declared = FEATURES[key]?.state
-        // Keep rows for an extension we no longer know about: it may just be
-        // switched off or mid-upgrade, and dropping its data would be worse
-        // than carrying it.
         const values = declared
             ? resolveFeatureState(key as FeatureKey, stored?.[key])
             : (stored?.[key] ?? {})
@@ -251,13 +210,7 @@ function start() {
         seedExtensionState(loaded.extensionState);
         await logChatMessageCounts();
         backfillOnboarding();
-        // Shells out to nvidia-smi, so it is resolved once here rather than on
-        // every dependency check. Never throws — an unsupported host resolves
-        // to a `supported: false` choice carrying the reason to show.
         await initSdBuildChoice();
-        // Strictly after backfillOnboarding: that function reads "has any chat"
-        // as "this install has been used before", so seeding first would make a
-        // brand-new database look established and skip the first-run overlay.
         seedExampleContent();
         await refreshDependencies();
         await loadExtensions();
@@ -269,16 +222,6 @@ function start() {
     })();
 }
 
-/**
- * Mark pre-existing installs as already onboarded, once.
- *
- * Without this, everyone who was using freedungeon before onboarding existed
- * gets the first-run overlay on their next launch. "Has a chat or an LLM
- * config" is a safe read of "has clearly used this app" — and it's safe
- * precisely because it runs only when the stamp is absent. From then on the
- * stamp is authoritative, so later deleting every config doesn't re-trigger
- * anything.
- */
 function backfillOnboarding() {
     if (state.userPreferences.onboardingCompletedAt) return;
 
@@ -313,7 +256,6 @@ async function checkpointWal() {
     }
 }
 
-/** Report a port collision in terms the user can act on, then stop. */
 function exitWithPortError(err: unknown, port: number, wsPort: number): never {
     const message = err instanceof Error ? err.message : String(err);
     log.server.error(`Could not start: ${message}`);
@@ -332,12 +274,6 @@ async function listen() {
     app.route('/agent-rpc', agentRpcRouter);
     app.use('/trpc/*', trpcServer({ router: appRouter }));
 
-    // Serve the built client. Requests that match a real file (/, /assets/...,
-    // /favicon.svg, ...) resolve to that file; anything else falls through to
-    // index.html so client-side routing works.
-    //
-    // A compiled binary has no client/dist on disk — the bundle was embedded at
-    // build time, so serve it out of the virtual filesystem instead.
     const embeddedClient = getEmbeddedClientFiles();
     if (embeddedClient) {
         app.get('*', async (c) => {
@@ -345,11 +281,6 @@ async function listen() {
             const key = embeddedClient.has(requested) ? requested : 'index.html';
             const bytes = embeddedClient.get(key);
             if (!bytes) return c.text('Not found', 404);
-            // Serving bytes rather than a file loses the Content-Type that
-            // Bun.file() infers from disk, and a stylesheet sent as
-            // application/octet-stream is simply ignored by the browser.
-            // Bun.file() derives the type from the path alone, without the
-            // file needing to exist.
             return new Response(bytes, { headers: { 'content-type': Bun.file(key).type } });
         });
     } else {
@@ -357,21 +288,12 @@ async function listen() {
         app.get('*', serveStatic({ path: './client/dist/index.html' }));
     }
 
-    // Launch flags beat config.json, which beats the built-in defaults. The
-    // env vars are set by the pre-init pass in main.ts.
     const port = Number(process.env.FREEDUNGEON_PORT) || config.server.port || 8078;
     const wsPort = Number(process.env.FREEDUNGEON_WS_PORT) || config.server.wsPort || 8079;
     const hostname = process.env.FREEDUNGEON_HOST || config.server.hostname || "0.0.0.0";
     const httpsEnabled = process.env.FREEDUNGEON_HTTPS === '1' || (config.server as { https?: boolean }).https === true;
-    // The client derives its socket port as "served port + 1" from
-    // window.location, so the TLS pair has to stay adjacent for wss to land.
     const httpsPort = Number(process.env.FREEDUNGEON_HTTPS_PORT) || (config.server as { httpsPort?: number }).httpsPort || 8443;
 
-    // Bind failures are the single most likely startup error — a second copy of
-    // the app, or something else on the port. Left unhandled it surfaces as an
-    // unhandled rejection, the event loop empties, and `beforeExit` runs the
-    // shutdown path, so the user sees "Graceful shutdown initiated by 0" and no
-    // mention of a port. Catch it and say what actually happened.
     try {
         Bun.serve({ port, hostname, fetch: app.fetch });
         httpServer.listen(wsPort);
@@ -379,14 +301,9 @@ async function listen() {
         exitWithPortError(err, port, wsPort);
     }
 
-    // Opt-in TLS listener for LAN devices. Deliberately after the HTTP listener
-    // is already up and outside its try/catch: this is an enhancement, and no
-    // failure in it may cost the user the app. See tls.ts for why the
-    // certificate is public and what that does and doesn't buy.
     if (httpsEnabled) {
         await startHttpsListener(hostname, httpsPort);
     }
-    // node's http server reports bind failures asynchronously, not by throwing.
     httpServer.on('error', (err) => exitWithPortError(err, port, wsPort));
 
     startupBanner({
@@ -398,14 +315,6 @@ async function listen() {
     });
 }
 
-/**
- * Bring up the HTTPS pair: the Hono app over TLS, and socket.io alongside it.
- *
- * Both halves are required. A page served over https can't open a `ws://`
- * socket — the browser blocks it as mixed content — so the socket needs its own
- * TLS listener, attached to the same `io` instance so both origins share one
- * set of rooms and handlers.
- */
 async function startHttpsListener(hostname: string, httpsPort: number): Promise<void> {
     const tls = await ensureCert();
     if (!tls) return;
@@ -414,7 +323,6 @@ async function startHttpsListener(hostname: string, httpsPort: number): Promise<
     try {
         Bun.serve({ port: httpsPort, hostname, tls: { cert: tls.cert, key: tls.key }, fetch: app.fetch });
         const wssServer = createHttpsServer({ cert: tls.cert, key: tls.key });
-        // attach, not construct: one io, two transports.
         io.attach(wssServer);
         wssServer.on('error', (err) => log.server.warn(`HTTPS: socket listener failed (${err.message})`));
         wssServer.listen(wssPort);
@@ -438,12 +346,6 @@ async function initHttp() {
 
 const activeSockets = new Set<Socket>();
 async function initWebSocket() {
-    // Mirror the HTTP gate (initHttp) on the WebSocket port: only private-range
-    // peers may connect. On 'init' we emit the full state — including LLM
-    // config API keys — so an unauthenticated public connection would leak
-    // secrets. socket.io's cors.origin only restrains browsers; this rejects
-    // any non-browser client too. isPrivateIP handles IPv6 loopback and
-    // IPv4-mapped peers itself.
     io.use((socket, next) => {
         const clientIp = socket.handshake.address;
         if (clientIp && isPrivateIP(clientIp)) {
@@ -468,16 +370,6 @@ async function initWebSocket() {
 async function initProcessHandlers() {
     let shuttingDown = false
 
-    // Safety net. Bun's default behavior for an unhandled promise
-    // rejection is to exit with code 1. The agent flow has multiple
-    // long-running async chains (fetch into the agent subprocess,
-    // SDK stream iteration, tRPC mutations that fire-and-forget the
-    // turn) and any one of them can produce an unhandled rejection
-    // when the SDK errors (Overloaded), the subprocess transport
-    // closes, or a fork call fails. Without these handlers a single
-    // Anthropic 529 takes the whole server down. With them, we log
-    // and keep serving — the failing turn surfaces to the client via
-    // the notification channel.
     process.on('unhandledRejection', (reason) => {
         const msg = reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason);
         log.server.error(`Unhandled promise rejection: ${msg}`);
@@ -496,21 +388,12 @@ async function initProcessHandlers() {
             socket.disconnect(true)
         }
 
-        // Nothing to flush — every mutation persists at write time via
-        // persistPath. Just fold the WAL back into the main db file.
         checkpointWal()
         killAgentProcess()
-        // Holds the image weights resident, so it must not outlive us.
         stopSdServer()
         console.log('Exiting now.')
         process.exit(0)
     }
-    // Only real termination requests. `beforeExit` fires whenever the event
-    // loop merely runs dry — during startup, that made a failed port bind look
-    // like "Graceful shutdown initiated by 0" with no mention of a port. And an
-    // `exit` listener that calls process.exit(0) overwrites the code the
-    // process was already exiting with, turning a failure into an apparent
-    // success. Neither is a signal; neither belongs here.
     process.prependOnceListener('SIGINT', gracefulShutdown);
     process.prependOnceListener('SIGTERM', gracefulShutdown);
 

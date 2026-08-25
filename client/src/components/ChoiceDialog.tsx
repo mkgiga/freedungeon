@@ -5,7 +5,6 @@ import type { JSXElement } from 'solid-js'
 
 export type Choice = {
     label: string
-    /** One line on what this does — the reason the fork exists. */
     hint: string
     icon?: JSXElement
     onClick: () => void

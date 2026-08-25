@@ -11,20 +11,6 @@ import { saveMessage, loadChatById } from '../../db'
 import type { ChatMessage } from '@shared/types'
 import type { ModelMessage } from 'ai'
 
-/**
- * The Scenario collaborator panel talks to this.
- *
- * The conversation is a real chat: messages are written as `chat_messages` rows
- * against the collaborator chat, so it survives reloads and is a foundation for
- * rewind/branch/regenerate later. It is never loaded into `currentChat` though —
- * the collaborator's tools don't consult it, so the panel can run alongside a
- * loaded roleplay chat without either disturbing the other.
- */
-/**
- * The panel's view of a message. Tool calls ride along in `metadata` — the
- * column already exists, so showing what the agent did survives a reload
- * without a migration or a second message role.
- */
 const toPanelMessage = (m: ChatMessage) => ({
     id: m.id,
     role: m.role,
@@ -34,26 +20,12 @@ const toPanelMessage = (m: ChatMessage) => ({
 })
 
 export const scenarioAgentRouter = router({
-    /** What the collaborator can do — for showing the user, not the model. */
     tools: procedure.query(() =>
         Object.values(SCENARIO_TOOLS).map(t => ({ name: t.name, description: t.description })),
     ),
 
-    /**
-     * The shipped instructions, so the settings dialog can show what the agent
-     * is running on before the user has overridden anything — and offer a way
-     * back to it afterwards.
-     */
     defaultSystemPrompt: procedure.query(() => getScenarioAgentPrompt()),
 
-    /**
-     * The collaborator conversation for a Scenario, created on first use.
-     *
-     * It is a real chat row — so it inherits message persistence and, later,
-     * rewind/branch/regenerate — but `kind: 'collaborator'` and a `homeChatId`
-     * keep it out of the recent-chats list and bind its agent's scope to the
-     * Scenario it belongs to.
-     */
     ensureConversation: procedure
         .input(z.object({ scenarioId: z.string() }))
         .mutation(({ input }) => {
@@ -79,7 +51,6 @@ export const scenarioAgentRouter = router({
             return { id, created: true }
         }),
 
-    /** The conversation so far, read straight from its chat rows. */
     history: procedure
         .input(z.object({ conversationId: z.string() }))
         .query(async ({ input }) => {
@@ -92,9 +63,7 @@ export const scenarioAgentRouter = router({
 
     send: procedure
         .input(z.object({
-            /** The Scenario being authored — what the tools are scoped to. */
             scenarioId: z.string(),
-            /** The collaborator chat the conversation is stored in. */
             conversationId: z.string(),
             message: z.string().min(1),
         }))

@@ -17,25 +17,8 @@ export type CommandSpec<S extends z.ZodTypeAny = z.ZodTypeAny> = {
     name: string;
     description: string;
     schema: S;
-    /**
-     * Build the Block this command emits. Pure — the server applies the
-     * returned Block via applyBlockToCtx to derive the resulting state
-     * change. Authors must not access external state here.
-     */
     toBlock: (args: z.infer<S>) => Block;
-    /**
-     * Optional semantic validation against the current game state, run by
-     * execCommand after schema parsing and before the Block is built. Return
-     * an error string to reject the call — nothing is persisted and the agent
-     * receives the string as tool-error feedback. Return null to accept.
-     * Pure — read ctx, never mutate it.
-     */
     validate?: (args: z.infer<S>, ctx: GameStateContext) => string | null;
-    /**
-     * MCP tool annotations forwarded to the model. `readOnlyHint: false` is
-     * implicit (commands mutate); we explicitly mark `destructiveHint` for
-     * commands that overwrite prior state without an inverse.
-     */
     destructive?: boolean;
 };
 
@@ -43,14 +26,6 @@ function defineCommand<S extends z.ZodTypeAny>(spec: CommandSpec<S>): CommandSpe
     return spec;
 }
 
-// One unified speech schema. Provide an `actorId` (a predefined actor, or any
-// made-up id for a new recurring speaker — id-based speakers are tracked in the
-// active scene), and/or a `name` (required for a one-off ad-hoc speaker with no
-// id; an optional display override when actorId is set). Note: `actorId` is the
-// agent-facing id (backed by Actor.customId); the nanoid primary key is never
-// exposed. (No top-level .refine — that would wrap the schema in ZodEffects and
-// the MCP layer's shape-unwrap only reads ZodObject; "provide one of them" is
-// conveyed via the description instead.)
 const speechSchema = z.object({
     actorId: z.string().optional().describe('Id of a predefined actor (via list_chat_actors), or a made-up id for a new recurring speaker. Omit for a one-off unnamed speaker and pass `name`.'),
     name: z.string().optional().describe('Display name. Required when actorId is omitted (ad-hoc speaker); optional override when actorId is set.'),
@@ -112,9 +87,6 @@ export const COMMANDS = {
         }),
     }),
 
-    // `src` is resolved from the key by the server at exec time (toBlock is
-    // pure), so the persisted block holds a URL — detaching or renaming the
-    // image later can't retroactively break a beat that already happened.
     show_image: defineCommand({
         name: 'show_image',
         description: 'Display one of this chat\'s attached images inline in the story. `key` must be one listed by list_images — never invent one.',
@@ -130,10 +102,6 @@ export const COMMANDS = {
         }),
     }),
 
-    // Only exposed when the imageGen feature's "Generate scene images" toggle is
-    // on (see buildGameStateMcpServer / buildAiSdkTools). `src` is left empty
-    // here and filled in by the server at exec time with the generated image's
-    // /uploads URL — toBlock must stay pure and synchronous.
     generate_image: defineCommand({
         name: 'generate_image',
         description: 'Generate and display an image inline in the story, for visual exposition prose would not carry. One image per beat at most; this blocks the turn while it renders.',
@@ -216,9 +184,6 @@ export const COMMANDS = {
         toBlock: (args) => ({ type: 'heal', actorId: args.actorId, amount: args.amount }),
     }),
 
-    // Item definitions are persisted like every other command: as a replayed
-    // block, not a database row. `icon` is filled in by the server at exec time
-    // when the image-generation feature is on — the agent never supplies it.
     define_item: defineCommand({
         name: 'define_item',
         description: 'Define an item type before it can be given to the party. Calling this again with the same key updates the definition.',
@@ -317,9 +282,6 @@ export const COMMANDS = {
         destructive: true,
     }),
 
-    // Internal block-builder, not exposed as a standalone tool. `end_turn`
-    // invokes it (via RPC) when given a `choices` arg, reusing this schema /
-    // toBlock / serialization rather than duplicating them.
     choice_prompt: defineCommand({
         name: 'choice_prompt',
         description: 'Internal: persists the multiple-choice menu offered via end_turn\'s `choices` arg. Not a standalone tool.',

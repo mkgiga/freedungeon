@@ -9,8 +9,6 @@ import type {
 import { Heading } from '../typography/Heading'
 import { Text } from '../typography/Text'
 
-// ── Utilities ──
-
 function getByPath(obj: any, path: string[]): any {
     let current = obj
     for (const key of path) {
@@ -49,11 +47,7 @@ function getPrimitiveType(control: Control): PrimitiveType {
     }
 }
 
-// ── Context ──
-
 const HooksContext = createContext<SchemaFormHooks>({})
-
-// ── Main Component ──
 
 export function SchemaForm(props: {
     fields: SchemaField[]
@@ -93,8 +87,6 @@ export function SchemaForm(props: {
     )
 }
 
-// ── Field Renderer ──
-
 function FieldRenderer(props: {
     field: SchemaField
     value: any
@@ -105,7 +97,6 @@ function FieldRenderer(props: {
 
     onMount(() => hooks.onFieldMount?.(props.field, props.value))
 
-    // Check for primitive-level override
     const primitiveType = getPrimitiveType(props.field.control)
     const customRenderer = hooks.renderPrimitive?.[primitiveType]
 
@@ -158,8 +149,6 @@ function FieldRenderer(props: {
         </div>
     )
 }
-
-// ── Control Editor (edit mode — configure the control itself) ──
 
 function ControlEditor(props: { control: Control; onControlChange: (control: Control) => void }) {
     const update = (patch: Partial<Control>) => {
@@ -243,8 +232,6 @@ function ControlEditor(props: { control: Control; onControlChange: (control: Con
     )
 }
 
-// ── Default Control Renderer (built-in hooks for each primitive) ──
-
 function DefaultControlRenderer(props: {
     control: Control
     field: SchemaField
@@ -276,8 +263,6 @@ function DefaultControlRenderer(props: {
             return <SectionField control={props.control} field={props.field} value={props.value} onChange={props.onChange} />
     }
 }
-
-// ── Default Controls (number primitives) ──
 
 function SliderField(props: { control: SliderControl; value: number; onChange: (v: number) => void }) {
     const hooks = useContext(HooksContext)
@@ -312,8 +297,6 @@ function NumberField(props: { control: NumberControl; value: number; onChange: (
         />
     )
 }
-
-// ── Default Controls (string primitives) ──
 
 function TextField(props: { control: TextControl; value: string; onChange: (v: string) => void }) {
     const hooks = useContext(HooksContext)
@@ -363,8 +346,6 @@ function SelectField(props: { control: SelectControl; value: any; onChange: (v: 
     )
 }
 
-// ── Default Controls (boolean primitive) ──
-
 function ToggleField(props: { value: boolean; onChange: (v: boolean) => void }) {
     const hooks = useContext(HooksContext)
     return (
@@ -377,8 +358,6 @@ function ToggleField(props: { value: boolean; onChange: (v: boolean) => void }) 
         />
     )
 }
-
-// ── Default Controls (array primitives) ──
 
 function TagsField(props: { control: TagsControl; value: string[]; onChange: (v: string[]) => void }) {
     const [input, setInput] = createSignal('')
@@ -461,16 +440,12 @@ function ArrayField(props: { control: ArrayControl; field: SchemaField; value: a
     )
 }
 
-// ── Default Controls (object primitive) ──
-
 function GroupField(props: { control: GroupControl; field: SchemaField; value: any; onChange: (v: any) => void }) {
     return (
         <fieldset class="schema-control schema-group">
             <legend>{props.field.label}</legend>
             <For each={props.control.fields}>
                 {(childField) => {
-                    // If the child path starts with the parent path, strip it.
-                    // Otherwise treat the child path as already relative (e.g. inside array items).
                     const parentLen = props.field.path.length
                     const startsWithParent = childField.path.length > parentLen &&
                         props.field.path.every((p, i) => childField.path[i] === p)
@@ -489,8 +464,6 @@ function GroupField(props: { control: GroupControl; field: SchemaField; value: a
         </fieldset>
     )
 }
-
-// ── Layout Controls ──
 
 function LayoutChildren(props: { fields: SchemaField[]; parentPath: string[]; value: any; onChange: (v: any) => void }) {
     return (
@@ -546,8 +519,6 @@ function SectionField(props: { control: SectionControl; field: SchemaField; valu
         </div>
     )
 }
-
-// ── Serialization ──
 
 export function buildRequestBody(fields: SchemaField[], values: Record<string, any>, hooks?: SchemaFormHooks): Record<string, any> {
     const resolved = hooks?.onBeforeSerialize?.(values) ?? values

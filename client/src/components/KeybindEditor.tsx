@@ -14,12 +14,8 @@ import { featureEnabled, type FeatureKey } from '@shared/features'
  * feature schemas have in the settings form.
  */
 export function KeybindEditor() {
-    // Which row is capturing. Only one at a time: a second listener would
-    // record the same keypress into two actions.
     const [capturing, setCapturing] = createSignal<string | null>(null)
 
-    // An action belonging to a switched-off feature can't fire, so offering to
-    // bind it would be offering something that does nothing.
     const visible = () => Object.values(ACTIONS).filter(
         a => !a.feature || featureEnabled(state.userPreferences, a.feature as FeatureKey),
     )
@@ -34,13 +30,9 @@ export function KeybindEditor() {
     const onCapture = (id: string, e: KeyboardEvent) => {
         e.preventDefault()
         e.stopPropagation()
-        // Escape aborts rather than binding itself — it's the one key a capture
-        // box has to leave alone if you want a way out of the box.
         if (e.key === 'Escape') { setCapturing(null); return }
         const binding = keybindFromEvent(e)
-        if (!binding) return   // a lone modifier; keep listening for the real key
-        // Last write wins: whatever previously held this chord is unbound, so
-        // two actions can never answer the same keypress.
+        if (!binding) return
         const stolen = conflictsFor(binding, state.userPreferences.keybinds, id)
         const next: Record<string, string | null> = { ...state.userPreferences.keybinds, [id]: binding }
         for (const other of stolen) next[other.id] = null

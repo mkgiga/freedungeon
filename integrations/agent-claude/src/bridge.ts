@@ -19,7 +19,6 @@ export type PromptArgs = {
     enableChoicePrompts?: boolean;
     enableSceneImages?: boolean;
     enableItemIcons?: boolean;
-    /** Absolute path to the Claude CLI, resolved by the server per turn. */
     claudeCliPath?: string | null;
 };
 
@@ -38,7 +37,6 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
     setActiveChat(args.chatId);
     setCurrentSdkAssistantUuid(undefined);
     consumeEndTurnRequest();
-    // Drain any stale turn-state from a previous run that didn't clean up.
     consumeTurnState();
 
     const abort = new AbortController();
@@ -63,10 +61,6 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
             ...(args.resumeSessionId ? { resume: args.resumeSessionId } : {}),
             settingSources: [],
             persistSession: true,
-            // The server resolves the CLI (its own download, or the user's
-            // existing install) and sends the path with each turn. The env var
-            // is only a fallback for a manually launched agent — without one of
-            // them the SDK throws "Native CLI binary for <platform> not found".
             ...((args.claudeCliPath || process.env.CLAUDE_CLI_PATH)
                 ? { pathToClaudeCodeExecutable: args.claudeCliPath || process.env.CLAUDE_CLI_PATH }
                 : {}),
@@ -81,11 +75,6 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
             consumeEndTurnRequest();
         }
     } catch (err) {
-        // Detect abort by signal state rather than error name. The SDK
-        // wraps multiple transports (subprocess IPC, fetch, websocket-
-        // ish stream) and an abort can surface as 'AbortError',
-        // 'AbortException', EPIPE, "stream closed", or runtime-
-        // specific names. signal.aborted is the authoritative check.
         const isAbort = abort.signal.aborted;
         if (!isAbort) {
             const e = err as { name?: string; message?: string };
@@ -96,9 +85,6 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
             console.error('Agent runAgentPrompt error:', caughtError.name, caughtError.message);
         }
     } finally {
-        // Flush whatever we've accumulated for this turn even on early
-        // exit. Better to record a partial closer than to leak stale
-        // state into the next turn.
         try {
             await flushTurnState(args.chatId, args.userMessageId, capturedSessionId);
         } catch (flushErr) {
@@ -132,12 +118,6 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
 async function flushTurnState(chatId: string, userMessageId: string, fallbackSessionId: string | null) {
     const { producedMessageIds, trailingWrapperUuid, trailingWrapperSessionId } = consumeTurnState();
     if (!trailingWrapperUuid) return;
-    // SDKUserMessage.session_id is optional on the stream emission; if no
-    // wrapper this turn carried one, fall back to the session id we
-    // captured from the `system: init` event. Either way, the closer
-    // and the session_id agree on which session this turn lives in —
-    // which is what findForkAnchorIn needs to filter stale closers
-    // after a future fork rewrites session ids.
     const sessionId = trailingWrapperSessionId ?? fallbackSessionId;
     if (!sessionId) return;
     const messageIds = [userMessageId, ...producedMessageIds];
@@ -161,31 +141,10 @@ async function handleSdkMessage(
             return;
         }
         case 'assistant': {
-            // Track current assistant UUID so MCP tool handlers (firing
-            // during this assistant's tool_use blocks) can attribute
-            // their emitted ChatMessages.
             setCurrentSdkAssistantUuid(msg.uuid as unknown as string);
             return;
         }
         case 'user': {
-            // The SDK stream emits two flavors of user message we care about:
-            //
-            // (1) The main-thread user prompt (the one we sent).
-            //     parent_tool_use_id === null, no tool_result content blocks.
-            //     We record its UUID against our userMessageId so future
-            //     forks can identify "this is the prompt we sent."
-            //
-            // (2) Tool-result wrappers built by the SDK to feed tool_use
-            //     outputs back to the model. parent_tool_use_id === null on
-            //     the main thread (parent_tool_use_id is the subagent
-            //     boundary, NOT a tool_result discriminator — confirmed by
-            //     reading sdk.mjs). Discriminated by tool_result blocks in
-            //     content. Their UUIDs are the clean fork anchors at the
-            //     end of an agent turn.
-            //
-            // Subagent-context messages (parent_tool_use_id !== null) are
-            // filtered out — forkSession's lookup also filters isSidechain
-            // before matching uuid.
             const parentToolUseId = (msg as unknown as { parent_tool_use_id: string | null }).parent_tool_use_id;
             const isSynthetic = (msg as unknown as { isSynthetic?: boolean }).isSynthetic === true;
             if (parentToolUseId !== null) return;
@@ -198,8 +157,6 @@ async function handleSdkMessage(
             const uuid = msg.uuid as unknown as string | undefined;
 
             if (isToolResultWrapper) {
-                // (2) — remember as candidate turn closer. The LAST wrapper
-                // observed before the `result` message is the closer.
                 if (uuid) {
                     const sid = (msg as unknown as { session_id?: string }).session_id;
                     setLastTrailingWrapperUuid(uuid, sid);
@@ -209,18 +166,12 @@ async function handleSdkMessage(
 
             if (isSynthetic) return;
 
-            // (1) — the main-thread user prompt we sent.
             if (uuid) {
                 await rpcRecordSdkUuid(args.chatId, args.userMessageId, uuid);
             }
             return;
         }
         case 'result': {
-            // Settlement is observed; the finally block in
-            // runAgentPrompt does the actual flush so it has access to
-            // capturedSessionId (a closure local of runAgentPrompt, not
-            // visible here). The stream loop exits naturally after this
-            // message, so the flush runs immediately.
             return;
         }
         default:
@@ -237,10 +188,6 @@ export async function forkAndReturnNewSessionId(args: {
     });
     return { newSessionId: sessionId };
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Scenario collaborator
-// ─────────────────────────────────────────────────────────────────────────
 
 export type ScenarioPromptArgs = {
     chatId: string;
@@ -278,9 +225,6 @@ export async function runScenarioPrompt(args: ScenarioPromptArgs): Promise<Scena
             prompt,
             options: {
                 mcpServers: { scenario: buildScenarioMcpServer(args.chatId) },
-                // Claude is the only provider with real browsing, so WebFetch is
-                // allowed here and nowhere else. Other providers get the
-                // registry's fetch_url, which returns an explanatory refusal.
                 allowedTools: [...scenarioAllowedTools(), 'WebFetch'],
                 tools: [],
                 systemPrompt: args.systemPrompt,

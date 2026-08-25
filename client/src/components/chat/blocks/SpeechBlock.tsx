@@ -16,12 +16,7 @@ import { usePlayback } from '../playback'
 export function SpeechBlock(props: {
     block: SpeechBlockType
     onUpdate: (block: SpeechBlockType) => void
-    /** True only while this block is the currently-blocked-on block during
-     *  playback. Reveal progress + tap routing are owned by the playback
-     *  context — this component just renders what playback says is visible. */
     isActive?: boolean
-    /** Kept for API compatibility; advance is now driven by the message-level
-     *  click handler in ChatMessage via `playback.tap()`. */
     onAdvance?: () => void
 }) {
     const modal = useModal()
@@ -60,18 +55,9 @@ export function SpeechBlock(props: {
         })
     }
 
-    /**
-     * Ask the agent to describe this actor, as a mechanical user turn — the same
-     * shape as a dropped item (tryUse) or a picked menu option (choice), rather
-     * than typed prose the player has to phrase themselves.
-     */
     const sendInspect = () => {
         const id = props.block.actorId
         if (!id || state.isGenerating) return
-        // Same guard as dropping an item on an actor: this submits a turn, and
-        // doing that with blocks still unread would bury dialogue the player
-        // hasn't seen. Warn rather than skipAll() — opening a menu isn't a
-        // statement that you're done reading.
         if (playback.hasUnread()) {
             toast.info('Finish the scene first.')
             return
@@ -81,23 +67,17 @@ export function SpeechBlock(props: {
         })
     }
 
-    // Playback types out the same resolved string, so reveal counts line up.
     const shown = createMemo(() => resolveMentions(props.block.dialogue))
 
     const revealedCount = () => (props.isActive ? playback.activeRevealedCount() : shown().length)
     const isScrolling = () => props.isActive && playback.isActiveScrolling()
 
-    // Presence per the replayed game state at this point in playback — not the
-    // chat's cast list. An actor who has left the scene still has portraits in
-    // the history above; acting on them is what's unavailable, not the record.
     const isInScene = createMemo(() => {
         const id = props.block.actorId
         if (!id) return false
         return playback.effectiveGameState().scene.actors.active[id] !== undefined
     })
 
-    // Item drag-and-drop target: the portrait accepts drops only while its
-    // actor is actually in the active scene (use_item rejects absent targets).
     const dropActorId = createMemo(() => (isInScene() ? props.block.actorId : undefined))
 
     const menuItems = () => [
@@ -105,9 +85,6 @@ export function SpeechBlock(props: {
             label: 'Inspect',
             icon: <MdFillSearch size={16} />,
             onClick: sendInspect,
-            // Disabled rather than dropped: the entry is how you learn the
-            // action exists, and its absence would read as a rendering bug on
-            // exactly the portraits where it matters most.
             disabled: !isInScene() || state.isGenerating,
             title: !isInScene()
                 ? `${displayName()} is not in the scene right now.`
@@ -162,9 +139,6 @@ export function SpeechBlock(props: {
             >
                 <div class="chat-block-dialogue chat-block-dialogue-locked">
                     {shown().slice(0, revealedCount())}
-                    {/* Pending dialogue rendered with `visibility: hidden` so it
-                     * contributes to layout (line wrapping + total height) without
-                     * being painted. The block sits at its final size from char 0. */}
                     <span class="chat-block-dialogue-pending">
                         {shown().slice(revealedCount())}
                     </span>

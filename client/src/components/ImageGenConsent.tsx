@@ -23,10 +23,6 @@ const mb = (bytes: number) => `${Math.round(bytes / 1_048_576)} MB`
 export function useImageGenConsent() {
     const modal = useModal()
 
-    /**
-     * Resolves true when the feature may be turned on — either because nothing
-     * needs downloading, or because the user agreed to it.
-     */
     return async (): Promise<boolean> => {
         const plan = await trpc.preferences.imageGenPlan.query()
 
@@ -51,8 +47,6 @@ export function useImageGenConsent() {
             })
         }
 
-        // Already on disk — including the case where a previous attempt got
-        // everything before being interrupted. Nothing to ask about.
         if (plan.items.length === 0) return true
 
         const total = plan.items.reduce((n, i) => n + i.bytes, 0)

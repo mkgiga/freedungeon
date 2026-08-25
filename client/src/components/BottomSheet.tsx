@@ -3,8 +3,6 @@ import { Portal } from 'solid-js/web'
 import { MdFillClose } from 'solid-icons/md'
 import { Heading } from './typography/Heading'
 
-// ── Types ──
-
 type BottomSheetConfig = {
     title?: string
     content: () => JSXElement
@@ -20,8 +18,6 @@ type BottomSheetAPI = {
     close: () => void
 }
 
-// ── Context ──
-
 const BottomSheetContext = createContext<BottomSheetAPI>()
 
 export function useBottomSheet(): BottomSheetAPI {
@@ -29,8 +25,6 @@ export function useBottomSheet(): BottomSheetAPI {
     if (!ctx) throw new Error('useBottomSheet must be used within <BottomSheetProvider>')
     return ctx
 }
-
-// ── Provider ──
 
 export function BottomSheetProvider(props: { children: JSXElement }) {
     const [current, setCurrent] = createSignal<BottomSheetConfig | null>(null)

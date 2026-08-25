@@ -19,7 +19,6 @@ import { z } from 'zod'
  */
 
 export type ScenarioAgentDeps = {
-    /** The Scenario being edited. */
     chatId: string
     listCharacters: () => Array<{ id: string; name: string; description: string }>
     getCharacter: (id: string) => { id: string; name: string; description: string; expressions: string[] } | null
@@ -33,17 +32,9 @@ export type ScenarioAgentDeps = {
     updateNote: (input: { id: string; title?: string; type?: string; content?: string }) => Promise<{ id: string; title: string }>
     removeNote: (id: string) => Promise<void>
 
-    /** The global library, for importing something that already exists. */
     searchLibrary: (query: string) => Array<{ id: string; kind: 'character' | 'note'; name: string }>
     importFromLibrary: (id: string) => Promise<{ name: string }>
 
-    /**
-     * Fetch a web page. Only Anthropic configs have a real implementation (the
-     * Claude SDK ships WebFetch); every other provider returns an explanatory
-     * refusal. The tool is still *registered* everywhere on purpose — a model
-     * that can't see the tool tends to claim it browsed the page anyway,
-     * whereas one that gets a clear "unavailable" says so to the user.
-     */
     fetchUrl: (url: string) => Promise<string>
 }
 
@@ -51,9 +42,7 @@ export type ScenarioToolSpec<S extends z.ZodTypeAny = z.ZodTypeAny> = {
     name: string
     description: string
     schema: S
-    /** Text the model sees as the tool result. */
     run: (args: z.infer<S>, deps: ScenarioAgentDeps) => Promise<string> | string
-    /** Marks tools that change or remove data, for the SDK's destructive hint. */
     destructive?: boolean
 }
 
@@ -208,6 +197,3 @@ export const SCENARIO_TOOLS = {
 
 export type ScenarioToolName = keyof typeof SCENARIO_TOOLS
 
-/* The collaborator's instructions live in server/src/prompts/SCENARIO_AGENT.md,
-   read via getScenarioAgentPrompt() — prose belongs in a file you can edit as
-   prose, and the server is what sends it to either provider. */

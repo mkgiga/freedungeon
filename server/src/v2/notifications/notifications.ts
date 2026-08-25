@@ -4,25 +4,8 @@ import { db, hydrateNotification } from '../../db'
 import { markNotificationsSeen } from '../../notifications'
 
 export const notificationsRouter = router({
-    /**
-     * A page of notification history, newest first.
-     *
-     * Queried rather than replicated: the log is unbounded, so it must not ride
-     * along in app state. `before` is a createdAt cursor rather than an offset,
-     * so an arrival mid-scroll cannot shift the page under the reader.
-     */
     list: procedure
         .input(z.object({
-            /**
-             * Keyset cursor: the last row of the previous page.
-             *
-             * Both halves are needed. Several notifications can share a
-             * millisecond — anything raised in a loop does — and a bare
-             * `created_at <` cursor then skips every row tied with the boundary,
-             * silently losing them from the middle of the list. Pairing the
-             * timestamp with the id gives a total order, so no row can hide in a
-             * tie.
-             */
             before: z.object({ createdAt: z.number(), id: z.string() }).optional(),
             limit: z.number().int().min(1).max(100).default(50),
         }))
@@ -45,7 +28,6 @@ export const notificationsRouter = router({
             return (await q.execute()).map(hydrateNotification)
         }),
 
-    /** Clear the unseen badge wholesale. */
     markSeen: procedure.mutation(() => {
         markNotificationsSeen()
         return { success: true }

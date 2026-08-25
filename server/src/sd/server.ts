@@ -8,13 +8,6 @@ import { SD_MODELS } from './manifest'
 import { nvidiaVramGiB, sdRuntimeFlags } from './backend'
 import type { DependencyKey } from '@shared/dependencies'
 
-/**
- * Loopback only, and on its own port.
- *
- * Nothing outside this machine has any business reaching the image server —
- * it takes a prompt and burns GPU time on it — so unlike the app's own listener
- * it does not bind every interface. That also means no firewall prompt.
- */
 const SD_HOST = '127.0.0.1'
 const SD_PORT = Number(process.env.FREEDUNGEON_SD_PORT) || 8077
 
@@ -35,7 +28,6 @@ function executable(): string {
     return path.join(SD_DIR, process.platform === 'win32' ? 'sd-server.exe' : 'sd-server')
 }
 
-/** True once the server answers, which is only after the weights are loaded. */
 async function isUp(): Promise<boolean> {
     try {
         const res = await fetch(`${SD_URL}/sdcpp/v1/capabilities`, {
@@ -71,8 +63,6 @@ export function ensureSdServer(): Promise<void> {
             if (!await isSatisfied(key)) throw new Error(`Image generation is missing ${key}.`)
         }
 
-        // Something else already holds the port — most likely a sidecar from a
-        // previous run of the app that outlived it. Reuse rather than fight it.
         if (await isUp()) {
             log.server.info(`Image server already listening on ${SD_URL}`)
             return
@@ -92,8 +82,6 @@ export function ensureSdServer(): Promise<void> {
         const proc = spawn(executable(), args, { cwd: SD_DIR, windowsHide: true })
         child = proc
 
-        // Kept rather than piped to our own stdout: it is verbose per-step
-        // logging, and the only time anyone wants it is to explain a failure.
         let tail = ''
         const keep = (buf: Buffer) => { tail = (tail + buf.toString()).slice(-4000) }
         proc.stdout?.on('data', keep)

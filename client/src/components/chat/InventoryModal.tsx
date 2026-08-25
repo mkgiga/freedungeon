@@ -7,9 +7,6 @@ import { Loader } from '../Loader'
 import { isIconPending } from './inventory/resolveItem'
 
 export function InventoryModal(props: {
-    /** Reactive accessor for the game state to display. Passed in as a prop
-     *  rather than read from context because Modal renders content through a
-     *  Portal whose owner chain doesn't include `PlaybackProvider`. */
     gameState: () => GameStateContext
 }) {
     const items = createMemo(() => {

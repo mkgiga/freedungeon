@@ -17,12 +17,6 @@ import type { Chat } from '@shared/types'
 
 export const Route = createFileRoute('/scenarios/')({ component: RouteComponent })
 
-/**
- * Scenarios — reusable adventure presets. Under the hood each one is a chat
- * with `isTemplate` set, which is why the editor is shared with /chat/$id; the
- * difference is entirely presentational. Playing one clones it into a fresh
- * chat so the preset itself is never consumed.
- */
 function RouteComponent() {
     const navigate = useNavigate()
     const modal = useModal()
@@ -35,14 +29,11 @@ function RouteComponent() {
 
     const play = async (scenario: Chat) => {
         await trpc.chat.useTemplate.mutate({ templateId: scenario.id })
-        // useTemplate loads the clone as the current chat. Switching tabs alone
-        // would land on the recent-chats list, so ask for the conversation too.
         setChatView('conversation')
         setActiveTab('chat')
     }
 
     const create = () => {
-        // Optimistic id, same as the chat flow: nothing hits the server until Save.
         navigate({ to: '/scenarios/$id', params: { id: nanoid() }, search: { new: true } })
     }
 
@@ -83,10 +74,6 @@ function RouteComponent() {
                 }}
             />
             <div class="flex-1 overflow-y-auto p-4">
-                {/* The explainer sits above the grid rather than replacing it:
-                    the add-new tile is the thing to press, so hiding it behind
-                    an empty state would take the affordance away exactly when
-                    it's the only thing to do. */}
                 <Show when={scenarios().length === 0}>
                     <div class="scenario-empty">
                         <Heading level={3}>No scenarios yet</Heading>
@@ -109,10 +96,6 @@ function RouteComponent() {
                                     </button>
 
                                     <div class="scenario-card-body">
-                                        {/* Title gets the whole row now. The ⋯ used
-                                            to sit here and squeeze it into an
-                                            ellipsis; it belongs with the other
-                                            actions, not competing with the name. */}
                                         <div class="scenario-card-heading">
                                             <ImageIcon url={scenario.avatarUrl || undefined} size={36} />
                                             <Text class="scenario-card-title">{scenario.title}</Text>
@@ -122,12 +105,6 @@ function RouteComponent() {
                                             <Text size="sm" class="scenario-card-description">{scenario.description}</Text>
                                         </Show>
 
-                                        {/* Both things people come here to do, named
-                                            and side by side. Playing was previously
-                                            only discoverable by hovering the banner,
-                                            and editing only by opening the menu —
-                                            which is what made clicking a card a
-                                            coin flip. */}
                                         <div class="scenario-card-actions">
                                             <button
                                                 type="button"

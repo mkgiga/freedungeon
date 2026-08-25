@@ -56,10 +56,7 @@ export function ActorList(props: {
     onActorClick?: (actor: Actor) => void
     isSelected?: (actor: Actor) => boolean
     hideHeader?: boolean
-    /** Renders the create affordance as a row. See components/AddNew. */
     addNew?: AddNew
-    /** Optional JSX rendered in a consistent toolbar row above the table
-     *  (typically search inputs, filter pills, etc.). */
     toolbar?: JSXElement
 }) {
     const { sortKey, sortDir, toggleSort, sort } = useSort<Actor>('name')

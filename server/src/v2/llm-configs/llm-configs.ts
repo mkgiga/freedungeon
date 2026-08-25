@@ -8,11 +8,6 @@ import { ensureDependency, isSatisfied, verifyDependency, beginClaudeSignIn } fr
 import { DEPENDENCIES } from '@shared/dependencies'
 import { restartAgentProcess } from '../../agent'
 
-/**
- * Block a config from being saved until whatever its provider needs is on disk
- * and verified. Only Anthropic has an external dependency today; the others are
- * plain HTTP and need nothing.
- */
 async function requireProviderDependencies(provider: string): Promise<void> {
     if (provider !== 'anthropic') return
 
@@ -21,8 +16,6 @@ async function requireProviderDependencies(provider: string): Promise<void> {
 
     const status = await verifyDependency('claudeCli').catch(() => 'missing' as const)
     if (status === 'unauthenticated') {
-        // The bytes are fine; the account isn't connected. Open the flow now so
-        // the panel shows a sign-in link rather than making the user find it.
         await beginClaudeSignIn()
         throw new Error(
             `Sign in to Claude to finish setting this up — the sign-in panel is open. Save again once it completes.`,
@@ -35,8 +28,6 @@ async function requireProviderDependencies(provider: string): Promise<void> {
         )
     }
 
-    // The agent process receives the CLI path at spawn time, so one started
-    // before this download needs restarting to see it.
     if (!alreadyHad) await restartAgentProcess()
 }
 
@@ -64,10 +55,6 @@ export const llmConfigsRouter = router({
             values: z.string(),
         }))
         .mutation(async ({ input }) => {
-            // An Anthropic config is useless without the CLI the agent drives,
-            // so resolve that first and refuse to save if it can't be had. The
-            // client renders the patcher off `state.dependencies` while this
-            // awaits, then this either proceeds or throws.
             await requireProviderDependencies(input.provider)
 
             const now = Date.now()

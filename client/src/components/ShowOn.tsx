@@ -16,7 +16,6 @@ import { viewport, type Viewport } from '../viewport'
 export function ShowOn(props: {
     viewport: Viewport | Viewport[]
     children: JSXElement
-    /** Rendered on the sizes that don't match. */
     fallback?: JSXElement
 }) {
     const matches = () => {

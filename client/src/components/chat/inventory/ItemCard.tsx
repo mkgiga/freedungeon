@@ -17,11 +17,8 @@ const GAP = 8
  */
 export function ItemCard(props: {
     item: ItemDefinition & { qty: number }
-    /** Viewport rect of the slot this card describes. */
     anchor: DOMRect
 }) {
-    // Prefer above the slot; flip below when there isn't room. Clamp
-    // horizontally so a slot near either edge still shows a full card.
     const placeBelow = () => props.anchor.top < 160
     const left = () => {
         const centred = props.anchor.left + props.anchor.width / 2 - CARD_WIDTH / 2
@@ -60,8 +57,6 @@ export function ItemCard(props: {
                     </Show>
                 </div>
             </div>
-            {/* The visual description is the fuller read; `description` stands in
-              * for items defined before that field existed. */}
             <Show when={props.item.visualDescription ?? props.item.description}>
                 {(body) => (
                     <Text size="sm" class="item-card-description whitespace-pre-wrap">{body()}</Text>
