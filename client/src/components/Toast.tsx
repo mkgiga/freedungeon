@@ -1,4 +1,4 @@
-import { createSignal, createContext, useContext, For, onMount, Show, type JSXElement } from 'solid-js'
+import { createSignal, For, onMount, Show, type JSXElement } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { onNotification, state } from '../state'
 import { useLlmConfigs } from './LlmConfigsDialog'
@@ -31,42 +31,52 @@ type ToastAPI = {
     dismiss: (id: string) => void
 }
 
-const ToastContext = createContext<ToastAPI>()
-
-export function useToast(): ToastAPI {
-    const ctx = useContext(ToastContext)
-    if (!ctx) throw new Error('useToast must be used within <ToastProvider>')
-    return ctx
-}
-
+/**
+ * Module scope, not context. There is one toast stack for the whole app, and a
+ * context would also have to sit above every caller - which it can't: this
+ * provider needs ModalProvider above it (see `runAction`), while modal content
+ * needs to raise toasts. Anything rendered through a Portal was unreachable.
+ */
+const [toasts, setToasts] = createSignal<ToastEntry[]>([])
 let nextId = 0
 
+const dismiss = (id: string) => {
+    setToasts((prev) => prev.map((t) => t.id === id ? { ...t, exiting: true } : t))
+    setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id))
+    }, 300)
+}
+
+const show = (config: ToastConfig): string => {
+    const id = `toast-${++nextId}`
+    const duration = config.duration ?? 4000
+    const entry: ToastEntry = { ...config, id, exiting: false }
+
+    setToasts((prev) => [...prev, entry])
+
+    if (duration > 0) {
+        setTimeout(() => dismiss(id), duration)
+    }
+
+    return id
+}
+
+const api = Object.assign(show, {
+    success: (message: string, title?: string) => show({ message, title, type: 'success' }),
+    error: (message: string, title?: string) => show({ message, title, type: 'error', duration: 6000 }),
+    info: (message: string, title?: string) => show({ message, title, type: 'info' }),
+    warning: (message: string, title?: string) => show({ message, title, type: 'warning', duration: 5000 }),
+    dismiss,
+}) as ToastAPI
+
+export function useToast(): ToastAPI {
+    return api
+}
+
 export function ToastProvider(props: { children: JSXElement }) {
-    const [toasts, setToasts] = createSignal<ToastEntry[]>([])
     const configs = useLlmConfigs()
 
     const runAction = useNotificationActions()
-
-    const dismiss = (id: string) => {
-        setToasts((prev) => prev.map((t) => t.id === id ? { ...t, exiting: true } : t))
-        setTimeout(() => {
-            setToasts((prev) => prev.filter((t) => t.id !== id))
-        }, 300)
-    }
-
-    const show = (config: ToastConfig): string => {
-        const id = `toast-${++nextId}`
-        const duration = config.duration ?? 4000
-        const entry: ToastEntry = { ...config, id, exiting: false }
-
-        setToasts((prev) => [...prev, entry])
-
-        if (duration > 0) {
-            setTimeout(() => dismiss(id), duration)
-        }
-
-        return id
-    }
 
     onMount(() => {
         onNotification((notification) => {
@@ -83,16 +93,8 @@ export function ToastProvider(props: { children: JSXElement }) {
         })
     })
 
-    const api = Object.assign(show, {
-        success: (message: string, title?: string) => show({ message, title, type: 'success' }),
-        error: (message: string, title?: string) => show({ message, title, type: 'error', duration: 6000 }),
-        info: (message: string, title?: string) => show({ message, title, type: 'info' }),
-        warning: (message: string, title?: string) => show({ message, title, type: 'warning', duration: 5000 }),
-        dismiss,
-    }) as ToastAPI
-
     return (
-        <ToastContext.Provider value={api}>
+        <>
             {props.children}
             <Portal>
                 <div class="toast-container">
@@ -128,6 +130,6 @@ export function ToastProvider(props: { children: JSXElement }) {
                     </For>
                 </div>
             </Portal>
-        </ToastContext.Provider>
+        </>
     )
 }
