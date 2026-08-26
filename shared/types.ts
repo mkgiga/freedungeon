@@ -117,6 +117,9 @@ export type Note = {
 
 export type ChatKind = 'roleplay' | 'collaborator';
 
+/** 'google' is unimplemented and has no preset - it stays only so a config
+ *  stored before it was dropped still loads and can be switched to something
+ *  that runs. A turn on it throws (see agent.ts). */
 export type LLMProvider = 'openai' | 'anthropic' | 'google' | 'deepseek' | 'custom'
 
 export type LLMConfig = {

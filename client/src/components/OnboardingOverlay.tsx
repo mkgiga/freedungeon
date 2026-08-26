@@ -12,7 +12,6 @@ import { Em } from './typography/Em'
 const CHOICES: Record<string, { label: string; hint?: string }> = {
     'openai-gpt4o': { label: 'OpenAI' },
     'anthropic-claude': { label: 'Claude' },
-    'gemini-2.5-pro': { label: 'Google Gemini' },
     'openai-compatible': {
         label: 'Custom (OpenAI-compatible)',
         hint: 'For local models — Ollama, LM Studio, llama.cpp, KoboldCpp.',

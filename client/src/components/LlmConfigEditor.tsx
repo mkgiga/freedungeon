@@ -107,7 +107,7 @@ export function LlmConfigEditor(props: {
                     >
                         <option value="openai">OpenAI</option>
                         <option value="anthropic">Anthropic</option>
-                        <option value="google">Google</option>
+                        <option value="deepseek">DeepSeek</option>
                         <option value="custom">Custom (OpenAI v1 Compatible)</option>
                     </select>
                 </SettingsField>
