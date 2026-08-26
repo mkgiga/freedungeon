@@ -798,6 +798,28 @@ button {
   min-width: min(360px, 80vw);
 }
 
+/* Sits directly above its group, so the gap belongs to the label rather than
+   splitting it from what it names. */
+.choice-dialog-section {
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--text-xs);
+  margin-top: 6px;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
+/* Belongs to the header above it, so it keeps the header's top margin and
+   carries the gap down to the first option instead. */
+.choice-dialog-section-hint {
+  opacity: 0.45;
+  margin-top: -4px;
+  margin-bottom: 2px;
+}
+
 .choice-dialog-option {
   display: flex;
   align-items: center;

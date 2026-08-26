@@ -7,7 +7,7 @@ import { useModal } from './Modal'
 import { LlmConfigEditor } from './LlmConfigEditor'
 import { Text } from './typography/Text'
 import { Em } from './typography/Em'
-import { LLM_PRESETS } from '@shared/llm-presets'
+import { LLM_PRESETS, type LLMPreset } from '@shared/llm-presets'
 import type { LLMConfig } from '@shared/types'
 
 export function LlmConfigsDialog(props: { initialId?: string | null }) {
@@ -159,6 +159,27 @@ export function LlmConfigsDialog(props: { initialId?: string | null }) {
     )
 }
 
+/**
+ * Presets that name a service, then the one that takes any OpenAI-compatible
+ * endpoint - a local llama.cpp, or a hosted proxy like OpenRouter. Grouped by
+ * whether the endpoint is already known, which is the only thing that differs
+ * at the point of choosing.
+ */
+const SECTIONS: { label: string; hint?: string; presets: () => [string, LLMPreset][] }[] = [
+    {
+        label: 'Custom',
+        // Named tools first: nearly everyone picking this is pointing at a
+        // model on their own machine. The last clause keeps it honest for a
+        // hosted OpenAI-compatible service.
+        hint: 'For Ollama, LM Studio, llama.cpp — or any OpenAI-compatible URL.',
+        presets: () => Object.entries(LLM_PRESETS).filter(([, p]) => p.provider === 'custom'),
+    },
+    {
+        label: 'Providers',
+        presets: () => Object.entries(LLM_PRESETS).filter(([, p]) => p.provider !== 'custom'),
+    },
+]
+
 export function useLlmConfigCreate() {
     const modal = useModal()
     return (onCreated: (id: string) => void) => {
@@ -166,21 +187,31 @@ export function useLlmConfigCreate() {
             title: 'New model',
             content: () => (
                 <div class="choice-dialog">
-                    <For each={Object.entries(LLM_PRESETS)}>
-                        {([key, preset]) => (
-                            <button
-                                type="button"
-                                class="choice-dialog-option"
-                                onClick={async () => {
-                                    const result = await trpc.llmConfigs.createFromPreset.mutate({ presetKey: key })
-                                    modal.close()
-                                    onCreated(result.id)
-                                }}
-                            >
-                                <span class="choice-dialog-text">
-                                    <Text><Em semibold>{preset.name}</Em></Text>
-                                </span>
-                            </button>
+                    <For each={SECTIONS}>
+                        {(section) => (
+                            <Show when={section.presets().length > 0}>
+                                <Text size="sm" class="choice-dialog-section">{section.label}</Text>
+                                <Show when={section.hint}>
+                                    <Text size="sm" class="choice-dialog-section-hint">{section.hint}</Text>
+                                </Show>
+                                <For each={section.presets()}>
+                                    {([key, preset]) => (
+                                        <button
+                                            type="button"
+                                            class="choice-dialog-option"
+                                            onClick={async () => {
+                                                const result = await trpc.llmConfigs.createFromPreset.mutate({ presetKey: key })
+                                                modal.close()
+                                                onCreated(result.id)
+                                            }}
+                                        >
+                                            <span class="choice-dialog-text">
+                                                <Text><Em semibold>{preset.name}</Em></Text>
+                                            </span>
+                                        </button>
+                                    )}
+                                </For>
+                            </Show>
                         )}
                     </For>
                 </div>
