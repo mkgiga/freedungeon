@@ -14,6 +14,7 @@ import { Em } from './typography/Em'
 import { TextEditor } from './TextEditor'
 import { ImageIcon } from './ImageIcon'
 import { useMediaViewer } from './MediaViewer'
+import { useToast } from './Toast'
 
 function ExpressionImage(props: {
     name: string
@@ -51,6 +52,7 @@ export function ActorEditor(props: {
     onSaved?: (actor: Actor) => void
 }) {
     const mediaViewer = useMediaViewer()
+    const toast = useToast()
 
     const serverActor = () => Object.values(state.assets.actors ?? {}).find(a => a.customId === props.customId)
     const isNew = () => !serverActor()
@@ -77,17 +79,25 @@ export function ActorEditor(props: {
         }
     )
 
+    // Rethrows after reporting: callers that close a modal on success have to
+    // stay open on failure, and the draft is only in memory.
     const save = async () => {
-        const result = await trpc.actors.upsert.mutate({
-            id: isNew() ? undefined : draft.id,
-            name: draft.name,
-            description: draft.description,
-            avatarUrl: draft.avatarUrl,
-            customId: draft.customId,
-            expressions: draft.expressions as Record<string, string>,
-            ...(props.homeChatId !== undefined ? { homeChatId: props.homeChatId } : {}),
-        })
-        props.onSaved?.(result as Actor)
+        try {
+            const result = await trpc.actors.upsert.mutate({
+                id: isNew() ? undefined : draft.id,
+                name: draft.name,
+                description: draft.description,
+                avatarUrl: draft.avatarUrl,
+                customId: draft.customId,
+                expressions: draft.expressions as Record<string, string>,
+                ...(props.homeChatId !== undefined ? { homeChatId: props.homeChatId } : {}),
+            })
+            toast.success(`${draft.name?.trim() || 'Character'} saved`)
+            props.onSaved?.(result as Actor)
+        } catch (e) {
+            toast.error((e as Error).message || 'Could not save this character.')
+            throw e
+        }
     }
 
     const renameExpression = (oldName: string, newName: string) => {

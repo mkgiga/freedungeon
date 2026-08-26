@@ -3,6 +3,7 @@ import { createStore, reconcile } from 'solid-js/store'
 import { MdFillAdd, MdFillWarning } from 'solid-icons/md'
 import { state } from '../state'
 import { trpc } from '../trpc'
+import { useToast } from './Toast'
 import { Text } from './typography/Text'
 import { Heading } from './typography/Heading'
 import { SchemaForm } from './json-ui'
@@ -18,6 +19,8 @@ export function LlmConfigEditor(props: {
     onDelete?: () => void
     onCancel?: () => void
 }) {
+    const toast = useToast()
+
     const serverConfig = () => state.assets.llmConfigs[props.id]
 
     const [draft, setDraft] = createStore(blankConfig())
@@ -49,17 +52,23 @@ export function LlmConfigEditor(props: {
     )
 
     const save = async () => {
-        const result = await trpc.llmConfigs.upsert.mutate({
-            id: draft.id || undefined,
-            name: draft.name,
-            provider: draft.provider,
-            endpoint: draft.endpoint,
-            model: draft.model,
-            apiKey: draft.apiKey,
-            schema: JSON.stringify(draft.schema),
-            values: JSON.stringify(draft.values),
-        })
-        props.onSaved?.(result.id)
+        try {
+            const result = await trpc.llmConfigs.upsert.mutate({
+                id: draft.id || undefined,
+                name: draft.name,
+                provider: draft.provider,
+                endpoint: draft.endpoint,
+                model: draft.model,
+                apiKey: draft.apiKey,
+                schema: JSON.stringify(draft.schema),
+                values: JSON.stringify(draft.values),
+            })
+            toast.success(`${draft.name?.trim() || 'Model'} saved`)
+            props.onSaved?.(result.id)
+        } catch (e) {
+            toast.error((e as Error).message || 'Could not save this model.')
+            throw e
+        }
     }
 
     const addField = () => {

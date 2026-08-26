@@ -16,7 +16,7 @@ export function useResourceEditors() {
             <button class="modal-btn modal-btn-cancel" onClick={() => modal.close()}>Cancel</button>
             <button
                 class="modal-btn modal-btn-confirm"
-                onClick={async () => { await save(); modal.close() }}
+                onClick={async () => { try { await save(); modal.close() } catch { /* reported by the editor */ } }}
             >
                 Save
             </button>

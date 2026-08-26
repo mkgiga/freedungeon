@@ -5,6 +5,7 @@ import emojiKeywords from 'emojilib'
 
 import { state } from '../state'
 import { trpc } from '../trpc'
+import { useToast } from './Toast'
 import { useModal } from './Modal'
 import { Heading } from './typography/Heading'
 import { TextEditor } from './TextEditor'
@@ -31,6 +32,7 @@ export function NoteEditor(props: {
     homeChatId?: string | null
     onSaved?: (id: string) => void
 }) {
+    const toast = useToast()
     const modal = useModal()
 
     const serverNote = () => state.assets.notes[props.noteId]
@@ -57,15 +59,21 @@ export function NoteEditor(props: {
     )
 
     const save = async () => {
-        const result = await trpc.notes.upsert.mutate({
-            id: isNew() ? undefined : draft.id,
-            title: draft.title,
-            type: draft.type,
-            content: draft.content,
-            emoji: draft.emoji,
-            ...(props.homeChatId !== undefined ? { homeChatId: props.homeChatId } : {}),
-        })
-        props.onSaved?.(result.id)
+        try {
+            const result = await trpc.notes.upsert.mutate({
+                id: isNew() ? undefined : draft.id,
+                title: draft.title,
+                type: draft.type,
+                content: draft.content,
+                emoji: draft.emoji,
+                ...(props.homeChatId !== undefined ? { homeChatId: props.homeChatId } : {}),
+            })
+            toast.success(`${draft.title?.trim() || 'Note'} saved`)
+            props.onSaved?.(result.id)
+        } catch (e) {
+            toast.error((e as Error).message || 'Could not save this note.')
+            throw e
+        }
     }
 
     const openEmojiPicker = () => {

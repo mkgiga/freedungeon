@@ -166,7 +166,6 @@ export function useLlmConfigCreate() {
             title: 'New model',
             content: () => (
                 <div class="choice-dialog">
-                    <Text size="sm" class="settings-hint">Start from a preset, or configure one from scratch.</Text>
                     <For each={Object.entries(LLM_PRESETS)}>
                         {([key, preset]) => (
                             <button
@@ -180,7 +179,6 @@ export function useLlmConfigCreate() {
                             >
                                 <span class="choice-dialog-text">
                                     <Text><Em semibold>{preset.name}</Em></Text>
-                                    <Text size="sm" class="settings-hint">{preset.endpoint}</Text>
                                 </span>
                             </button>
                         )}

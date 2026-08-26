@@ -68,6 +68,41 @@ Do not rely on Explore Agents to find and summarize parts of the code. Explore A
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
+---
+
+
+# UI Design Guidelines
+
+These design guidelines aim to deter default AI agent 'slop' visuals and improve user experience in general.
+
+## Brief definition of 'Aesthetic' (noun)
+
+'An aesthetic' or a 'style' is an emergent symptom created by pattern-seeking behaviors of the human mind. Establishing arbitrary constraints on elements' visual attributes is mandatory for a pleasant experience; Typograhic rules for text content, container line & column gaps, a constrained palette, etc...
+
+## Layout guidelines
+
+1. Forbidden: Stacked Cards
+    A bordered container may not have a child at any depth that also renders its own borders. This is by far the biggest sin of modern LLMs - we avoid this at all costs. A card can only render on top of the page background color, never inside another card.
+2. Icons
+    Use an icon library, never Emojis. Some icon libraries will harmonize better with the rest of the interface. Take this simplified example: Pick the round icons for the UI that uses rounded borders, and square/boxy icons for those without rounded borders. Apply this to all visual attributes and you get the idea.
+3. Style reuse
+    Never hardcode magic values. Define CSS variables that you can reuse to prevent drift when things change.
+4. Pressable elements
+    Don't style all interactive elements like rectangular buttons - you can use clickable text labels too.
+5. Smart `display` choices
+    Choose appropriate `display` types depending on the layout - Not everything should to be a flexbox.
+
+## User-facing text content guidelines
+
+1. User-facing text
+    - BREVITY: Verbosity is hell, brevity is heaven. User attention span isn't cheap, and that's why you should cut all padding.
+    - RELEVANCE:
+        1. Does the text content you are about to add need to exist at all? If the UI already shows how to do something - Don't narrate it! Second-guess yourself every time.
+        2. If it does: Explanatory text content must serve a *visitor of the app*  - NOT the developer that prompted you! Leaking context related to your prompt into the UI is a sin punishable by 20 hours in the torture tower.
+    - LANGUAGE: Cut technical details or explainers about internal logic that only serve to confuse visitors. Example Scenario: You are designing a settings menu where every field is succeeded by a tooltip label. You decide to add a new field, and you make its tooltip label something that *briefly states what it is* - **not** system documentation.
+
+---
+
 # Project Overview
 
 This is freedungeon, a roleplaying experience that leverages an LLM as the dungeon master. It is similar to projects like SillyTavern, but with a focus on user experience and multi-character scenarios.
@@ -78,7 +113,7 @@ This is freedungeon, a roleplaying experience that leverages an LLM as the dunge
 - **Actor**: A reusable character card that can be imported into any chat.
 - **Note**: A text string that gets injected into the chat completion system prompt at prompt time. This lets the user provide additional context to the LLM to steer its behavior.
 - **LLM Config**: A set of parameters that govern the behavior of the LLM, such as temperature and max tokens. These are different depending on provider and model and the backend has a system for building UI forms for creating or editing LLM configs using JSON schema. See `client\src\components\json-ui\index.tsx` to learn more about our custom generative UI renderer.
-- **Chat Template**: A chat template is a blueprint of a chat which you can use to create new chats. Under the hood, a chat template is the same db model as regular chats, but marked with the field `isTemplate`, which is used to determine whether they should be rendered in the user's list of chats. <!-- **TODO:** It is currently a boolean value in the db - a nullable foreign key encodes more information so we should use that instead (chats that were created from a template get a `template` field (foreign key) and actual chat templates get to be null which is how we'd infer whether a chat is a template or not (as opposed to a simple boolean value) -->
+- **Scenario**: A scenario is a blueprint of a chat which you can use to create new chats. Under the hood, a scenario is the same data model as regular chats (in the db), but marked with the field `isTemplate`, which is used to determine whether they should be rendered in the user's list of chats. <!-- **TODO:** It is currently a boolean value in the db - a nullable foreign key encodes more information so we should use that instead (chats that were created from a template get a `template` field (foreign key) and actual chat templates get to be null which is how we'd infer whether a chat is a template or not (as opposed to a simple boolean value) -->
 
 ## Architecture
 
@@ -131,5 +166,3 @@ For data models/types, see `server/src/db.ts`.
 - The frontend uses Tailwind CSS for styling.
 - **Important**: Outer Flex menus/Flow containers/Item lists should never, ever provide spacing between its edge and its direct children. This is so that buttons can take up the full height and sit flush against the container's edges. No spacing should exist between buttons inside the flow containers - In contexts where square buttons exist mixed with other content (such as labels) where spacing is desirable between the labels and the buttons - you can group the buttons into a sub-container so that they don't get affected by any `gap` rule.
 - Text is generally rendered using the dedicated Typography components within `client/src/components/typography/*`.
-
-(todo more documentation)
