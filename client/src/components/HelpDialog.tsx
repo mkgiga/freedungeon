@@ -7,11 +7,6 @@ import { useAssetPickers } from './chat/AssetPicker'
 import { Text } from './typography/Text'
 import { DOCS, findDoc, parseDocRef, renderDoc, type DocRef } from '../docs'
 
-/**
- * Schemes that execute if a click ever reaches the browser. The catch-all
- * `preventDefault` at the end of the click handler already stops them, but that
- * protects by falling through - one reordered branch and they are live.
- */
 const BLOCKED_SCHEME = /^\s*(javascript|data|vbscript):/i
 
 const DOC_ACTION_PREFIX = 'app:'
@@ -20,14 +15,7 @@ export function HelpDialog(props: { initial?: DocRef }) {
     const preferences = usePreferences()
     const pickers = useAssetPickers()
 
-    /**
-     * What `[text](app:name)` in a doc may do. The whole segment after the
-     * prefix is the key - nothing is parsed out of it and there are no
-     * arguments, so a link can only ever name one of these.
-     *
-     * Openers only. A doc link that wrote a setting would be a side effect of
-     * reading documentation, with nothing to confirm it and no way back.
-     */
+    /** No arguments by design: the whole segment after `app:` is the key. */
     const docActions: Record<string, () => void> = {
         preferences: () => preferences.open(),
         setPlayerActor: () => pickers.openPlayerCharacter(),
@@ -38,8 +26,7 @@ export function HelpDialog(props: { initial?: DocRef }) {
     const [slug, setSlug] = createSignal<string | null>(
         props.initial ? initial().slug : (viewport() === 'phone' ? null : DOCS[0]?.slug ?? null)
     )
-    // A fresh object per request, so clicking the same anchor twice still
-    // scrolls. Comparing by reference is what makes a repeat click count.
+    // New object each time, so clicking the same anchor twice still scrolls.
     const [anchor, setAnchor] = createSignal<{ target?: string }>({ target: initial().anchor })
 
     const isPhone = () => viewport() === 'phone'
@@ -51,9 +38,8 @@ export function HelpDialog(props: { initial?: DocRef }) {
 
     let contentRef: HTMLDivElement | undefined
 
-    // Nothing is written back to `anchor` here. Clearing it from inside the
-    // effect re-entered on the same tracked read, and the second pass had no
-    // target left, so it reset the scroll it had just done.
+    // Never write `anchor` here - the effect reads it, so it re-enters with no
+    // target and resets the scroll it just did.
     createEffect(() => {
         html()
         const { target } = anchor()
@@ -85,8 +71,7 @@ export function HelpDialog(props: { initial?: DocRef }) {
             return
         }
 
-        // Before the `#` branch: an anchor can never contain `:` (slugify
-        // strips it), so the two can't be confused.
+        // Before the `#` branch; slugify strips `:`, so no anchor looks like this.
         if (href.startsWith(DOC_ACTION_PREFIX)) {
             e.preventDefault()
             const name = href.slice(DOC_ACTION_PREFIX.length)
