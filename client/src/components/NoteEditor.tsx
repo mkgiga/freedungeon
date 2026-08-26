@@ -7,7 +7,6 @@ import { state } from '../state'
 import { trpc } from '../trpc'
 import { useModal } from './Modal'
 import { Heading } from './typography/Heading'
-import { Text } from './typography/Text'
 import { TextEditor } from './TextEditor'
 import { Loader } from './Loader'
 
@@ -22,13 +21,11 @@ const keywordsByEmoji: Record<string, string[]> = (() => {
 
 export type NoteEditorChrome = {
     title: string
-    editing: boolean
     save: () => Promise<void>
 }
 
 export function NoteEditor(props: {
     noteId: string
-    edit: boolean
     chrome?: (ctx: NoteEditorChrome) => JSXElement
     footer?: (ctx: NoteEditorChrome) => JSXElement
     homeChatId?: string | null
@@ -119,14 +116,13 @@ export function NoteEditor(props: {
 
     return (
         <div class="flex flex-col h-full overflow-hidden">
-            {props.chrome?.({ get title() { return draft.title }, editing: props.edit, save })}
+            {props.chrome?.({ get title() { return draft.title }, save })}
 
             <div class="editor-body flex-1 overflow-y-auto p-4">
                 <section class="mb-4 flex items-start gap-3">
                     <button
                         type="button"
                         class="note-emoji-trigger"
-                        disabled={!props.edit}
                         onClick={openEmojiPicker}
                         aria-label="Pick icon"
                     >
@@ -135,31 +131,25 @@ export function NoteEditor(props: {
                         </Show>
                     </button>
                     <div class="min-w-0">
-                        <Show when={props.edit} fallback={<Heading level={1}>{draft.title}</Heading>}>
-                            <Heading level={4} class="mb-1">Title</Heading>
-                            <input
-                                type="text"
-                                value={draft.title}
-                                class="w-full text-xl font-bold bg-transparent rounded p-1 outline-none focus:ring focus:ring-(--primary)"
-                                onInput={(e) => setDraft('title', e.currentTarget.value)}
-                            />
-                        </Show>
+                        <Heading level={4} class="mb-1">Title</Heading>
+                        <input
+                            type="text"
+                            value={draft.title}
+                            class="w-full text-xl font-bold bg-transparent rounded p-1 outline-none focus:ring focus:ring-(--primary)"
+                            onInput={(e) => setDraft('title', e.currentTarget.value)}
+                        />
                     </div>
                 </section>
 
                 <section class="mb-4">
                     <Heading level={4} class="mb-1">Type</Heading>
-                    <Show when={props.edit} fallback={
-                        <Text class="opacity-70">{draft.type || 'No type set'}</Text>
-                    }>
-                        <input
-                            type="text"
-                            value={draft.type}
-                            placeholder="e.g. lore, rules, character"
-                            class="w-full bg-transparent rounded p-1 outline-none focus:ring focus:ring-(--primary)"
-                            onInput={(e) => setDraft('type', e.currentTarget.value)}
-                        />
-                    </Show>
+                    <input
+                        type="text"
+                        value={draft.type}
+                        placeholder="e.g. lore, rules, character"
+                        class="w-full bg-transparent rounded p-1 outline-none focus:ring focus:ring-(--primary)"
+                        onInput={(e) => setDraft('type', e.currentTarget.value)}
+                    />
                 </section>
 
                 <section class="editor-fill mb-6">
@@ -168,12 +158,12 @@ export function NoteEditor(props: {
                         description="Extra context the dungeon master always sees."
                         value={() => draft.content}
                         onInput={(v) => setDraft('content', v)}
-                        readOnly={!props.edit}
+                        readOnly={false}
                     />
                 </section>
             </div>
 
-            {props.footer?.({ get title() { return draft.title }, editing: props.edit, save })}
+            {props.footer?.({ get title() { return draft.title }, save })}
         </div>
     )
 }

@@ -30,7 +30,6 @@ export function useResourceEditors() {
             content: () => (
                 <ActorEditor
                     customId={nanoid(12)}
-                    edit
                     homeChatId={opts.homeChatId}
                     footer={(ctx) => footer(ctx.save)}
                     onSaved={(actor) => opts.onCreated?.(actor)}
@@ -44,7 +43,6 @@ export function useResourceEditors() {
             content: () => (
                 <NoteEditor
                     noteId={nanoid()}
-                    edit
                     homeChatId={opts.homeChatId}
                     footer={(ctx) => footer(ctx.save)}
                     onSaved={(id) => opts.onCreated?.(id)}
@@ -56,7 +54,7 @@ export function useResourceEditors() {
             title: `Edit ${actor.name}`,
             fullscreen: true,
             content: () => (
-                <ActorEditor customId={actor.customId} edit footer={(ctx) => footer(ctx.save)} />
+                <ActorEditor customId={actor.customId} footer={(ctx) => footer(ctx.save)} />
             ),
         }),
 
@@ -64,7 +62,7 @@ export function useResourceEditors() {
             title: `Edit ${note.title}`,
             fullscreen: true,
             content: () => (
-                <NoteEditor noteId={note.id} edit footer={(ctx) => footer(ctx.save)} />
+                <NoteEditor noteId={note.id} footer={(ctx) => footer(ctx.save)} />
             ),
         }),
     }

@@ -19,7 +19,7 @@ function RouteComponent() {
   const modal = useModal()
 
   const createActor = () => {
-    navigate({ to: '/actors/$id', params: { id: nanoid() }, search: { edit: true } })
+    navigate({ to: '/actors/$id', params: { id: nanoid() } })
   }
 
   return (
@@ -36,13 +36,13 @@ function RouteComponent() {
           actors={inLibrary(Object.values(state.assets.actors ?? {}))}
           addNew={{ label: 'New character', onClick: createActor }}
           onActorClick={(actor) => {
-            navigate({ to: '/actors/$id', params: { id: actor.customId }, search: { edit: true } })
+            navigate({ to: '/actors/$id', params: { id: actor.customId } })
           }}
           actions={[
             {
               label: 'Edit',
               callback: (actor) => {
-                navigate({ to: '/actors/$id', params: { id: actor.customId }, search: { edit: true } })
+                navigate({ to: '/actors/$id', params: { id: actor.customId } })
               },
             },
             {

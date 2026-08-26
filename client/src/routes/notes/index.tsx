@@ -18,7 +18,7 @@ function RouteComponent() {
   const modal = useModal()
 
   const createNote = () => {
-    navigate({ to: '/notes/$id', params: { id: 'new' }, search: { edit: true } })
+    navigate({ to: '/notes/$id', params: { id: 'new' } })
   }
 
   return (
@@ -36,13 +36,13 @@ function RouteComponent() {
           addNew={{ label: 'New note', onClick: createNote }}
           showType={false}
           onNoteClick={(note) => {
-            navigate({ to: '/notes/$id', params: { id: note.id }, search: { edit: true } })
+            navigate({ to: '/notes/$id', params: { id: note.id } })
           }}
           actions={[
             {
               label: 'Edit',
               callback: (note) => {
-                navigate({ to: '/notes/$id', params: { id: String(note.id) }, search: { edit: true } })
+                navigate({ to: '/notes/$id', params: { id: String(note.id) } })
               },
             },
             {
