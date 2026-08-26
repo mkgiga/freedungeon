@@ -2,16 +2,45 @@ import { createEffect, createSignal, For, Show, type JSXElement } from 'solid-js
 import { MdFillChevron_left, MdFillChevron_right } from 'solid-icons/md'
 import { viewport } from '../viewport'
 import { useModal } from './Modal'
+import { usePreferences } from './PreferencesDialog'
+import { useAssetPickers } from './chat/AssetPicker'
 import { Text } from './typography/Text'
 import { DOCS, findDoc, parseDocRef, renderDoc, type DocRef } from '../docs'
 
+/**
+ * Schemes that execute if a click ever reaches the browser. The catch-all
+ * `preventDefault` at the end of the click handler already stops them, but that
+ * protects by falling through - one reordered branch and they are live.
+ */
+const BLOCKED_SCHEME = /^\s*(javascript|data|vbscript):/i
+
+const DOC_ACTION_PREFIX = 'app:'
+
 export function HelpDialog(props: { initial?: DocRef }) {
+    const preferences = usePreferences()
+    const pickers = useAssetPickers()
+
+    /**
+     * What `[text](app:name)` in a doc may do. The whole segment after the
+     * prefix is the key - nothing is parsed out of it and there are no
+     * arguments, so a link can only ever name one of these.
+     *
+     * Openers only. A doc link that wrote a setting would be a side effect of
+     * reading documentation, with nothing to confirm it and no way back.
+     */
+    const docActions: Record<string, () => void> = {
+        preferences: () => preferences.open(),
+        setPlayerActor: () => pickers.openPlayerCharacter(),
+    }
+
     const initial = () => parseDocRef(props.initial ?? DOCS[0]?.slug ?? '')
 
     const [slug, setSlug] = createSignal<string | null>(
         props.initial ? initial().slug : (viewport() === 'phone' ? null : DOCS[0]?.slug ?? null)
     )
-    const [anchor, setAnchor] = createSignal<string | undefined>(initial().anchor)
+    // A fresh object per request, so clicking the same anchor twice still
+    // scrolls. Comparing by reference is what makes a repeat click count.
+    const [anchor, setAnchor] = createSignal<{ target?: string }>({ target: initial().anchor })
 
     const isPhone = () => viewport() === 'phone'
     const doc = () => (slug() ? findDoc(slug()!) : undefined)
@@ -22,30 +51,54 @@ export function HelpDialog(props: { initial?: DocRef }) {
 
     let contentRef: HTMLDivElement | undefined
 
+    // Nothing is written back to `anchor` here. Clearing it from inside the
+    // effect re-entered on the same tracked read, and the second pass had no
+    // target left, so it reset the scroll it had just done.
     createEffect(() => {
         html()
-        const target = anchor()
+        const { target } = anchor()
         if (!contentRef) return
         queueMicrotask(() => {
             if (!contentRef) return
-            if (!target) { contentRef.scrollTop = 0; return }
-            const el = contentRef.querySelector(`#${CSS.escape(target)}`)
+            const el = target ? contentRef.querySelector(`#${CSS.escape(target)}`) : null
             if (el) el.scrollIntoView({ block: 'start' })
             else contentRef.scrollTop = 0
-            setAnchor(undefined)
+            if (import.meta.env.DEV && target && !el) {
+                console.warn(`[docs] ${slug()}.md has no heading anchor "#${target}"`)
+            }
         })
     })
 
     const go = (ref: DocRef) => {
         const { slug: next, anchor: hash } = parseDocRef(ref)
         setSlug(next)
-        setAnchor(hash)
+        setAnchor({ target: hash })
     }
 
     const onContentClick = (e: MouseEvent) => {
         const link = (e.target as HTMLElement | null)?.closest('a')
         if (!link) return
         const href = link.getAttribute('href') ?? ''
+
+        if (BLOCKED_SCHEME.test(href)) {
+            e.preventDefault()
+            return
+        }
+
+        // Before the `#` branch: an anchor can never contain `:` (slugify
+        // strips it), so the two can't be confused.
+        if (href.startsWith(DOC_ACTION_PREFIX)) {
+            e.preventDefault()
+            const name = href.slice(DOC_ACTION_PREFIX.length)
+            const run = Object.prototype.hasOwnProperty.call(docActions, name)
+                ? docActions[name]
+                : undefined
+            if (run) run()
+            else if (import.meta.env.DEV) {
+                console.warn(`[docs] no doc action named "${name}"`)
+            }
+            return
+        }
 
         if (href.startsWith('#')) {
             e.preventDefault()

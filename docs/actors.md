@@ -11,6 +11,10 @@ An Actor is a character sheet that describes a character in your adventures. Act
   - [Description](#description)
   - [Expressions](#expressions)
 
+# Player Actor
+
+Decide which actor you want to play by clicking [here](app:setPlayerActor), or by visiting the [preferences](app:preferences)
+
 ## Actor Properties
 
 ### ID
