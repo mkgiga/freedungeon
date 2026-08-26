@@ -35,19 +35,24 @@ export function ChatSidebar() {
             .filter((n): n is Note => Boolean(n)))
     })
 
-    const openActorPicker = () => {
-        modal.open({
-            title: 'Add actors',
-            content: () => <ActorPicker />,
-        })
+    // Actors and notes are part of the system prompt, so changing the set
+    // rewrites the prefix every provider caches on. Measured: the next turn
+    // reprocesses the whole prompt instead of ~5% of it. Only worth mentioning
+    // once a chat has history - there is nothing cached to lose before that.
+    const warnThenOpen = (message: string, open: () => void) => {
+        if (Object.keys(state.currentChat.messages ?? {}).length === 0) { open(); return }
+        modal.confirm({ title: 'Just so you know', message, onConfirm: open })
     }
 
-    const openNotePicker = () => {
-        modal.open({
-            title: 'Add notes',
-            content: () => <NotePicker />,
-        })
-    }
+    const openActorPicker = () => warnThenOpen(
+        'Changing who is in this chat makes the next reply slower. After that it is back to normal.',
+        () => modal.open({ title: 'Add actors', content: () => <ActorPicker /> }),
+    )
+
+    const openNotePicker = () => warnThenOpen(
+        'Changing the notes here makes the next reply slower. After that it is back to normal.',
+        () => modal.open({ title: 'Add notes', content: () => <NotePicker /> }),
+    )
 
     return (
         <div class="chat-sidebar">

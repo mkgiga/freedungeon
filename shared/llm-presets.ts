@@ -131,6 +131,46 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
             },
         ],
     },
+    'deepseek-v4': {
+        name: 'DeepSeek V4',
+        provider: 'deepseek',
+        endpoint: 'https://api.deepseek.com/chat/completions',
+        model: 'deepseek-v4-pro',
+        editable: false,
+        apiKeyLocation: { type: 'header', header: 'Authorization', prefix: 'Bearer ' },
+        schema: [
+            {
+                path: ['temperature'],
+                label: 'Temperature',
+                description: 'Ignored while thinking is enabled.',
+                default: 1,
+                control: { type: 'slider', min: 0, max: 2, step: 0.01 },
+            },
+            { path: ['max_tokens'], label: 'Max Tokens', default: 8192, control: { type: 'number', min: 1 } },
+            { path: ['top_p'], label: 'Top P', default: 1, control: { type: 'slider', min: 0, max: 1, step: 0.01 } },
+            {
+                // Under providerOptions, not the body - the AI SDK provider takes
+                // it as configuration rather than passing it through.
+                //
+                // Off because the agent loop sends tool_choice "required", which
+                // thinking mode rejects outright with a 400. Measured against the
+                // live API: "required" 400s every time while thinking is on, and
+                // falling back to "auto" leaves ~1 turn in 8 with no tool call at
+                // all, which renders as nothing happening.
+                path: ['providerOptions', 'deepseek', 'thinking', 'type'],
+                label: 'Thinking mode',
+                description: 'Off: DeepSeek rejects the forced tool calls this app relies on while thinking is on.',
+                default: 'disabled',
+                control: {
+                    type: 'select',
+                    options: [
+                        { label: 'Disabled', value: 'disabled' },
+                        { label: 'Enabled (turns will fail)', value: 'enabled' },
+                    ],
+                },
+            },
+        ],
+    },
     'openai-compatible': {
         name: 'OpenAI Compatible (Custom)',
         provider: 'custom',

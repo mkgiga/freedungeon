@@ -542,7 +542,7 @@ export async function dispatchPromptToAgent(args: {
 
     const currentLoop: 'claude' | 'ai-sdk' =
         llmConfig.provider === 'anthropic' ? 'claude'
-            : (llmConfig.provider === 'openai' || llmConfig.provider === 'custom') ? 'ai-sdk'
+            : (llmConfig.provider === 'openai' || llmConfig.provider === 'custom' || llmConfig.provider === 'deepseek') ? 'ai-sdk'
                 : (() => { throw new Error(`Provider "${llmConfig.provider}" isn't supported yet — use an Anthropic model or an OpenAI-v1-compatible (openai/custom) endpoint.`); })();
 
     if (currentLoop === 'claude') {

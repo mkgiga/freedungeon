@@ -117,7 +117,7 @@ export type Note = {
 
 export type ChatKind = 'roleplay' | 'collaborator';
 
-export type LLMProvider = 'openai' | 'anthropic' | 'google' | 'custom'
+export type LLMProvider = 'openai' | 'anthropic' | 'google' | 'deepseek' | 'custom'
 
 export type LLMConfig = {
     id: string;

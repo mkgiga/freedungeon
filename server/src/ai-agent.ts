@@ -1,5 +1,6 @@
 import { generateText, hasToolCall, jsonSchema, stepCountIs, tool, type ModelMessage, type Tool } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createDeepSeek } from '@ai-sdk/deepseek'
 import { z } from 'zod'
 import { COMMANDS, commandSchema, type CommandName } from '@shared/game-state/commands'
 import { QUERIES, type QueryName } from '@shared/game-state/queries'
@@ -29,14 +30,40 @@ function normalizeBaseURL(endpoint: string): string {
     return endpoint.replace(/\/+$/, '').replace(/\/chat\/completions$/, '')
 }
 
+/**
+ * `values.providerOptions` is AI SDK configuration, not request body - DeepSeek
+ * takes `thinking` that way rather than as a body field. Everything else is
+ * merged into the body as before.
+ */
+function splitValues(cfg: LLMConfig): {
+    body: Record<string, unknown>
+    providerOptions?: Record<string, Record<string, never>>
+} {
+    const { providerOptions, ...body } = (cfg.values ?? {}) as Record<string, unknown>
+    return {
+        body,
+        providerOptions: providerOptions as Record<string, Record<string, never>> | undefined,
+    }
+}
+
 function buildModel(cfg: LLMConfig) {
+    // Its own provider rather than openai-compatible: V4 keeps thinking on by
+    // default and rejects a tool loop whose assistant messages don't carry
+    // `reasoning_content` back, which this one round-trips.
+    if (cfg.provider === 'deepseek') {
+        return createDeepSeek({
+            baseURL: normalizeBaseURL(cfg.endpoint),
+            apiKey: cfg.apiKey || undefined,
+        })(cfg.model)
+    }
+
     const provider = createOpenAICompatible({
         name: 'openai-compatible',
         baseURL: normalizeBaseURL(cfg.endpoint),
         apiKey: cfg.apiKey || undefined,
         transformRequestBody: (body) => ({
             ...body,
-            ...(cfg.values ?? {}),
+            ...splitValues(cfg).body,
             parallel_tool_calls: false,
         }),
     })
@@ -125,6 +152,9 @@ export async function runAiSdkTurn(args: AiSdkTurnArgs): Promise<{ transcript: M
         system: args.systemPrompt,
         messages,
         tools,
+        ...(splitValues(args.llmConfig).providerOptions
+            ? { providerOptions: splitValues(args.llmConfig).providerOptions! }
+            : {}),
         toolChoice: 'required',
         stopWhen: [hasToolCall('end_turn'), stepCountIs(MAX_STEPS)],
         abortSignal: args.signal,

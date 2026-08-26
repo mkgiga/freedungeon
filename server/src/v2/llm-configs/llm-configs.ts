@@ -47,7 +47,7 @@ export const llmConfigsRouter = router({
         .input(z.object({
             id: z.string().optional(),
             name: z.string().min(1),
-            provider: z.enum(['openai', 'anthropic', 'google', 'custom']),
+            provider: z.enum(['openai', 'anthropic', 'google', 'deepseek', 'custom']),
             endpoint: z.string().min(1),
             model: z.string(),
             apiKey: z.string().optional().default(''),

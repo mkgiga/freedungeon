@@ -68,7 +68,7 @@ async function runTurnInner(args: {
     if (llmConfig.provider === 'anthropic') {
         return runViaClaude(args)
     }
-    if (llmConfig.provider !== 'openai' && llmConfig.provider !== 'custom') {
+    if (llmConfig.provider !== 'openai' && llmConfig.provider !== 'custom' && llmConfig.provider !== 'deepseek') {
         throw new Error(`Provider "${llmConfig.provider}" isn't supported by the scenario collaborator yet.`)
     }
 

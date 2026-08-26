@@ -65,7 +65,7 @@ export function LlmConfigEditor(props: {
     const addField = () => {
         const newField: SchemaField = {
             path: [`param_${draft.schema.length}`],
-            label: 'New Parameter',
+            label: 'New parameter',
             default: '',
             control: { type: 'text' },
         }

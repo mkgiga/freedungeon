@@ -2999,6 +2999,25 @@ button {
   opacity: 0.7;
 }
 
+/* The request-body key, so it reads as data rather than as a caption. */
+.schema-field-key-edit {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: color-mix(in oklch, var(--text), transparent 94%);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  outline: none;
+  padding: 2px 6px;
+  margin-bottom: 4px;
+  align-self: flex-start;
+  min-width: 12ch;
+
+  &:focus {
+    border-color: color-mix(in oklch, var(--primary), transparent 40%);
+  }
+}
+
 .schema-field-label-edit {
   font-size: var(--text-sm);
   font-weight: 500;
