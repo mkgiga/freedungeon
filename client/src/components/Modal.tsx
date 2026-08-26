@@ -2,7 +2,6 @@ import { createSignal, createContext, useContext, For, Show, onMount, onCleanup,
 import { Portal } from 'solid-js/web'
 import { MdFillClose } from 'solid-icons/md'
 import { Heading } from './typography/Heading'
-import { Text } from './typography/Text'
 
 type ModalConfig = {
     title?: string
@@ -16,7 +15,6 @@ type ModalConfig = {
 type ModalAPI = {
     open: (config: ModalConfig) => void
     close: () => void
-    confirm: (opts: { title?: string; message: string; onConfirm: () => void; onCancel?: () => void }) => void
 }
 
 const ModalContext = createContext<ModalAPI>()
@@ -45,22 +43,6 @@ export function ModalProvider(props: { children: JSXElement }) {
             ...config,
         }),
         close,
-        confirm: (opts) => {
-            push({
-                title: opts.title ?? 'Confirm',
-                closeOnOverlay: true,
-                closeOnEscape: true,
-                content: () => (
-                    <div class="modal-confirm">
-                        <Text>{opts.message}</Text>
-                        <div class="modal-confirm-actions">
-                            <button class="modal-btn modal-btn-cancel" onClick={() => { opts.onCancel?.(); close() }}>Cancel</button>
-                            <button class="modal-btn modal-btn-confirm" onClick={() => { opts.onConfirm(); close() }}>Confirm</button>
-                        </div>
-                    </div>
-                ),
-            })
-        },
     }
 
     const handleKeydown = (e: KeyboardEvent) => {
