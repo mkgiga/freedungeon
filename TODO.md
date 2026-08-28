@@ -1,12 +1,6 @@
 ## Q&A Issues
 
-- [x] No image drag and drop exists for image inputs like the actor avatar container or expression image containers.
-- [x] The pluses to create new shit is all the way to the right - which, on desktop becomes the user's peripheral vision. This is a discoverability issue. Let's adopt a new design guideline and render "placeholder" boxes in the first slot that say "Add new [resource name]" or similar - we do this for both card grids and vertical lists. This is top-tier design because the literal first item will always be in the user's direct field of view when the list is rendered for the first time. We'll need a dedicated class for the container style so regardless of where we render it, the aesthetic is consistent.
-- [x] Saving an actor should take you back to the actor list screen instead of just making the page not editable.
-- [x] When the collaborator agent calls tools - they don't reflect in the scenario editor's UI.
-- [x] Inline ID references `<@actor_reference>` do not render appropriately in `speech` and `text` blocks.
-- [x] We need to block prompting until the user has seen the last event in the UI - hide the textbox input too and replace it with a container the user can tap to progress  buffered `speech`/`text` blocks. During testing, a user prompted because they weren't aware there were still unread events (The blinking play icon triangle is not enough to communicate this). Space bar to skip/go to next dialogue on desktop too maybe?
-- [ ] Adding some basic assets to a fresh db would make it easier for users to infer what things are. If there are no examples to inspect, they will spend some time being confused about what a "Note", "Actor" or "Scenario" is.
+empty atm :)
 
 ## IDEAS
 
