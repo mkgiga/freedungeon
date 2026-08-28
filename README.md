@@ -9,7 +9,7 @@ Freedungeon is a roleplaying frontend where AI is the dungeon master. It is insp
     * Mobile & Desktop UI
     * No information overload. It doesn't have to be an airplane dashboard.
 - Support Models:
-    * [x] Local AI Models (Ollama, LMStudio, llama.cpp, etc.)
+    * [x] Local AI Models (Ollama, LMStudio, llama.cpp, etc. (OpenAI-compatible))
     * [x] Claude
     * [ ] Google Gemini
     * [x] ChatGPT
