@@ -13,6 +13,7 @@ Freedungeon is a roleplaying frontend where AI is the dungeon master. It is insp
     * [x] Claude
     * [ ] Google Gemini
     * [x] ChatGPT
+    * [x] Deepseek v4
 - Interactive game state:
     * [x] Character state
         - Actors have their own health, and take damage if the AI calls the `damage(id, value)` tool.
