@@ -1,6 +1,6 @@
 {
   "name": "freedungeon",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": true,
   "//trustedDependencies": "onnxruntime-node's postinstall downloads its native binaries; bun blocks postinstalls by default, so without this a fresh install has no runtime and background removal fails at session creation.",
   "trustedDependencies": [
