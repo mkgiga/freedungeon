@@ -98,15 +98,30 @@ export function ChatInput(props: {
         })
     }
 
-    const blockers = createMemo(() =>
-        turnBlockers(state.dependencies, state.userPreferences.features))
+    const blockers = createMemo(() => turnBlockers(
+        state.dependencies,
+        state.userPreferences.features,
+        state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.provider,
+    ))
 
+    // Says what the file is actually doing. Reporting everything as
+    // "Downloading" made a file that had never started look like a download
+    // stuck at no progress forever.
     const blockedReason = createMemo(() => {
         const list = blockers()
         if (list.length === 0) return null
-        const pct = (d: typeof list[number]) =>
-            d.total && d.received ? ` ${Math.round((d.received / d.total) * 100)}%` : ''
-        return `Downloading ${list.map(d => d.label + pct(d)).join(', ')}`
+        const describe = (d: typeof list[number]) => {
+            const pct = d.total && d.received ? ` ${Math.round((d.received / d.total) * 100)}%` : ''
+            switch (d.status) {
+                case 'downloading': return `downloading ${d.label}${pct}`
+                case 'failed': return `${d.label} failed to download`
+                case 'corrupt': return `${d.label} is damaged and needs re-downloading`
+                case 'unauthenticated': return `${d.label} needs you to sign in`
+                case 'authenticating': return `${d.label} is waiting for sign-in`
+                default: return `${d.label} hasn't been downloaded yet`
+            }
+        }
+        return `Waiting on ${list.map(describe).join(', ')}`
     })
 
     const hasPendingNotice = createMemo(() =>

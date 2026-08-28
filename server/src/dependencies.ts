@@ -374,6 +374,7 @@ export async function refreshDependencies(): Promise<void> {
         mutate(s => { s.dependencies[key] = {
             key, label: meta.label, reason: meta.reason, status, account,
             feature: meta.feature,
+            provider: meta.provider,
             required: isRequiredHere(key),
         } })
     }

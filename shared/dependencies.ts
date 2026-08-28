@@ -41,32 +41,49 @@ export type DependencyState = {
     awaitingCode?: boolean
     account?: string
     feature?: string
+    /** Only wanted while a config of this provider is the active one. */
+    provider?: string
     required: boolean
+}
+
+/**
+ * Whether this machine currently wants a dependency at all.
+ *
+ * A dependency is claimed by a feature or by a provider, and is irrelevant
+ * unless that owner is selected. Anything unclaimed is wanted unconditionally.
+ */
+export function isRelevant(
+    dep: DependencyState,
+    features: Record<string, { enabled: boolean }> | undefined,
+    activeProvider: string | undefined,
+): boolean {
+    if (!dep.required) return false
+    if (dep.provider) return dep.provider === activeProvider
+    if (dep.feature) return features?.[dep.feature]?.enabled === true
+    return true
 }
 
 /**
  * Dependencies that must land before an agent turn may run.
  *
  * Shared: the server refuses prompts with it and the client disables the
- * composer with it, so the two can't disagree. A dependency counts only when
- * this machine needs it AND the feature wanting it is on - so switching the
- * feature off is a valid way out of the wait.
+ * composer with it, so the two can't disagree. Switching off the feature - or
+ * the provider - that wants a file is a valid way out of the wait.
  */
 export function turnBlockers(
     dependencies: Record<string, DependencyState>,
     features: Record<string, { enabled: boolean }> | undefined,
+    activeProvider?: string,
 ): DependencyState[] {
-    return Object.values(dependencies ?? {}).filter((dep) => {
-        if (!dep.required || dep.status === 'satisfied') return false
-        if (!dep.feature) return true
-        return features?.[dep.feature]?.enabled === true
-    })
+    return Object.values(dependencies ?? {}).filter((dep) =>
+        dep.status !== 'satisfied' && isRelevant(dep, features, activeProvider))
 }
 
-export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string; feature?: string }> = {
+export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string; feature?: string; provider?: string }> = {
     claudeCli: {
         label: 'Claude Code',
         reason: 'Anthropic models run through Claude Code, downloaded from Anthropic.',
+        provider: 'anthropic',
     },
     rmbgModel: {
         label: 'RMBG-1.4 weights',

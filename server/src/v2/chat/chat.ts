@@ -9,12 +9,14 @@ import type { Chat } from '@shared/types'
 import { createInitialContext } from '@shared/game-state'
 
 function assertTurnAllowed(): void {
-    const blockers = turnBlockers(state.dependencies, state.userPreferences.features)
+    const activeProvider = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.provider
+    const blockers = turnBlockers(state.dependencies, state.userPreferences.features, activeProvider)
     if (blockers.length === 0) return
     const names = blockers.map(b => b.label).join(', ')
     throw new Error(
-        `Still downloading ${names}. Image generation is on and needs these files, `
-        + `so a turn would fail partway through. Wait for the download, or turn the feature off.`,
+        `${names} ${blockers.length === 1 ? 'is' : 'are'} not ready, and a turn would fail partway `
+        + `through without ${blockers.length === 1 ? 'it' : 'them'}. `
+        + `Finish the download, or switch off whatever needs ${blockers.length === 1 ? 'it' : 'them'}.`,
     )
 }
 

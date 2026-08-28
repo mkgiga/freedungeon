@@ -3,7 +3,7 @@ import { MdFillDownload } from 'solid-icons/md'
 import { Portal } from 'solid-js/web'
 import { state } from '../state'
 import { trpc } from '../trpc'
-import { isBlocking, type DependencyState } from '@shared/dependencies'
+import { isBlocking, isRelevant, type DependencyState } from '@shared/dependencies'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
 import { useModal } from './Modal'
@@ -14,9 +14,14 @@ import { useToast } from './Toast'
  * action that triggered it stays refused either way.
  */
 export function PatcherOverlay() {
-    const blocking = createMemo(() =>
-        Object.values(state.dependencies ?? {}).filter(isBlocking),
-    )
+    // Relevance first: a file no selected feature or provider wants must never
+    // take the screen, however it is doing.
+    const relevant = () => {
+        const activeProvider = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.provider
+        return Object.values(state.dependencies ?? {})
+            .filter(d => isRelevant(d, state.userPreferences.features, activeProvider))
+    }
+    const blocking = createMemo(() => relevant().filter(isBlocking))
 
     const toast = useToast()
     const [minimized, setMinimized] = createSignal(false)
@@ -199,8 +204,12 @@ function mb(bytes: number | undefined): string {
 
 export function useDownloads() {
     const modal = useModal()
-    const blocking = createMemo(() =>
-        Object.values(state.dependencies ?? {}).filter(isBlocking))
+    const blocking = createMemo(() => {
+        const activeProvider = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.provider
+        return Object.values(state.dependencies ?? {})
+            .filter(d => isRelevant(d, state.userPreferences.features, activeProvider))
+            .filter(isBlocking)
+    })
 
     const overall = () => {
         let received = 0, total = 0
