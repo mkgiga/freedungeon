@@ -15,7 +15,6 @@ import { NoteList } from '../notes'
 import { ActorPicker, NotePicker } from '../chat/AssetPicker'
 import { ImagePicker } from '../chat/ImagePicker'
 import { useModal } from '../Modal'
-import { generateName } from '../../utils/names'
 import { createImageDrop, pickImage } from '../../utils/imageUpload'
 import type { Actor, Chat, ImageAsset, Note } from '@shared/types'
 import { viewport } from '../../viewport'
@@ -34,19 +33,6 @@ export function ChatPresetEditor(props: {
     const editors = useResourceEditors()
 
     const serverChat = () => state.assets.chats[props.id]
-    const isNew = () => !serverChat()
-
-    const defaultTitle = () => {
-        if (!isNew()) return ''
-        const existingTitles = Object.values(state.assets.chats)
-            .filter(c => c.isTemplate === props.isTemplate)
-            .map(c => c.title)
-        return generateName({
-            input: props.isTemplate ? 'Template' : 'Chat',
-            prefix: 'New',
-            existingNames: existingTitles,
-        })
-    }
 
     const [draft, setDraft] = createStore<{
         title: string
@@ -56,20 +42,17 @@ export function ChatPresetEditor(props: {
         actors: Set<string>
         notes: Set<string>
         images: string[]
-        isTemplate: boolean
     }>({
-        title: isNew() ? defaultTitle() : serverChat()?.title ?? '',
+        title: serverChat()?.title ?? '',
         avatarUrl: serverChat()?.avatarUrl ?? '',
         bannerUrl: serverChat()?.bannerUrl ?? '',
         description: serverChat()?.description ?? '',
         actors: new Set(serverChat()?.assets.actors ?? []),
         notes: new Set(Object.keys(serverChat()?.assets.notes ?? {})),
         images: [...(serverChat()?.assets.images ?? [])],
-        isTemplate: serverChat()?.isTemplate ?? props.isTemplate,
     })
 
     onMount(() => {
-        if (isNew()) return
         const c = serverChat()
         if (!c) return
         setDraft({
@@ -80,7 +63,6 @@ export function ChatPresetEditor(props: {
             actors: new Set(c.assets.actors),
             notes: new Set(Object.keys(c.assets.notes)),
             images: [...(c.assets.images ?? [])],
-            isTemplate: c.isTemplate,
         })
     })
 
@@ -294,31 +276,18 @@ export function ChatPresetEditor(props: {
     const cancel = () => props.onDone()
 
     const save = async () => {
-        if (isNew()) {
-            await trpc.chat.create.mutate({
+        await trpc.chat.update.mutate({
+            id: props.id,
+            patch: {
                 title: draft.title,
-                isTemplate: draft.isTemplate,
                 avatarUrl: draft.avatarUrl,
                 bannerUrl: draft.bannerUrl,
                 description: draft.description,
                 actors: [...draft.actors],
                 notes: [...draft.notes],
                 images: [...draft.images],
-            })
-        } else {
-            await trpc.chat.update.mutate({
-                id: props.id,
-                patch: {
-                    title: draft.title,
-                    avatarUrl: draft.avatarUrl,
-                    bannerUrl: draft.bannerUrl,
-                    description: draft.description,
-                    actors: [...draft.actors],
-                    notes: [...draft.notes],
-                    images: [...draft.images],
-                },
-            })
-        }
+            },
+        })
         props.onDone()
     }
 

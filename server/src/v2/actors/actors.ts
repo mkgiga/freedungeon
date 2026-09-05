@@ -28,6 +28,9 @@ export const actorsRouter = router({
             homeChatId: z.string().nullish(),
         }))
         .mutation(({ input }) => {
+            if (input.homeChatId && !state.assets.chats[input.homeChatId]) {
+                throw new Error('Target chat not found')
+            }
             const now = Date.now()
 
             if (input.id !== undefined && state.assets.actors[input.id]) {

@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/solid-router'
 import { createMemo, For, Show } from 'solid-js'
-import { nanoid } from 'nanoid'
 import { MdFillAdd, MdFillEdit, MdFillMore_horiz, MdFillPlay_arrow } from 'solid-icons/md'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
@@ -13,6 +12,7 @@ import { Dropdown } from '../../components/Dropdown'
 import { useModal } from '../../components/Modal'
 import { setActiveTab, setChatView } from '../../tab-state'
 import { AddNewCard } from '../../components/AddNew'
+import { generateName } from '../../utils/names'
 import type { Chat } from '@shared/types'
 
 export const Route = createFileRoute('/scenarios/')({ component: RouteComponent })
@@ -33,8 +33,16 @@ function RouteComponent() {
         setActiveTab('chat')
     }
 
-    const create = () => {
-        navigate({ to: '/scenarios/$id', params: { id: nanoid() }, search: { new: true } })
+    const create = async () => {
+        const { id } = await trpc.chat.create.mutate({
+            title: generateName({
+                input: 'Scenario',
+                prefix: 'New',
+                existingNames: scenarios().map(s => s.title),
+            }),
+            isTemplate: true,
+        })
+        navigate({ to: '/scenarios/$id', params: { id }, search: { new: true } })
     }
 
     const edit = (scenario: Chat) =>
