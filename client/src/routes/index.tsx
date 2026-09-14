@@ -27,7 +27,7 @@ function DashboardList(props: { links: DashboardLink[] }) {
         {(link, i) => (
           <button
             type="button"
-            class="flex items-center justify-between px-4 py-3 text-left hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
+            class="press-subtle flex items-center justify-between px-4 py-3 text-left hover:bg-[color-mix(in_oklch,var(--text),transparent_92%)]"
             classList={{ 'border-t border-[color-mix(in_oklch,var(--text),transparent_90%)]': i() > 0 }}
             onClick={link.onClick}
           >

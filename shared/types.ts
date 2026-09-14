@@ -231,6 +231,9 @@ export type UserPreferences = {
         chat?: {
             autoSkip?: boolean;
         };
+        sound?: {
+            enabled?: boolean;
+        };
     };
     [key: string]: any;
 };

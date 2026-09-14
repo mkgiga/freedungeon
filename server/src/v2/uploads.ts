@@ -66,6 +66,51 @@ uploadsRouter.get('/:filename', async (c) => {
     return new Response(file)
 })
 
+/**
+ * Mirrors an already-uploaded image left-to-right and stores the result,
+ * returning the new URL (or null if the argument was not a flippable upload).
+ *
+ * The flip is baked into the pixels rather than recorded as a flag somewhere,
+ * so the mirrored image is just another upload and needs no special handling
+ * from anything that renders it.
+ *
+ * Output is always PNG, whatever went in. Re-encoding a JPEG on every flip
+ * would degrade it a little each time; PNG is lossless, so quality is spent
+ * once, on the first flip, and never again.
+ *
+ * That first flip is also the only one that adds a file. Its output is encoded
+ * by sharp, and flipping sharp's own output reproduces sharp's encoding of the
+ * original pixels exactly — so from then on the two orientations are a stable
+ * pair of hashes and flipping back and forth costs nothing. Note this means
+ * flipping twice does not return the URL you started from unless that file was
+ * already sharp-encoded: the pixels match, the bytes are a re-encode.
+ *
+ * Deliberately does not delete the original: callers rewrite references to it,
+ * and nothing in this app ever removes an upload.
+ */
+export async function flipUpload(url: string): Promise<string | null> {
+    // Only ever reads a plain filename out of the uploads directory. The name
+    // is caller-supplied, so anything carrying a path separator or traversal
+    // is refused outright instead of being joined onto UPLOADS_DIR.
+    const name = url.startsWith('/uploads/') ? url.slice('/uploads/'.length) : null
+    if (!name || !/^[A-Za-z0-9._-]+$/.test(name)) return null
+
+    const filePath = path.join(UPLOADS_DIR, name)
+    if (!fs.existsSync(filePath)) return null
+
+    const input = await Bun.file(filePath).arrayBuffer()
+    if (!await isImage(input)) return null
+
+    // .flop() is the horizontal mirror; sharp's .flip() is the vertical one.
+    const flipped = await sharp(Buffer.from(input)).flop().png().toBuffer()
+
+    const { url: newUrl } = await storeUpload(
+        flipped.buffer.slice(flipped.byteOffset, flipped.byteOffset + flipped.byteLength) as ArrayBuffer,
+        'png',
+    )
+    return newUrl
+}
+
 uploadsRouter.post('/', async (c) => {
     ensureDirs()
 

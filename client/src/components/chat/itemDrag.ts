@@ -1,3 +1,5 @@
+import { playCue } from '../../sfx'
+
 export function startItemDrag(
     down: PointerEvent,
     sourceEl: HTMLElement,
@@ -25,6 +27,7 @@ export function startItemDrag(
         document.body.appendChild(overlay)
         sourceEl.classList.add('drag-source-ghost')
         document.body.classList.add('item-dragging')
+        playCue('pick-up')
     }
 
     const moveOverlay = (e: PointerEvent) => {
@@ -67,7 +70,10 @@ export function startItemDrag(
     const onUp = () => {
         const actorId = hoverTarget?.dataset.dropActor
         cleanup()
-        if (actorId) onDrop(actorId)
+        if (actorId) {
+            playCue('drop')
+            onDrop(actorId)
+        }
     }
 
     window.addEventListener('pointermove', onMove)

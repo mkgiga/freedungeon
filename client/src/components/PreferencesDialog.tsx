@@ -100,6 +100,13 @@ export function PreferencesDialog() {
         },
     })
 
+    const setSound = (checked: boolean) => trpc.preferences.update.mutate({
+        interface: {
+            ...state.userPreferences.interface,
+            sound: { ...state.userPreferences.interface?.sound, enabled: checked },
+        },
+    })
+
     return (
         <div class="prefs-dialog">
             <ShowOn viewport={['tablet', 'wide']}>
@@ -173,6 +180,15 @@ export function PreferencesDialog() {
                             hint="Narration and dialogue play straight through. Timed pauses still run."
                             checked={state.userPreferences.interface?.chat?.autoSkip ?? false}
                             onChange={setAutoSkip}
+                        />
+                    </SettingsGroup>
+
+                    <SettingsGroup title="Sound">
+                        <SettingsToggle
+                            label="Interface sounds"
+                            hint="Short cues when messages arrive and items are moved."
+                            checked={state.userPreferences.interface?.sound?.enabled ?? true}
+                            onChange={setSound}
                         />
                     </SettingsGroup>
                 </Section>

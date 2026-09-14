@@ -4,6 +4,7 @@ import { applyBlockToCtx, runTurn } from '@shared/game-state'
 import { parseBlocks, isBlockingBlock, type Block } from '@shared/blocks'
 import { state } from '../../state'
 import { resolveMentions } from './mentions'
+import { playCue } from '../../sfx'
 
 type PlaybackApi = {
     playingMessageId: () => string | null
@@ -142,6 +143,10 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
             if (!candidate || sortByCreatedAt(m, candidate) < 0) candidate = m
         }
         if (!candidate) return
+        // Only reached for a message that has not been seen before, so opening
+        // an existing chat stays silent — the effect below marks its whole
+        // backlog seen without coming through here.
+        playCue('message')
         markSeen(candidate.id)
         setPlayingMessageId(candidate.id)
         setCursor(0)

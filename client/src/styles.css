@@ -27,6 +27,24 @@
   --text-md: var(--text-base);
   --text-lg: 18px;
   --text-xl: 24px;
+
+  /* Motion. Durations name the three speeds already in use; easings replace
+     the flat `ease` most rules reach for by default.
+
+     --ease-out decelerates hard — right for something arriving and settling.
+     --ease-spring overshoots slightly past its target before coming back,
+     which is what reads as give in a physical control rather than a zoom. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-instant: 90ms;
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+
+  /* How far a control gives under a press. Elements override it: wide bars
+     and rows set it near 1, where scaling the full width reads as the page
+     breathing rather than as a button being pushed. */
+  --press-scale: 0.96;
+  --press-depress: 1px;
 }
 
 [custom-css] {
@@ -179,6 +197,92 @@ button {
   border: none;
   color: inherit;
   cursor: pointer;
+}
+
+/* ── Press feedback ──
+ *
+ * Every control acknowledges a press inside --dur-instant. The two directions
+ * are deliberately asymmetric: down is quick and flat, release is slower and
+ * overshoots, which is what reads as give rather than as a zoom.
+ *
+ * Two implementation notes, both load-bearing:
+ *
+ * `scale` rather than `transform: scale()`. Several controls already use
+ * transform for layout (.chat-jump-to-latest centres itself with
+ * translateX(-50%)); writing transform here would wipe that. The independent
+ * property composes with transform instead of replacing it.
+ *
+ * `:is(...)` rather than a bare tag list. Roughly forty rules set a
+ * `transition` shorthand on a single class (`transition: opacity 150ms`),
+ * and a shorthand resets transition-property wholesale — a plain `button`
+ * selector loses to every one of them and the release would snap rather than
+ * settle. :is() takes the specificity of its most specific argument, so this
+ * sits at (0,2,0) and clears single-class rules honestly, without !important.
+ */
+:is(button, [role='button'], .pressable):not(:disabled) {
+  --hover-scale: 1;
+  transition: scale var(--dur-base) var(--ease-spring);
+}
+
+:is(button, [role='button'], .pressable):not(:disabled):hover {
+  scale: var(--hover-scale);
+}
+
+:is(button, [role='button'], .pressable):not(:disabled):active {
+  scale: var(--press-scale);
+  transition: scale var(--dur-instant) ease-out;
+}
+
+/* Full-bleed rows opt out of scale and depress instead.
+ *
+ * Scale is proportional, and that is exactly what makes it wrong here: the 4%
+ * that reads as a squeeze on a 32px icon button is 67px of travel on a
+ * full-width dashboard row, which looks like the layout collapsing. Lowering
+ * the factor does not fix the class of problem, only its severity, since the
+ * artefact grows with every wider row anyone adds later.
+ *
+ * A fixed depression is width-independent, so it stays correct at any size.
+ * Add .press-subtle to a control that spans its container. */
+.press-subtle,
+.settings-picker,
+.dropdown-item,
+.choice-prompt-option,
+.system-menu-item,
+.rail-dialog-add {
+  --press-scale: 1;
+  transition: translate var(--dur-base) var(--ease-spring);
+}
+
+.press-subtle:not(:disabled):active,
+.settings-picker:not(:disabled):active,
+.dropdown-item:not(:disabled):active,
+.choice-prompt-option:not(:disabled):active,
+.system-menu-item:not(:disabled):active,
+.rail-dialog-add:not(:disabled):active {
+  translate: 0 var(--press-depress);
+  transition: translate var(--dur-instant) ease-out;
+}
+
+/* Reduced motion. Scoped to what this section introduces rather than a blanket
+   `* { transition: none }` — several rules elsewhere carry `visibility` in a
+   transition to stay reachable, and killing those globally would strand them.
+
+   Movement goes, the fade stays. The preference is about vestibular motion;
+   a cross-fade is the recommended substitute for travel, not another casualty,
+   and dropping it here would take the block entrance back to a hard cut. */
+@media (prefers-reduced-motion: reduce) {
+  :is(button, [role='button'], .pressable):not(:disabled) {
+    --hover-scale: 1;
+    --press-scale: 1;
+  }
+
+  .chat-block-future {
+    translate: none;
+  }
+
+  :root {
+    --press-depress: 0px;
+  }
 }
 
 
@@ -2087,11 +2191,18 @@ button {
   white-space: nowrap;
 }
 
+/* Centred with `translate` rather than `transform: translateX(-50%)`, which is
+   not cosmetic. The individual transform properties compose in a fixed order
+   — translate, then scale, then whatever `transform` holds — so a centring
+   offset written into `transform` is applied inside the scaled coordinate
+   system and shrinks along with the press, sliding the button ~4px sideways
+   each time it is held. Written as `translate` it sits outside the scale and
+   the button stays put. */
 .chat-jump-to-latest {
   position: absolute;
   bottom: 120px;
   left: 50%;
-  transform: translateX(-50%);
+  translate: -50% 0;
   padding: 8px 16px;
   border-radius: 999px;
   background: var(--primary);
@@ -2138,6 +2249,11 @@ button {
 /* Block rhythm: consecutive narration blocks read as paragraphs of the same
  * scene (tight), while any change of register — narration to speech, speech
  * to player input, etc. — gets a fuller beat of air. */
+.block-container {
+  transition: opacity var(--dur-base) var(--ease-out),
+              translate var(--dur-base) var(--ease-out);
+}
+
 .block-container + .block-container {
   margin-top: 16px;
 }
@@ -2239,8 +2355,8 @@ button {
   overflow: hidden;
   background: var(--bg-1);
   cursor: pointer;
-  transition: transform 120ms;
-  
+  --hover-scale: 1.04;
+
   /* Override .image-icon styles when used as a chat block avatar */
   & .image-icon {
     width: 100% !important;
@@ -2248,9 +2364,6 @@ button {
   }
 }
 
-.chat-block-avatar:hover:not(:disabled) {
-  transform: scale(1.04);
-}
 
 .chat-block-avatar:disabled {
   cursor: default;
@@ -2484,9 +2597,23 @@ button {
  * but `visibility: hidden` keeps it unpainted while preserving layout —
  * the whole message reserves its final height the moment it arrives, so
  * the typewriter and cursor advances never reflow surrounding content. */
+/* Revealing a block used to be a straight visibility flip — the line was
+ * absent, then abruptly present at full strength. It now rises a few pixels
+ * into place as it fades up.
+ *
+ * Only opacity and translate are touched, and that restriction is the whole
+ * point: neither affects the layout box, so the height reservation described
+ * above survives. Anything that changed height here (a margin or max-height
+ * entrance, say) would reintroduce exactly the reflow this design avoids.
+ *
+ * visibility stays outside the transition. It is a discrete property, so
+ * transitioning it would hold the block hidden for the full duration and then
+ * pop it; flipping it instantly under a fading opacity is invisible anyway. */
 .chat-block-future {
   visibility: hidden;
   pointer-events: none;
+  opacity: 0;
+  translate: 0 8px;
 }
 
 .chat-block-tap-indicator {
@@ -2875,12 +3002,9 @@ button {
   border: 2px solid transparent;
   background: var(--bg-2);
   cursor: pointer;
-  transition: border-color 120ms, transform 120ms;
+  transition: border-color var(--dur-fast) ease;
+  --hover-scale: 1.03;
   flex-shrink: 0;
-}
-
-.expression-picker-item:hover {
-  transform: scale(1.03);
 }
 
 .expression-picker-item.is-active {

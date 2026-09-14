@@ -6,36 +6,36 @@ import { state } from '../state'
 import { trpc } from '../trpc'
 import type { Actor } from '@shared/types'
 import { generateName } from '../utils/names'
-import { createImageDrop, pickImage } from '../utils/imageUpload'
+import { createImageDrop } from '../utils/imageUpload'
 import { Dropdown } from './Dropdown'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
 import { Em } from './typography/Em'
 import { TextEditor } from './TextEditor'
 import { ImageIcon } from './ImageIcon'
-import { useMediaViewer } from './MediaViewer'
+import { EditableImage } from './EditableImage'
 import { useToast } from './Toast'
 
 function ExpressionImage(props: {
     name: string
     url: string
-    onPick: () => void
-    onDrop: (url: string) => void
+    onChange: (url: string) => void
 }) {
-    const drop = createImageDrop((url) => props.onDrop(url), () => true)
+    const drop = createImageDrop((url) => props.onChange(url), () => true)
     return (
-        <button
-            type="button"
-            class="expression-image"
-            classList={{ 'is-drop-target': drop.over() }}
-            title="Change image"
-            onClick={props.onPick}
-            {...drop.handlers}
-        >
-            <Show when={props.url} fallback={<MdFillUpload size={16} class="opacity-40" />}>
-                <img src={props.url} alt={props.name} />
-            </Show>
-        </button>
+        <EditableImage url={props.url} onChange={props.onChange}>
+            <button
+                type="button"
+                class="expression-image"
+                classList={{ 'is-drop-target': drop.over() }}
+                title="Change image"
+                {...drop.handlers}
+            >
+                <Show when={props.url} fallback={<MdFillUpload size={16} class="opacity-40" />}>
+                    <img src={props.url} alt={props.name} />
+                </Show>
+            </button>
+        </EditableImage>
     )
 }
 
@@ -51,7 +51,6 @@ export function ActorEditor(props: {
     homeChatId?: string | null
     onSaved?: (actor: Actor) => void
 }) {
-    const mediaViewer = useMediaViewer()
     const toast = useToast()
 
     const serverActor = () => Object.values(state.assets.actors ?? {}).find(a => a.customId === props.customId)
@@ -118,11 +117,6 @@ export function ActorEditor(props: {
         setDraft('expressions', name, '')
     }
 
-    const setExpressionImage = async (name: string) => {
-        const url = await pickImage()
-        if (url) setDraft('expressions', name, url)
-    }
-
     const avatarDrop = createImageDrop(
         (url) => setDraft('avatarUrl', url),
         () => true,
@@ -134,18 +128,14 @@ export function ActorEditor(props: {
 
             <div class="flex-1 overflow-y-auto overflow-x-hidden p-4">
                 <section class="flex items-start gap-4 mb-6">
+                    <EditableImage
+                        url={draft.avatarUrl}
+                        onChange={(url) => setDraft('avatarUrl', url)}
+                    >
                     <div
                         class="relative block cursor-pointer"
                         classList={{ 'is-drop-target': avatarDrop.over() }}
                         {...avatarDrop.handlers}
-                        onClick={async () => {
-                            if (true) {
-                                const url = await pickImage()
-                                if (url) setDraft('avatarUrl', url)
-                            } else if (draft.avatarUrl) {
-                                mediaViewer.open({ url: draft.avatarUrl, title: draft.name })
-                            }
-                        }}
                     >
                         <ImageIcon
                             url={draft.avatarUrl}
@@ -162,6 +152,7 @@ export function ActorEditor(props: {
                             </div>
                         </Show>
                     </div>
+                    </EditableImage>
                     <div class="flex flex-col gap-1">
                         <input
                             type="text"
@@ -212,8 +203,7 @@ export function ActorEditor(props: {
                                                 <ExpressionImage
                                                     name={name}
                                                     url={url as string}
-                                                    onPick={() => setExpressionImage(name)}
-                                                    onDrop={(u) => setDraft('expressions', name, u)}
+                                                    onChange={(u) => setDraft('expressions', name, u)}
                                                 />
                                             </td>
                                             <td class="py-2">

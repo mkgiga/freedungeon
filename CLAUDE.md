@@ -88,7 +88,7 @@ These design guidelines aim to deter default AI agent 'slop' visuals and improve
 3. Style reuse
     Never hardcode magic values. Define CSS variables that you can reuse to prevent drift when things change.
 4. Pressable elements
-    Don't style all interactive elements like rectangular buttons - you can use clickable text labels too.
+    Don't style all interactive elements like rectangular buttons - you can use clickable text labels too; in this situation, don't change the background color on `:hover` because that would render a rectangular fill around the text.
 5. Smart `display` choices
     Choose appropriate `display` types depending on the layout - Not everything should to be a flexbox.
 
@@ -161,7 +161,7 @@ For data models/types, see `server/src/db.ts`.
 
 (todo documentation, refer to code for now)
 
-### Frontend Styling
+### Project-specific Frontend Styling
 
 - The frontend uses Tailwind CSS for styling.
 - **Important**: Outer Flex menus/Flow containers/Item lists should never, ever provide spacing between its edge and its direct children. This is so that buttons can take up the full height and sit flush against the container's edges. No spacing should exist between buttons inside the flow containers - In contexts where square buttons exist mixed with other content (such as labels) where spacing is desirable between the labels and the buttons - you can group the buttons into a sub-container so that they don't get affected by any `gap` rule.
