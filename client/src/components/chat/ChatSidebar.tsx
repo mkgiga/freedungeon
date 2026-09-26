@@ -1,3 +1,4 @@
+import { ExtensionSlot } from '../../extensions/ExtensionSlot'
 import { createMemo } from 'solid-js'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
@@ -99,6 +100,8 @@ export function ChatSidebar() {
                     />
                 </div>
             </section>
+
+            <ExtensionSlot name="chat.sidebar" class="chat-sidebar-extension" />
         </div>
     )
 }

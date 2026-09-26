@@ -1,6 +1,7 @@
 
-import { state } from './server'
-import { resolveFeatureConfig, featureEnabled, type ImageGenConfig } from '@shared/features'
+import { isExtensionActive } from './extensions/registry'
+import { extensionValues } from './extensions/host'
+import type { ImageGenConfig } from './extensions/builtin/image-generation'
 import { parseMacros, withItemDescription, withImagePrompt } from './macro'
 import { generateImage, getTaskProgress } from './img-gen'
 import { storeUpload } from './v2/uploads'
@@ -9,10 +10,16 @@ import { nanoid } from 'nanoid'
 import { removeBackground } from './bg-removal'
 import { log } from './logger'
 
+const IMAGE_GENERATION_ID = 'core.imageGeneration'
+
+/**
+ * Null unless `core.imageGeneration` is actually running - an extension that
+ * is switched on but whose model files failed to arrive has no config, so
+ * every caller here is gated on the same one condition.
+ */
 export function imageGenConfig(): ImageGenConfig | null {
-    if (!featureEnabled(state.userPreferences, 'imageGen')) return null
-    const cfg = resolveFeatureConfig('imageGen', state.userPreferences.features?.['imageGen'])
-    return cfg.values as ImageGenConfig
+    if (!isExtensionActive(IMAGE_GENERATION_ID)) return null
+    return extensionValues(IMAGE_GENERATION_ID) as unknown as ImageGenConfig
 }
 
 export function itemIconsEnabled(): boolean {

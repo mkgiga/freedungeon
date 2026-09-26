@@ -1,8 +1,9 @@
 {
   "id": "com.example.dice-roller",
   "name": "Dice Roller",
-  "version": "1.0.0",
-  "description": "Example extension. Rolls a d20 on activation and remembers every roll.",
+  "version": "2.0.0",
+  "description": "Example extension. Puts a die in the chat HUD and remembers every roll.",
   "author": "freedungeon",
-  "main": "src/index.ts"
+  "main": "src/index.ts",
+  "content": "src/content.ts"
 }

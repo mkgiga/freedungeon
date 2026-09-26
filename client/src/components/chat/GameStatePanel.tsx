@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, untrack } from 'solid-js'
+import { ExtensionSlot } from '../../extensions/ExtensionSlot'
 import autoAnimate from '@formkit/auto-animate'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
@@ -235,6 +236,8 @@ export function GameStatePanel() {
                     }}
                 </For>
             </div>
+
+            <ExtensionSlot name="chat.hud" class="chat-hud-extension" />
         </>
     )
 

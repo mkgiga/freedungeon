@@ -10,7 +10,7 @@ import { createInitialContext } from '@shared/game-state'
 
 function assertTurnAllowed(): void {
     const activeProvider = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.provider
-    const blockers = turnBlockers(state.dependencies, state.userPreferences.features, activeProvider)
+    const blockers = turnBlockers(state.dependencies, state.userPreferences.extensions, activeProvider)
     if (blockers.length === 0) return
     const names = blockers.map(b => b.label).join(', ')
     throw new Error(

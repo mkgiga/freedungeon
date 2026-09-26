@@ -3,23 +3,57 @@ import type { FreedungeonHost } from './freedungeon'
 
 export default {
     activate(fd: FreedungeonHost) {
-        const value = roll(20)
+        fd.settings.define([
+            {
+                path: ['sides'],
+                label: 'Die',
+                description: 'How many sides the button rolls.',
+                default: 20,
+                control: {
+                    type: 'select',
+                    options: [
+                        { label: 'd6', value: 6 },
+                        { label: 'd20', value: 20 },
+                        { label: 'd100', value: 100 },
+                    ],
+                },
+            },
+            {
+                path: ['tellTheDungeonMaster'],
+                label: 'Tell the dungeon master',
+                description: 'Rolls are mentioned to the narrator on the next turn.',
+                default: true,
+                control: { type: 'toggle' },
+            },
+        ])
 
-        fd.state.update((d) => {
-            d.rolls = ((d.rolls as number) ?? 0) + 1
-            d.last = value
-            d.history = [...(((d.history as number[]) ?? [])), value].slice(-10)
+        // Answers the button in the chat HUD. See content.ts.
+        fd.onCall('roll', () => {
+            const sides = fd.settings.get('sides', 20)
+            const value = roll(sides)
+
+            fd.state.update((d) => {
+                d.rolls = ((d.rolls as number) ?? 0) + 1
+                d.last = value
+                d.history = [...((d.history as number[]) ?? []), value].slice(-10)
+            })
+
+            fd.chat.post([{ type: 'text', text: `🎲 d${sides} → ${value}` }])
+
+            if (fd.settings.get('tellTheDungeonMaster', true)) {
+                fd.chat.systemNotice(`The player rolled a d${sides} and got ${value}.`)
+            }
+
+            return { sides, value, total: fd.state.values.rolls }
         })
 
-        const total = fd.state.values.rolls
-        fd.log(`rolled a ${value} (roll #${total})`)
-        fd.notify({
-            title: 'Dice Roller',
-            message: `Rolled a ${value}. That is roll #${total} since installing.`,
-        })
+        // Rolls belong to the story they happened in, so a new one starts clean.
+        fd.on('chat.loaded', () => fd.state.set('last', null))
+
+        fd.log(`ready (${fd.state.values.rolls ?? 0} rolls so far)`)
     },
 
     deactivate() {
-        // Optional. Runs after the disposers above.
+        // Optional. Runs after everything registered above is unwound.
     },
 }

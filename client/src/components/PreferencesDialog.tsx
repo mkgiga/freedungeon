@@ -8,33 +8,22 @@ import { useLlmConfigs } from './LlmConfigsDialog'
 import { ImageIcon } from './ImageIcon'
 import { Heading } from './typography/Heading'
 import { Text } from './typography/Text'
-import { SchemaForm } from './json-ui'
 import { SettingsField, SettingsGroup, SettingsToggle } from './settings'
 import { KeybindEditor } from './KeybindEditor'
 import { ExtensionsList } from './ExtensionsList'
 import { viewport } from '../viewport'
-import { FEATURES, resolveFeatureConfig, type FeatureKey } from '@shared/features'
-import { useImageGenConsent } from './ImageGenConsent'
 import { installAvailable, isStandalone, triggerInstall } from '../pwa-install'
 import { ShowOn } from './ShowOn'
 
-type SectionId = 'general' | 'interface' | 'keybinds' | 'features' | 'extensions' | 'install'
+type SectionId = 'general' | 'interface' | 'keybinds' | 'extensions' | 'install'
 
 export function PreferencesDialog() {
     const pickers = useAssetPickers()
     const configs = useLlmConfigs()
-    const confirmImageGen = useImageGenConsent()
-
-    const setFeatureEnabled = async (key: FeatureKey, enabled: boolean) => {
-        if (key === 'imageGen' && enabled && !(await confirmImageGen())) return
-        await trpc.preferences.setFeature.mutate({ key, enabled })
-    }
-
     const sections = (): { id: SectionId; label: string }[] => [
         { id: 'general', label: 'General' },
         { id: 'interface', label: 'Interface' },
         ...(viewport() === 'phone' ? [] : [{ id: 'keybinds' as const, label: 'Keybinds' }]),
-        { id: 'features', label: 'Features' },
         { id: 'extensions', label: 'Extensions' },
         ...(isStandalone() ? [] : [{ id: 'install' as const, label: 'Install' }]),
     ]
@@ -203,35 +192,6 @@ export function PreferencesDialog() {
                         </SettingsGroup>
                     </Section>
                 </Show>
-
-                <Section id="features" label="Features">
-                    <SettingsGroup>
-                        <For each={Object.values(FEATURES)}>
-                            {(spec) => {
-                                const cfg = () => resolveFeatureConfig(spec.key as FeatureKey, state.userPreferences.features?.[spec.key])
-                                return (
-                                    <div class="settings-feature">
-                                        <SettingsToggle
-                                            label={spec.name}
-                                            hint={spec.description}
-                                            checked={cfg().enabled}
-                                            onChange={(enabled) => setFeatureEnabled(spec.key as FeatureKey, enabled)}
-                                        />
-                                        <Show when={cfg().enabled}>
-                                            <div class="settings-feature-body">
-                                                <SchemaForm
-                                                    fields={spec.schema}
-                                                    values={cfg().values}
-                                                    onChange={(values) => trpc.preferences.setFeature.mutate({ key: spec.key, values })}
-                                                />
-                                            </div>
-                                        </Show>
-                                    </div>
-                                )
-                            }}
-                        </For>
-                    </SettingsGroup>
-                </Section>
 
                 <Section id="extensions" label="Extensions">
                     <SettingsGroup>

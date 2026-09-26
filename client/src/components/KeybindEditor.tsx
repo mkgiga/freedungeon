@@ -4,13 +4,13 @@ import { state } from '../state'
 import { trpc } from '../trpc'
 import { Text } from './typography/Text'
 import { ACTIONS, conflictsFor, keybindFromEvent, resolveKeybind } from '@shared/actions'
-import { featureEnabled, type FeatureKey } from '@shared/features'
+import { extensionEnabled } from '@shared/extensions'
 
 export function KeybindEditor() {
     const [capturing, setCapturing] = createSignal<string | null>(null)
 
     const visible = () => Object.values(ACTIONS).filter(
-        a => !a.feature || featureEnabled(state.userPreferences, a.feature as FeatureKey),
+        a => !a.extension || extensionEnabled(state.userPreferences, a.extension),
     )
 
     const bindingOf = (id: string) => resolveKeybind(id, state.userPreferences.keybinds)

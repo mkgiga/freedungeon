@@ -8,8 +8,8 @@ import { applyBlockToCtx } from '@shared/game-state';
 import { parseBlocks, serializeBlocks } from '@shared/blocks';
 import { mutate, state } from './server';
 import { db } from './db';
-import { parseMacros, MULTICHOICE_PROMPT_INSTRUCTIONS } from './macro';
-import { featureEnabled } from '@shared/features';
+import { parseMacros } from './macro';
+import { emit, isExtensionActive, promptSections } from './extensions/registry';
 import { visible } from '@shared/visibility';
 import { queueItemIcon, itemIconsEnabled, generateSceneImage, sceneImagesEnabled, type ImageAspect } from './item-icons';
 import { runTurn, setCurrentTurnResult } from './game-state';
@@ -249,6 +249,14 @@ export async function execCommand(
         queueItemIcon(block.label, prompt, key, (url) => attachItemIcon(chatId, messageId, key, url));
     }
 
+    emit('command.executed', {
+        chatId,
+        command,
+        args: parsed.data as Record<string, unknown>,
+        messageId,
+        gameState: state.currentChat.gameState,
+    });
+
     return {
         ok: true,
         messageId,
@@ -361,6 +369,7 @@ function handleAnnounce(req: AnnouncementRequest) {
         if (state.currentChat.id === req.chatId) {
             void writeFlagsSnapshot(req.chatId, state.currentChat.gameState.flags);
         }
+        emit('turn.end', { chatId: req.chatId });
     }
     return { ok: true };
 }
@@ -517,6 +526,11 @@ export async function dispatchPromptToAgent(args: {
     if (!llmConfig) throw new Error('No model selected — choose one in Preferences first.');
 
     mutate(s => { s.isGenerating = true });
+    emit('turn.start', {
+        chatId: args.chatId,
+        userMessageId: args.userMessageId,
+        userContent: args.userContent,
+    });
 
     const turnResult = runTurn(Object.values(state.currentChat.messages));
     mutate(s => { s.currentChat.gameState = turnResult.ctx });
@@ -532,9 +546,13 @@ export async function dispatchPromptToAgent(args: {
         setCurrentTurnResult(null);
     }
 
-    const enableChoicePrompts = featureEnabled(state.userPreferences, 'choicePrompts');
-    if (enableChoicePrompts && !macroFeatures['MULTICHOICE_PROMPT_INSTRUCTIONS']) {
-        expandedSystemPrompt += `\n\n${MULTICHOICE_PROMPT_INSTRUCTIONS}`;
+    const enableChoicePrompts = isExtensionActive('core.choicePrompts');
+
+    // A template that never names the macro still gets what extensions
+    // contributed, so switching one on works whatever prompt is in use.
+    if (!macroFeatures['EXTENSION_PROMPT_SECTIONS']) {
+        const sections = promptSections();
+        if (sections.length > 0) expandedSystemPrompt += `\n\n${sections.join('\n\n')}`;
     }
 
     const enableSceneImages = sceneImagesEnabled();
@@ -669,6 +687,9 @@ export async function dispatchPromptToAgent(args: {
             enableItemIcons,
         });
         log.server.info(`AI SDK turn complete for chat ${args.chatId}`);
+        // The Claude loop announces its own end over RPC; this one has no
+        // announcement channel, so the hook fires where the turn actually ends.
+        emit('turn.end', { chatId: args.chatId });
     }
 
     await db.updateTable('chats').set({ last_agent_loop: currentLoop }).where('id', '=', args.chatId).execute();

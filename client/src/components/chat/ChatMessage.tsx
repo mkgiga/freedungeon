@@ -25,7 +25,7 @@ import { SetLocationBlock } from './blocks/SetLocationBlock'
 import { ChoicePromptBlock } from './blocks/ChoicePromptBlock'
 import { ChoiceBlock } from './blocks/ChoiceBlock'
 import { latestMessageId } from './latest'
-import { featureEnabled } from '@shared/features'
+import { extensionEnabled } from '@shared/extensions'
 import { state } from '../../state'
 import { usePlayback } from './playback'
 import { useRehydrationConfirm } from './rehydration'
@@ -70,7 +70,7 @@ export function ChatMessage(props: {
     const isPlaying = () => props.message.id === playback.playingMessageId()
 
     const isLatest = () => latestMessageId() === props.message.id
-    const choiceEnabled = () => featureEnabled(state.userPreferences, 'choicePrompts')
+    const choiceEnabled = () => extensionEnabled(state.userPreferences, 'core.choicePrompts')
     const chosenIndex = () => props.message.metadata?.chosenIndex as number | undefined
 
     const isVisible = () =>

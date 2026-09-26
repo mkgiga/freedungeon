@@ -12,6 +12,7 @@ import { NAV_ITEMS } from './nav-items'
 import { useAction } from '../actions'
 import { Text } from './typography/Text'
 import { useSystemMenu } from './SystemMenu'
+import { ExtensionSlot } from '../extensions/ExtensionSlot'
 
 /**
  * On tablet the label leaves the DOM rather than being hidden with CSS, so
@@ -90,6 +91,7 @@ export function LeftNav() {
                     </button>
                 )}
             </For>
+            <ExtensionSlot name="app.leftNav" />
             <button
                 type="button"
                 class="left-nav-preferences"

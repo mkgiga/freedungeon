@@ -1,5 +1,5 @@
 import type { DependencyKey, DependencyState } from './dependencies'
-import type { ExtensionInfo } from './extensions'
+import type { ExtensionConfig, ExtensionInfo } from './extensions'
 
 export type AppState = {
     assets: {
@@ -217,16 +217,14 @@ export type UserChatMessage = ChatMessage & {
 export type UserPreferences = {
     activeLLMConfigId: string | null;
     playerCharacterId: string | null;
-    enableChoicePrompts?: boolean;
     debug?: boolean;
     onboardingCompletedAt?: number | null;
     notificationsSeenAt?: number;
-    features?: Record<string, { enabled: boolean; values: Record<string, unknown> }>;
     scenarioAgent?: {
         systemPrompt?: string;
     };
     keybinds?: Record<string, string | null>;
-    extensions?: Record<string, { enabled: boolean }>;
+    extensions?: Record<string, ExtensionConfig>;
     interface?: {
         chat?: {
             autoSkip?: boolean;

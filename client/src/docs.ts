@@ -6,7 +6,7 @@ const RAW = import.meta.glob('../../docs/*.md', {
     eager: true,
 }) as Record<string, string>
 
-const ORDER = ['install', 'chats', 'actors', 'notes', 'macros', 'configuration']
+const ORDER = ['install', 'chats', 'actors', 'notes', 'macros', 'extensions', 'configuration']
 
 export type Doc = {
     slug: string

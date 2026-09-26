@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { runTurn, createInitialContext } from "./game-state";
 import { dispatchPromptToAgent, forkAgentSession, forkAgentSessionForChat, invalidateAgentSession, resetFlagsSnapshotToCurrent } from "./agent";
 import { ActionableError, notification } from "./notifications";
+import { emit } from "./extensions/registry";
 export const MAX_VISIBLE_MESSAGES = 20;
 export const chatLogger = new ComfyLogger({ name: 'chat' });
 
@@ -33,6 +34,7 @@ export class CurrentChat {
             mutate(s => { s.currentChat = loadedChat });
             const refreshed = runTurn(Object.values(loadedChat.messages));
             mutate(s => { s.currentChat.gameState = refreshed.ctx });
+            emit('chat.loaded', { chatId: id });
         } else {
             logChat(`Failed to load chat with id ${id}`);
             throw new Error(`Failed to load chat with id ${id}`);
@@ -57,6 +59,7 @@ export class CurrentChat {
         }
 
         mutate(s => { s.currentChat = newChat });
+        emit('chat.created', { chatId: newChat.id! });
     }
 
     static getMessage(id: string) {
@@ -75,7 +78,8 @@ export class CurrentChat {
             throw new Error(`currentChat has no id. Value: ${JSON.stringify(currentChat)}`);
         }
 
-        if (currentChat.messages[message.id]) {
+        const existed = currentChat.messages[message.id] !== undefined;
+        if (existed) {
             mutate(s => { s.currentChat.messages[message.id] = {
                 ...currentChat.messages[message.id],
                 ...message,
@@ -84,7 +88,12 @@ export class CurrentChat {
             mutate(s => { s.currentChat.messages[message.id] = message });
         }
 
-        return currentChat.messages[message.id];
+        const saved = currentChat.messages[message.id]!;
+        emit(existed ? 'message.updated' : 'message.created', {
+            chatId: currentChat.id,
+            message: saved,
+        });
+        return saved;
     }
 
     static deleteMessage(messageId: string) {
@@ -96,6 +105,7 @@ export class CurrentChat {
         if (!currentChat.messages[messageId]) return;
 
         mutate(s => { delete s.currentChat.messages[messageId] });
+        emit('message.deleted', { chatId: currentChat.id, messageId });
     }
 
     private static async generateResponse(userMessageId: string, userContent: string) {

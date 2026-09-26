@@ -15,6 +15,8 @@ import { LeftNav } from './components/LeftNav'
 import { ShowOn } from './components/ShowOn'
 import { activeTab, setActiveTab, chatView, type Tab } from './tab-state'
 import { guardStrayImageDrops } from './utils/imageUpload'
+import { mountExtensionHost } from './extensions/host'
+import { ExtensionSlot } from './extensions/ExtensionSlot'
 
 const TAB_INITIAL: Record<Tab, string> = {
     home: '/',
@@ -44,6 +46,8 @@ const TABS: Tab[] = ['home', 'scenarios', 'actors', 'chat', 'notes']
 guardStrayImageDrops()
 
 export function App() {
+    mountExtensionHost()
+
     const routers: Record<Tab, ReturnType<typeof makeTabRouter>> = {
         home: makeTabRouter('home'),
         scenarios: makeTabRouter('scenarios'),
@@ -81,6 +85,7 @@ export function App() {
                             </ShowOn>
                             <OnboardingOverlay />
                             <PatcherOverlay />
+                            <ExtensionSlot name="app.overlay" />
                           </TooltipProvider>
                          </ActionsProvider>
                         </ToastProvider>

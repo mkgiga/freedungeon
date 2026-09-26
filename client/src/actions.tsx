@@ -2,7 +2,7 @@ import { createContext, onCleanup, onMount, useContext, type JSXElement } from '
 import { state } from './state'
 import { viewport } from './viewport'
 import { ACTIONS, matchesKeybind, resolveKeybind, type ActionId } from '@shared/actions'
-import { featureEnabled, type FeatureKey } from '@shared/features'
+import { extensionEnabled } from '@shared/extensions'
 
 type Handler = () => void
 
@@ -40,7 +40,7 @@ export function useAction(id: ActionId, handler: Handler, options?: ActionOption
 function actionAvailable(id: string): boolean {
     const spec = ACTIONS[id]
     if (!spec) return false
-    if (spec.feature && !featureEnabled(state.userPreferences, spec.feature as FeatureKey)) return false
+    if (spec.extension && !extensionEnabled(state.userPreferences, spec.extension)) return false
     if (spec.canExecute && !spec.canExecute({ state })) return false
     return true
 }

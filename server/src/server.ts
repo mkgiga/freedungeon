@@ -29,8 +29,8 @@ import { getEmbeddedClientFiles } from './embedded';
 import { refreshDependencies } from './dependencies';
 import { applyDeleteCascades } from './cascade';
 import { extensionUploadRouter } from './v2/extensions/upload';
-import { loadExtensions } from './extensions/host';
-import { FEATURES, resolveFeatureState, type FeatureKey } from '@shared/features';
+import { loadExtensions, shutdownExtensions } from './extensions/host';
+import { emit as emitExtensionEvent } from './extensions/registry';
 import { ensureCert } from './tls';
 import { createServer as createHttpsServer } from 'node:https';
 
@@ -75,9 +75,8 @@ export const [state, _setState] = createStore({
         theme: "system",
         playerCharacterId: null,
         activeLLMConfigId: null,
-        enableChoicePrompts: false,
         debug: false,
-        features: {},
+        extensions: {},
     }
 } as AppState);
 
@@ -176,13 +175,13 @@ export function deleteState(...path: string[]) {
     io.emit('delete', { path: parentPath, key });
 }
 
+/**
+ * Restored verbatim. An extension owns the shape of its own bag, so nothing
+ * here knows what belongs in one - defaults are the extension's business, and
+ * it applies them itself when it reads.
+ */
 function seedExtensionState(stored: Record<string, Record<string, unknown>>) {
-    const keys = new Set([...Object.keys(FEATURES), ...Object.keys(stored ?? {})]);
-    for (const key of keys) {
-        const declared = FEATURES[key]?.state
-        const values = declared
-            ? resolveFeatureState(key as FeatureKey, stored?.[key])
-            : (stored?.[key] ?? {})
+    for (const [key, values] of Object.entries(stored ?? {})) {
         setState('extensionState', key, values);
     }
 }
@@ -205,6 +204,7 @@ function start() {
         await initWebSocket();
         await listen();
         spawnAgentProcess();
+        emitExtensionEvent('app.ready', {});
     })();
 }
 
@@ -373,6 +373,9 @@ async function initProcessHandlers() {
         for (const socket of activeSockets) {
             socket.disconnect(true)
         }
+
+        emitExtensionEvent('app.shutdown', {})
+        void shutdownExtensions()
 
         checkpointWal()
         killAgentProcess()

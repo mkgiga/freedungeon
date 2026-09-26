@@ -40,7 +40,8 @@ export type DependencyState = {
     authUrl?: string
     awaitingCode?: boolean
     account?: string
-    feature?: string
+    /** Only wanted while the extension that claims it is switched on. */
+    extension?: string
     /** Only wanted while a config of this provider is the active one. */
     provider?: string
     required: boolean
@@ -49,17 +50,17 @@ export type DependencyState = {
 /**
  * Whether this machine currently wants a dependency at all.
  *
- * A dependency is claimed by a feature or by a provider, and is irrelevant
+ * A dependency is claimed by an extension or by a provider, and is irrelevant
  * unless that owner is selected. Anything unclaimed is wanted unconditionally.
  */
 export function isRelevant(
     dep: DependencyState,
-    features: Record<string, { enabled: boolean }> | undefined,
+    extensions: Record<string, { enabled: boolean }> | undefined,
     activeProvider: string | undefined,
 ): boolean {
     if (!dep.required) return false
     if (dep.provider) return dep.provider === activeProvider
-    if (dep.feature) return features?.[dep.feature]?.enabled === true
+    if (dep.extension) return extensions?.[dep.extension]?.enabled === true
     return true
 }
 
@@ -67,19 +68,19 @@ export function isRelevant(
  * Dependencies that must land before an agent turn may run.
  *
  * Shared: the server refuses prompts with it and the client disables the
- * composer with it, so the two can't disagree. Switching off the feature - or
- * the provider - that wants a file is a valid way out of the wait.
+ * composer with it, so the two can't disagree. Switching off the extension -
+ * or the provider - that wants a file is a valid way out of the wait.
  */
 export function turnBlockers(
     dependencies: Record<string, DependencyState>,
-    features: Record<string, { enabled: boolean }> | undefined,
+    extensions: Record<string, { enabled: boolean }> | undefined,
     activeProvider?: string,
 ): DependencyState[] {
     return Object.values(dependencies ?? {}).filter((dep) =>
-        dep.status !== 'satisfied' && isRelevant(dep, features, activeProvider))
+        dep.status !== 'satisfied' && isRelevant(dep, extensions, activeProvider))
 }
 
-export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string; feature?: string; provider?: string }> = {
+export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string; extension?: string; provider?: string }> = {
     claudeCli: {
         label: 'Claude Code',
         reason: 'Anthropic models run through Claude Code, downloaded from Anthropic.',
@@ -88,38 +89,38 @@ export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string
     rmbgModel: {
         label: 'RMBG-1.4 weights',
         reason: 'Runs locally to cut backgrounds out of item icons.',
-        feature: 'imageGen',
+        extension: 'core.imageGeneration',
     },
     sdServer: {
         label: 'Image generator',
         reason: 'stable-diffusion.cpp runs the image model on your own machine.',
-        feature: 'imageGen',
+        extension: 'core.imageGeneration',
     },
     sdCudaRuntime: {
         label: 'CUDA runtime',
         reason: 'NVIDIA GPU acceleration for the image generator.',
-        feature: 'imageGen',
+        extension: 'core.imageGeneration',
     },
     sdDiffusionModel: {
         label: 'Anima weights',
         reason: 'The model that draws the picture.',
-        feature: 'imageGen',
+        extension: 'core.imageGeneration',
     },
     sdVae: {
         label: 'Anima VAE',
         reason: 'Turns what the model produces into a viewable image.',
-        feature: 'imageGen',
+        extension: 'core.imageGeneration',
     },
     sdTextEncoder: {
         label: 'Qwen3 text encoder',
         reason: 'Reads your prompt for the image model.',
-        feature: 'imageGen',
+        extension: 'core.imageGeneration',
     },
 }
 
 /**
  * Only ever describes dependencies that are NOT already satisfied - an empty
- * plan means the feature is ready and nothing needs asking.
+ * plan means the extension is ready and nothing needs asking.
  */
 export type DependencyPlanItem = {
     key: DependencyKey

@@ -8,7 +8,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     playerCharacterId: null,
     theme: 'system',
     debug: false,
-    features: {},
+    extensions: {},
 }
 
 export function loadPreferences(): UserPreferences {

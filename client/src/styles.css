@@ -1156,17 +1156,6 @@ button {
   font-weight: 500;
 }
 
-.settings-feature {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* Indented to the toggle's label, so the form reads as belonging to the switch
-   that revealed it. */
-.settings-feature-body {
-  padding-left: 28px;
-}
 
 /* A blocking condition stated where it applies, above the fields it invalidates
    — the config is unusable until it's resolved, so it outranks everything under
@@ -1243,6 +1232,15 @@ button {
   }
 }
 
+/* Indented to the toggle's label, so settings and anything the extension draws
+   read as belonging to the switch that revealed them. */
+.extension-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 28px;
+}
+
 /* An extension that can't run reads as rejected rather than as merely switched
    off: tinted ground, a red edge, and the whole row pulled back so it doesn't
    compete with the ones that work. `is-failed` is the softer case — its
@@ -1299,6 +1297,29 @@ button {
   justify-content: space-between;
   gap: 12px;
   padding-left: 28px;
+}
+
+/* ── Extension UI slots ── */
+/* An extension draws into a plain box that inherits the surrounding flow and
+   sets nothing of its own — no padding, no border, no background. A slot that
+   styled its contents would fight whatever the extension put in it, and an
+   empty one must leave no trace, which is why the wrapper only exists once
+   something has claimed it. */
+.extension-slot {
+  display: contents;
+}
+
+/* The two slots inside a laid-out strip do need a box, since `display:
+   contents` would drop them out of the parent's own spacing. */
+.chat-hud-extension {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-sidebar-extension {
+  display: flex;
+  flex-direction: column;
 }
 
 /* Why an extension can't load, next to the extension — not only in a log. */

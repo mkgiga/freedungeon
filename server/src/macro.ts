@@ -2,8 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { state } from "./server"
 import { getCurrentTurnResult } from "./game-state"
-import { featureEnabled, resolveFeatureConfig, DEFAULT_STYLE_PREFERENCE } from "@shared/features"
-import { sceneImagesEnabled } from "./item-icons"
+import { promptScope, promptSections } from "./extensions/registry"
 import { getEmbeddedPrompts } from "./embedded"
 
 const promptsDir = path.join(import.meta.dirname, 'prompts')
@@ -98,25 +97,12 @@ registry.set('GAME_STATE', { kind: 'fn', fn: () => {
 } });
 
 /**
- * Gated on `enableChoicePrompts`, same as the tool itself, so the agent is
- * never told about a capability it doesn't have.
+ * Where every active extension's contributed system prompt lands. A template
+ * that names it gets them in id order; one that doesn't still gets them, since
+ * `dispatchPromptToAgent` appends whatever this macro didn't emit.
  */
-export const MULTICHOICE_PROMPT_INSTRUCTIONS = `# 【Choice Prompts】
-
-When you call \`end_turn\`, you may pass a \`choices\` array — an enumerated set of 2+ candidate next actions salient to the focus actor at this branch point. Enumerate them only when the branch genuinely narrows to a few distinct, material actions; otherwise leave the next move open, as usual. The focus actor's controller may select one — it returns next tick as \`choice("...")\` rather than \`unformatted("...")\` — or disregard the set entirely and supply any other action. A selection is the focus actor's action; treat it exactly as the equivalent \`unformatted(...)\` input. Never assume the controller is bound to the enumerated set.`
-
-registry.set('MULTICHOICE_PROMPT_INSTRUCTIONS', { kind: 'fn', fn: () => {
-    return featureEnabled(state.userPreferences, 'choicePrompts') ? MULTICHOICE_PROMPT_INSTRUCTIONS : ''
-} });
-
-export const IMAGE_GENERATION_INSTRUCTIONS = `# 【Generated Images】
-
-You can render an image into the story with \`generate_image\`. Pass a \`description\` written for an image model — subject and action, setting, framing and camera angle, lighting, mood, colour, in concrete visual nouns; it knows nothing of the story, so name what is in frame rather than who it is to the plot. Pass an \`aspect\` of "landscape" (establishing shots, vistas), "portrait" (a figure, a tall space) or "square", and optionally \`caption\` text to sit beneath the image.
-
-The image is generated on the spot and the turn blocks until it is done, so spend it where a visual does work prose would not: arriving somewhere the party has never seen, a reveal whose look carries the beat. At most one per beat, and never as decoration for a moment you have already described well.`
-
-registry.set('IMAGE_GENERATION_INSTRUCTIONS', { kind: 'fn', fn: () => {
-    return sceneImagesEnabled() ? IMAGE_GENERATION_INSTRUCTIONS : ''
+registry.set('EXTENSION_PROMPT_SECTIONS', { kind: 'fn', fn: () => {
+    return promptSections().join('\n\n')
 } });
 
 type ScopeBuilder = () => unknown
@@ -173,12 +159,6 @@ export function withImagePrompt<T>(prompt: string, fn: () => T): T {
 }
 
 scopeBuilders.set('agent_image_prompt', () => currentImagePrompt)
-
-scopeBuilders.set('user_style_preference', () => {
-    const cfg = resolveFeatureConfig('imageGen', state.userPreferences.features?.['imageGen'])
-    const style = String((cfg.values as { stylePreference?: unknown }).stylePreference ?? '').trim()
-    return style || DEFAULT_STYLE_PREFERENCE
-})
 
 export function loadMacroFiles() {
     const embedded = getEmbeddedPrompts()
@@ -322,7 +302,7 @@ function evaluateScopeAccess(pathExpr: string, raw: string, ctx: EvalContext): s
     if (head === undefined) return `{{${raw}}}`
 
     if (!(head in ctx.scopes)) {
-        const builder = scopeBuilders.get(head)
+        const builder = scopeBuilders.get(head) ?? promptScope(head)
         if (!builder) return `{{${raw}}}`
         ctx.scopes[head] = builder()
     }

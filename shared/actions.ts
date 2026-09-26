@@ -1,10 +1,9 @@
 import type { AppState } from './types'
-import type { FeatureKey } from './features'
 
 /**
  * Data only - behaviour is registered separately on the client
  * (client/src/actions.tsx), since a keybind crosses into userPreferences and a
- * callback can't. `feature` scopes an action to its owner being enabled.
+ * callback can't. `extension` scopes an action to its owner being enabled.
  * Desktop only; nothing here dispatches on a phone.
  */
 export type ActionSpec = {
@@ -12,7 +11,7 @@ export type ActionSpec = {
     label: string
     description?: string
     defaultKeybind?: string
-    feature?: FeatureKey
+    extension?: string
     canExecute?: (ctx: ActionContext) => boolean
 }
 

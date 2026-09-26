@@ -4,20 +4,54 @@ import { state } from '../state'
 import { trpc } from '../trpc'
 import { Text } from './typography/Text'
 import { SettingsToggle } from './settings'
-import type { ExtensionInfo } from '@shared/extensions'
+import { SchemaForm } from './json-ui'
+import { ExtensionSlot } from '../extensions/ExtensionSlot'
+import { useImageGenConsent } from './ImageGenConsent'
+import { resolveExtensionConfig, type ExtensionInfo } from '@shared/extensions'
 
-/** Nothing is executed until switched on; until then these are manifests. */
+const IMAGE_GENERATION_ID = 'core.imageGeneration'
+
+/**
+ * Built-ins and dropped-in folders in one list, sorted with the app's own
+ * first. They are the same kind of thing and behave the same way; the only
+ * difference the UI draws is that a built-in has nothing to uninstall.
+ */
 export function ExtensionsList() {
     const [busy, setBusy] = createSignal<string | null>(null)
+    const [failure, setFailure] = createSignal<{ id: string; message: string } | null>(null)
+    const confirmImageGen = useImageGenConsent()
 
     const items = (): ExtensionInfo[] =>
         Object.values(state.extensions ?? {}).sort((a, b) =>
-            a.manifest.name.localeCompare(b.manifest.name))
+            Number(b.builtIn) - Number(a.builtIn)
+            || a.manifest.name.localeCompare(b.manifest.name))
+
+    const config = (info: ExtensionInfo) =>
+        resolveExtensionConfig(info.settings, state.userPreferences.extensions?.[info.manifest.id])
 
     const toggle = async (info: ExtensionInfo, enabled: boolean) => {
-        setBusy(info.manifest.id)
-        try { await trpc.extensions.setEnabled.mutate({ id: info.manifest.id, enabled }) }
-        finally { setBusy(null) }
+        const id = info.manifest.id
+        if (id === IMAGE_GENERATION_ID && enabled && !(await confirmImageGen())) return
+
+        setFailure(null)
+        setBusy(id)
+        try {
+            await trpc.extensions.setEnabled.mutate({ id, enabled })
+        } catch (err) {
+            setFailure({ id, message: err instanceof Error ? err.message : String(err) })
+        } finally {
+            setBusy(null)
+        }
+    }
+
+    const saveSettings = async (info: ExtensionInfo, values: Record<string, unknown>) => {
+        const id = info.manifest.id
+        setFailure(null)
+        try {
+            await trpc.extensions.setSettings.mutate({ id, values })
+        } catch (err) {
+            setFailure({ id, message: err instanceof Error ? err.message : String(err) })
+        }
     }
 
     const uninstall = async (info: ExtensionInfo) => {
@@ -25,6 +59,9 @@ export function ExtensionsList() {
         try { await trpc.extensions.uninstall.mutate({ id: info.manifest.id }) }
         finally { setBusy(null) }
     }
+
+    const problem = (info: ExtensionInfo) =>
+        failure()?.id === info.manifest.id ? failure()!.message : info.error
 
     return (
         <div class="flex flex-col gap-3">
@@ -44,15 +81,13 @@ export function ExtensionsList() {
                 </button>
             </div>
 
-            <For each={items()} fallback={
-                <Text size="sm" class="settings-hint">Nothing installed yet.</Text>
-            }>
+            <For each={items()}>
                 {(info) => (
                     <div
                         class="extension-row"
                         classList={{
                             'is-rejected': info.status === 'invalid',
-                            'is-failed': info.status === 'failed',
+                            'is-failed': info.status === 'failed' || failure()?.id === info.manifest.id,
                         }}
                     >
                         <Show
@@ -70,15 +105,15 @@ export function ExtensionsList() {
                             }
                         >
                             <SettingsToggle
-                                label={`${info.manifest.name}  ${info.manifest.version}`}
+                                label={info.manifest.name}
                                 hint={info.manifest.description}
-                                checked={info.status === 'active'}
+                                checked={config(info).enabled}
                                 disabled={busy() === info.manifest.id}
                                 onChange={(on) => toggle(info, on)}
                             />
                         </Show>
 
-                        <Show when={info.error}>
+                        <Show when={problem(info)}>
                             {(err) => (
                                 <div class="extension-error">
                                     <MdFillError size={16} />
@@ -87,19 +122,35 @@ export function ExtensionsList() {
                             )}
                         </Show>
 
+                        <Show when={info.status === 'active'}>
+                            <div class="extension-body">
+                                <Show when={info.settings.length > 0}>
+                                    <SchemaForm
+                                        fields={info.settings}
+                                        values={config(info).values}
+                                        onChange={(values) => saveSettings(info, values)}
+                                    />
+                                </Show>
+                                <ExtensionSlot name="settings.extension" only={info.manifest.id} />
+                            </div>
+                        </Show>
+
                         <div class="extension-row-footer">
                             <Text size="sm" class="settings-hint">
-                                {info.manifest.id}
-                                <Show when={info.manifest.author}>{(a) => <> · {a()}</>}</Show>
+                                {info.builtIn ? 'Built in' : info.manifest.id}
+                                <Show when={!info.builtIn && info.manifest.author}>{(a) => <> · {a()}</>}</Show>
+                                <> · {info.manifest.version}</>
                             </Text>
-                            <button
-                                type="button"
-                                class="settings-inline-btn"
-                                disabled={busy() === info.manifest.id}
-                                onClick={() => uninstall(info)}
-                            >
-                                {info.status === 'invalid' ? 'Remove' : 'Uninstall'}
-                            </button>
+                            <Show when={!info.builtIn}>
+                                <button
+                                    type="button"
+                                    class="settings-inline-btn"
+                                    disabled={busy() === info.manifest.id}
+                                    onClick={() => uninstall(info)}
+                                >
+                                    {info.status === 'invalid' ? 'Remove' : 'Uninstall'}
+                                </button>
+                            </Show>
                         </div>
                     </div>
                 )}

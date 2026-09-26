@@ -19,7 +19,7 @@ export function PatcherOverlay() {
     const relevant = () => {
         const activeProvider = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.provider
         return Object.values(state.dependencies ?? {})
-            .filter(d => isRelevant(d, state.userPreferences.features, activeProvider))
+            .filter(d => isRelevant(d, state.userPreferences.extensions, activeProvider))
     }
     const blocking = createMemo(() => relevant().filter(isBlocking))
 
@@ -207,7 +207,7 @@ export function useDownloads() {
     const blocking = createMemo(() => {
         const activeProvider = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.provider
         return Object.values(state.dependencies ?? {})
-            .filter(d => isRelevant(d, state.userPreferences.features, activeProvider))
+            .filter(d => isRelevant(d, state.userPreferences.extensions, activeProvider))
             .filter(isBlocking)
     })
 

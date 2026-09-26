@@ -2,7 +2,7 @@ import { createMemo, createSignal, Show, type JSXElement } from 'solid-js'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { parseBlocks } from './blocks'
-import { featureEnabled } from '@shared/features'
+import { extensionEnabled } from '@shared/extensions'
 import { Text } from '../typography/Text'
 import { useModal } from '../Modal'
 import {
@@ -41,7 +41,7 @@ const latestMessageId = () => {
 export function createPendingChoicePrompt() {
     const playback = usePlayback()
     return createMemo(() => {
-        if (!featureEnabled(state.userPreferences, 'choicePrompts')) return null
+        if (!extensionEnabled(state.userPreferences, 'core.choicePrompts')) return null
         const id = latestMessageId()
         if (!id) return null
         if (!playback.isMessageRevealed(id)) return null
@@ -100,7 +100,7 @@ export function ChatInput(props: {
 
     const blockers = createMemo(() => turnBlockers(
         state.dependencies,
-        state.userPreferences.features,
+        state.userPreferences.extensions,
         state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.provider,
     ))
 

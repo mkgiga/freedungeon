@@ -12,7 +12,7 @@ export function useImageGenConsent() {
     const modal = useModal()
 
     return async (): Promise<boolean> => {
-        const plan = await trpc.preferences.imageGenPlan.query()
+        const plan = await trpc.extensions.imageGenPlan.query()
 
         if (!plan.supported) {
             return new Promise<boolean>((resolve) => {

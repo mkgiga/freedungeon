@@ -42,9 +42,8 @@ const [state, _setState] = createStore<AppState>({
     theme: 'system',
     activeLLMConfigId: null,
     playerCharacterId: null,
-    enableChoicePrompts: false,
     debug: false,
-    features: {},
+    extensions: {},
   }
 });
 

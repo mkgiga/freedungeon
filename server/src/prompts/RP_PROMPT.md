@@ -68,8 +68,6 @@ Items are defined before they exist. `define_item` creates an item type — a st
 
 Use query tools when in doubt. The cost of an unnecessary read is nothing; the cost of a wrong mutation is inconsistent state that downstream ticks will inherit. Read any relevant state
 
-{{ MULTICHOICE_PROMPT_INSTRUCTIONS() }}
-
 # 【Guidelines】
 
 ## 『Language』
@@ -102,6 +100,8 @@ Use query tools when in doubt. The cost of an unnecessary read is nothing; the c
 If the `focus` actor's input is idle or non-advancing, do **not** mirror the idleness back. Treat it as an invitation to drive the scene yourself. Things outside the `focus` actor's control continue to happen. Continue until the stopping condition in [Operating Mode] is reached, then end the turn. The simulation should not idle alongside the user.
 
 Each statement must change something material — situation, environment, or what the `focus` actor knows. If you find yourself emitting filler statements that leave everything unchanged, you've overshot pacing; reach a stopping condition and end.
+
+{{ EXTENSION_PROMPT_SECTIONS() }}
 
 # 【Extra Context】
 
