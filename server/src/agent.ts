@@ -48,6 +48,13 @@ export async function spawnAgentProcess() {
             AGENT_PORT: String(AGENT_PORT),
             SERVER_RPC_URL: `http://127.0.0.1:${process.env.FREEDUNGEON_PORT ?? process.env.SERVER_PORT ?? 8078}/agent-rpc`,
             ...(claudeCli ? { CLAUDE_CLI_PATH: claudeCli } : {}),
+            // The dungeon master must not keep notes between sessions. Auto
+            // memory is on by default and keyed to the git repository, so every
+            // chat would share one memory directory and recall actors and notes
+            // the user has since deleted. Set here rather than in the settings
+            // file because `bridge.ts` passes `settingSources: []`, which
+            // excludes the `autoMemoryEnabled` setting entirely.
+            CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
         },
         stdio: 'inherit',
     });
@@ -222,8 +229,11 @@ export async function execCommand(
 
     const effects: string[] = [];
     const ctxBefore = JSON.parse(JSON.stringify(state.currentChat.gameState));
-    applyBlockToCtx(state.currentChat.gameState, block, effects);
-    mutate(s => { s.currentChat.gameState = state.currentChat.gameState });
+    // Inside the draft, not on the live store. Mutating `state` directly and
+    // then assigning it back emits nothing Immer can see as a change, so the
+    // client kept last turn's game state until the next turn's `runTurn`
+    // replay happened to assign a fresh object.
+    mutate(s => { applyBlockToCtx(s.currentChat.gameState, block, effects) });
 
     const messageId = nanoid();
     const now = Date.now();
