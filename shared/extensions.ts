@@ -47,6 +47,16 @@ export type ExtensionInfo = {
     dir: string
     /** Built-ins cannot be uninstalled and are always listed. */
     builtIn: boolean
+    /**
+     * The app doesn't work without it, so it has no switch - not a disabled
+     * one, none. Distinct from `builtIn`: choice prompts ship with the app and
+     * are still entirely optional.
+     *
+     * Only a built-in can claim this. It is set where the built-in is
+     * registered, never read from a manifest, so a dropped-in folder cannot
+     * make itself unremovable.
+     */
+    required: boolean
     error?: string
     /**
      * Registered from `activate`, so an extension that isn't running has none.
@@ -131,4 +141,33 @@ export function extensionEnabled(
     id: string,
 ): boolean {
     return prefs.extensions?.[id]?.enabled === true
+}
+
+/**
+ * An extension asking the app not to start a turn yet.
+ *
+ * Distinct from an Activity, which only draws a spinner, and from
+ * `isGenerating`, which means the agent is mid-turn and drives the Stop
+ * button. A hold is the same kind of thing as an unfinished download: a named
+ * reason, replicated, that both the server and the composer read - so the
+ * button that refuses and the server that throws cannot disagree.
+ *
+ * `reason` is shown to the user verbatim, so it is written for them.
+ */
+export type ExtensionHold = {
+    id: string
+    extension: string
+    reason: string
+    startedAt: number
+}
+
+/**
+ * Held in the order they were taken. Every hold names its extension, because
+ * the way out of one that is never released is switching its owner off - which
+ * the user can only do if they can see who is holding.
+ */
+export function heldTurns(
+    holds: Record<string, ExtensionHold> | undefined,
+): ExtensionHold[] {
+    return Object.values(holds ?? {}).sort((a, b) => a.startedAt - b.startedAt)
 }

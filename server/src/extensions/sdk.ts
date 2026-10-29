@@ -39,6 +39,7 @@ export type FreedungeonHost = {
     readonly blocks: BlocksApi
     readonly activity: ActivityApi
     readonly prompt: PromptApi
+    readonly turn: TurnApi
 
     /** Subscribe to a lifecycle hook. Returns the unsubscribe. */
     on<E extends ExtensionEventName>(
@@ -150,6 +151,27 @@ export type ActivityApi = {
     begin(kind: string, data?: Record<string, unknown>): string
     update(id: string, patch: Record<string, unknown>): void
     end(id: string): void
+}
+
+/**
+ * Holding the turn: telling the app not to let the user prompt yet.
+ *
+ * The composer refuses with your `reason` and the server refuses a turn that
+ * arrives anyway, both reading the same replicated hold - so the two cannot
+ * disagree. A hold does not stop a turn already running; it stops the next one
+ * from starting.
+ *
+ * Orthogonal to `activity`, which draws a spinner and gates nothing. Work that
+ * should both show progress and hold the turn does both.
+ */
+export type TurnApi = {
+    /**
+     * Hold until you say otherwise. Returns the release, which is idempotent
+     * and also runs if the extension is switched off - so a hold cannot outlive
+     * its owner. Prefer `hold(reason, fn)` when the wait is one awaited call.
+     */
+    hold(reason: string): () => void
+    hold<T>(reason: string, fn: () => Promise<T>): Promise<T>
 }
 
 export type PromptApi = {

@@ -71,6 +71,7 @@ export const [state, _setState] = createStore({
     notifications: {},
     extensionState: {},
     extensions: {},
+    extensionHolds: {},
     userPreferences: {
         theme: "system",
         playerCharacterId: null,

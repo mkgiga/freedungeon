@@ -38,6 +38,7 @@ const [state, _setState] = createStore<AppState>({
   notifications: {},
   extensionState: {},
   extensions: {},
+  extensionHolds: {},
   userPreferences: {
     theme: 'system',
     activeLLMConfigId: null,

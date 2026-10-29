@@ -129,6 +129,33 @@ export const COMMANDS = {
         }),
     }),
 
+    roll_random: defineCommand({
+        name: 'roll_random',
+        description: 'Settle an uncertain attempt by chance instead of deciding it yourself. Each entry in `rolls` gets its own 1-100 roll against its own threshold, so one call can settle several attempts that hinge on the same moment — one actor acting alone, two sides with different odds pitted against each other, or a handful acting together as a single attempt. There are no character stats: you set each threshold from context (who they are, what they are attempting, what they have on them, what the scene has already established). The result comes back to you immediately; narrate what it means afterwards, and never call this twice for the same attempt.',
+        schema: z.object({
+            title: z.string().describe('Short heading, 2-5 words, naming what hangs in the balance. Title case, no punctuation.'),
+            subtitle: z.string().describe('One short line in the voice of the story, naming the action being attempted.'),
+            rolls: z.array(z.object({
+                actors: z.array(z.string()).min(1).describe('Ids of the actors this one roll covers — one id for a solo attempt, several when they are attempting it together and share the outcome.'),
+                threshold: z.number().int().min(1).max(99).describe('The roll must come out strictly above this to succeed, so the odds of success are 100 minus this number: 25 for something they should manage, 50 for a genuine coin flip, 80 for a long shot.'),
+            })).min(1).describe('One entry per independent roll.'),
+        }),
+        // The only impure `toBlock`: the dice are thrown here, once, on the
+        // server, and the outcome is serialized into the block. Re-parsing a
+        // stored message therefore replays the same numbers instead of
+        // quietly rerolling history on every render.
+        toBlock: (args) => ({
+            type: 'rollRandom',
+            title: args.title,
+            subtitle: args.subtitle,
+            rolls: args.rolls.map(r => ({
+                actors: r.actors,
+                threshold: r.threshold,
+                value: 1 + Math.floor(Math.random() * 100),
+            })),
+        }),
+    }),
+
     enter_actors: defineCommand({
         name: 'enter_actors',
         description: 'Move one or more actors into the active scene. Restores HP from offscreen if they were there, otherwise starts at HP 100. No-op if already active.',

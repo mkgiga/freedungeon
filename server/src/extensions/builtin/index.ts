@@ -1,6 +1,7 @@
 import type { ExtensionManifest } from '@shared/extensions'
 import type { ExtensionModule } from '../sdk'
 import * as choicePrompts from './choice-prompts'
+import * as diceRolls from './dice-rolls'
 import * as imageGeneration from './image-generation'
 
 /**
@@ -14,9 +15,17 @@ import * as imageGeneration from './image-generation'
 export type BuiltinExtension = {
     manifest: ExtensionManifest
     module: ExtensionModule
+    /**
+     * The app doesn't work without it, so the list gives it no switch and
+     * `setExtensionEnabled` refuses to turn it off. For systems that were
+     * rewritten as extensions to keep the engine honest, not for features the
+     * user is meant to choose.
+     */
+    required?: boolean
 }
 
 export const BUILTIN_EXTENSIONS: BuiltinExtension[] = [
     { manifest: choicePrompts.manifest, module: choicePrompts.module },
+    { manifest: diceRolls.manifest, module: diceRolls.module },
     { manifest: imageGeneration.manifest, module: imageGeneration.module },
 ]

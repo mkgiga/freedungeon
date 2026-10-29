@@ -10,7 +10,9 @@ Bun.serve({
     port,
     hostname: '127.0.0.1',
     routes: {
-        '/health': () => new Response('ok'),
+        // Echoes the token the server handed us at spawn, so it can tell
+        // whether the process holding this port is the one it started.
+        '/health': () => new Response(process.env.AGENT_TOKEN ?? 'ok'),
 
         '/scenario-prompt': {
             POST: async (req: Request) => {

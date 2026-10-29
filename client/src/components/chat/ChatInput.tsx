@@ -13,6 +13,7 @@ import {
     MdFillWarning,
     MdFillEdit_note,
     MdFillDownload,
+    MdFillHourglass_top,
     MdFillMore_horiz,
     MdFillBug_report,
 } from 'solid-icons/md'
@@ -25,6 +26,7 @@ import { useRehydrationConfirm } from './rehydration'
 import { viewport } from '../../viewport'
 import { useAction } from '../../actions'
 import { turnBlockers } from '@shared/dependencies'
+import { heldTurns } from '@shared/extensions'
 
 const latestMessageId = () => {
     const msgs = Object.values(state.currentChat.messages ?? {})
@@ -124,6 +126,11 @@ export function ChatInput(props: {
         return `Waiting on ${list.map(describe).join(', ')}`
     })
 
+    // An extension asking us to wait. Refused here and on the server from the
+    // same replicated hold, so the button and the backend agree.
+    const held = createMemo(() => heldTurns(state.extensionHolds))
+    const cannotSend = createMemo(() => held().length > 0 || !!blockedReason())
+
     const hasPendingNotice = createMemo(() =>
         (state.currentChat.pendingSystemNotice ?? '').trim().length > 0
     )
@@ -165,7 +172,7 @@ export function ChatInput(props: {
     const handleSend = async () => {
         const text = message().trim()
         if (!text) return
-        if (blockedReason()) return
+        if (cannotSend()) return
         if (state.isGenerating) return
         await withRehydrationConfirm('Send anyway', () => sendNow(text))
     }
@@ -236,7 +243,16 @@ export function ChatInput(props: {
 
     return (
         <div class="chat-composer">
-            <Show when={blockedReason()}>
+            <Show when={held().length > 0}>
+                <div class="chat-composer-blocked">
+                    <MdFillHourglass_top size={16} />
+                    <Text size="sm">
+                        {held().map(h => h.reason).join(' · ')}
+                    </Text>
+                </div>
+            </Show>
+
+            <Show when={held().length === 0 && blockedReason()}>
                 {(reason) => (
                     <div class="chat-composer-blocked">
                         <MdFillDownload size={16} />
@@ -283,7 +299,7 @@ export function ChatInput(props: {
                     <Show
                         when={state.isGenerating}
                         fallback={
-                            <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} disabled={!!blockedReason()} title="Send">
+                            <button class="chat-input-btn chat-input-btn-send" onClick={handleSend} disabled={cannotSend()} title="Send">
                                 <MdFillSend size={20} />
                             </button>
                         }

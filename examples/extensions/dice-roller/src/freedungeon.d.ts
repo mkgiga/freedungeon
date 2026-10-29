@@ -121,6 +121,17 @@ export type FreedungeonHost = {
         end(id: string): void
     }
 
+    /**
+     * Hold the next turn. The composer refuses with your reason and so does the
+     * server, from the same replicated hold. Does not stop a turn already
+     * running. Unrelated to `activity`, which only draws a spinner.
+     */
+    readonly turn: {
+        /** Returns the release. Idempotent, and also runs if you're switched off. */
+        hold(reason: string): () => void
+        hold<T>(reason: string, fn: () => Promise<T>): Promise<T>
+    }
+
     readonly prompt: {
         /** Pulled fresh each turn. Return null to sit this one out. */
         section(build: () => string | null | undefined): () => void

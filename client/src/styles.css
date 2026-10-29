@@ -7,6 +7,7 @@
   --bg-2: oklch(20.817% 0.00673 258.419);
   --primary: oklch(64.6% 0.14237 253.939);
   --danger: oklch(65% 0.2 25);
+  --success: oklch(65% 0.2 150);
   /* Border ramp. Values are the ones already in use, unchanged — these
      name them so a new rule picks a rung instead of a fresh number. */
   --border-strong: color-mix(in oklch, var(--text), transparent 78.25%);
@@ -39,6 +40,8 @@
   --dur-instant: 90ms;
   --dur-fast: 140ms;
   --dur-base: 220ms;
+  /* How far a chat block travels up into place as it appears. */
+  --block-rise: 8px;
 
   /* How far a control gives under a press. Elements override it: wide bars
      and rows set it near 1, where scaling the full width reads as the page
@@ -282,6 +285,7 @@ button {
 
   :root {
     --press-depress: 0px;
+    --block-rise: 0px;
   }
 }
 
@@ -1289,6 +1293,14 @@ button {
   color: var(--danger);
   border: 1px solid color-mix(in oklch, var(--danger), transparent 60%);
   background: color-mix(in oklch, var(--danger), transparent 88%);
+}
+
+/* The same slot, said calmly: "always on" is a fact about the extension, not a
+   problem with it, so it borrows the muted text colour rather than danger. */
+.extension-badge.is-neutral {
+  color: color-mix(in oklch, var(--text), transparent 35%);
+  border-color: var(--border);
+  background: color-mix(in oklch, var(--text), transparent 94%);
 }
 
 .extension-row-footer {
@@ -2634,7 +2646,19 @@ button {
   visibility: hidden;
   pointer-events: none;
   opacity: 0;
-  translate: 0 8px;
+  translate: 0 var(--block-rise);
+}
+
+/* The same rise for a block that is already revealed when it mounts — the
+ * first beat of a new message, or a player's own line. Only messages that
+ * arrived live get the class; history loaded with the chat renders still.
+ * `backwards` alone, so once it ends nothing holds opacity or translate. */
+.chat-block-enter {
+  animation: chat-block-enter var(--dur-base) var(--ease-out) backwards;
+}
+
+@keyframes chat-block-enter {
+  from { opacity: 0; translate: 0 var(--block-rise); }
 }
 
 .chat-block-tap-indicator {
@@ -2725,13 +2749,127 @@ button {
 }
 
 .chat-block-heal .chat-block-event-amount {
-  color: oklch(65% 0.2 150);
+  color: var(--success);
 }
 
 .chat-block-event-item {
   font-weight: 700;
   font-style: normal;
   padding-left: 2px;
+}
+
+/* ── Roll block ──
+ * A dice tray set down in the middle of the narration: centred, with wide
+ * vertical margins so it reads as its own beat rather than as part of the
+ * prose above and below it. Borderless throughout — it sits on the chat
+ * background, never inside a card. */
+
+.chat-block-roll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  /* On top of the 16px every .block-container already gets, which is where
+     the separation from the surrounding prose actually comes from. */
+  margin: 18px 0;
+  padding: 0 24px;
+  text-align: center;
+  user-select: none;
+}
+
+.chat-block-roll-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.chat-block-roll-rule {
+  flex: 1;
+  height: 1px;
+  background: color-mix(in oklch, var(--text), transparent 80%);
+}
+
+.chat-block-roll-title {
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chat-block-roll-subtitle {
+  max-width: 46ch;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--text-base);
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+.chat-block-roll-tray {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 40px;
+  margin-top: 10px;
+}
+
+.chat-block-roll-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 96px;
+}
+
+.chat-block-roll-who {
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-disabled);
+}
+
+.chat-block-roll-value {
+  position: relative;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.1;
+  /* Equal-width digits: without them the tumbling number keeps re-centring
+     itself under the label as the glyph widths change. */
+  font-variant-numeric: tabular-nums;
+  transition: color var(--dur-base) var(--ease-out);
+}
+
+/* Hung outside the number's own box rather than laid out beside it, so the
+   digits don't slide sideways the instant the mark appears. */
+.chat-block-roll-mark {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  display: flex;
+  margin-left: 6px;
+  translate: 0 -50%;
+}
+
+.chat-block-roll-cell.is-spinning .chat-block-roll-value {
+  color: var(--text-disabled);
+}
+
+.chat-block-roll-cell.is-pass .chat-block-roll-value {
+  color: var(--success);
+}
+
+.chat-block-roll-cell.is-fail .chat-block-roll-value {
+  color: var(--danger);
+}
+
+.chat-block-roll-need {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-disabled);
 }
 
 /* ── Inventory modal ── */

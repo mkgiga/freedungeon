@@ -19,6 +19,7 @@ export type PromptArgs = {
     enableChoicePrompts?: boolean;
     enableSceneImages?: boolean;
     enableItemIcons?: boolean;
+    enableDiceRolls?: boolean;
     claudeCliPath?: string | null;
 };
 
@@ -43,7 +44,8 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
     currentAbort = abort;
 
     const enableSceneImages = args.enableSceneImages ?? false;
-    const mcpServer = buildGameStateMcpServer(args.enableChoicePrompts ?? false, enableSceneImages, args.enableItemIcons ?? false);
+    const enableDiceRolls = args.enableDiceRolls ?? false;
+    const mcpServer = buildGameStateMcpServer(args.enableChoicePrompts ?? false, enableSceneImages, args.enableItemIcons ?? false, enableDiceRolls);
 
     let capturedSessionId: string | null = args.resumeSessionId;
     let caughtError: { name?: string; message: string } | null = null;
@@ -53,13 +55,20 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
         options: {
             abortController: abort,
             mcpServers: { game_state: mcpServer },
-            allowedTools: allTools(enableSceneImages),
+            allowedTools: allTools(enableSceneImages, enableDiceRolls),
             tools: [],
             systemPrompt: args.systemPrompt,
             model: args.model,
             permissionMode: 'bypassPermissions',
             ...(args.resumeSessionId ? { resume: args.resumeSessionId } : {}),
             settingSources: [],
+            // The flag-settings layer, which the CLI honours even with
+            // `settingSources: []` - unlike the user's settings.json, which
+            // that same option shuts out. Set here rather than only in the
+            // environment because the env var in `spawnAgentProcess` reaches
+            // an agent the server itself spawned and nothing else; this
+            // travels with the call, whatever started the process.
+            settings: { autoMemoryEnabled: false },
             persistSession: true,
             ...((args.claudeCliPath || process.env.CLAUDE_CLI_PATH)
                 ? { pathToClaudeCodeExecutable: args.claudeCliPath || process.env.CLAUDE_CLI_PATH }
@@ -68,11 +77,23 @@ export async function runAgentPrompt(args: PromptArgs): Promise<RunAgentPromptRe
     });
 
     try {
+        // `end_turn` has to be binding, not advisory. The model gets "Turn
+        // ended." back as an ordinary tool result and will happily call more
+        // tools and narrate another beat; the SDK only stops when the model
+        // stops, so reading on produces a second turn the user never asked
+        // for. We stop reading instead - the same thing the AI SDK loop does
+        // with `stopWhen: [hasToolCall('end_turn')]`.
+        //
+        // Not immediately, though: end_turn's own tool_result wrapper carries
+        // the fork anchor `flushTurnState` needs, and it arrives one message
+        // later. So we wait for exactly that, then stop.
+        let endTurnPending = false;
         for await (const msg of q) {
-            await handleSdkMessage(msg, args, (sessionId) => {
+            const wasToolResultWrapper = await handleSdkMessage(msg, args, (sessionId) => {
                 capturedSessionId = sessionId;
             });
-            consumeEndTurnRequest();
+            if (consumeEndTurnRequest()) endTurnPending = true;
+            if (endTurnPending && wasToolResultWrapper) break;
         }
     } catch (err) {
         const isAbort = abort.signal.aborted;
@@ -124,11 +145,12 @@ async function flushTurnState(chatId: string, userMessageId: string, fallbackSes
     await rpcAnnounceTurnClosed(chatId, messageIds, trailingWrapperUuid, sessionId);
 }
 
+/** True when this message was a tool_result wrapper - see the loop above. */
 async function handleSdkMessage(
     msg: SDKMessage,
     args: PromptArgs,
     onSessionCaptured: (sessionId: string) => void
-) {
+): Promise<boolean> {
     switch (msg.type) {
         case 'system': {
             if ('subtype' in msg && (msg as { subtype?: string }).subtype === 'init') {
@@ -138,16 +160,16 @@ async function handleSdkMessage(
                     await rpcAnnounce(args.chatId, 'session_captured', sid);
                 }
             }
-            return;
+            return false;
         }
         case 'assistant': {
             setCurrentSdkAssistantUuid(msg.uuid as unknown as string);
-            return;
+            return false;
         }
         case 'user': {
             const parentToolUseId = (msg as unknown as { parent_tool_use_id: string | null }).parent_tool_use_id;
             const isSynthetic = (msg as unknown as { isSynthetic?: boolean }).isSynthetic === true;
-            if (parentToolUseId !== null) return;
+            if (parentToolUseId !== null) return false;
 
             const content = (msg.message as unknown as { content: unknown }).content;
             const isToolResultWrapper = Array.isArray(content) && content.some((b) =>
@@ -161,21 +183,21 @@ async function handleSdkMessage(
                     const sid = (msg as unknown as { session_id?: string }).session_id;
                     setLastTrailingWrapperUuid(uuid, sid);
                 }
-                return;
+                return true;
             }
 
-            if (isSynthetic) return;
+            if (isSynthetic) return false;
 
             if (uuid) {
                 await rpcRecordSdkUuid(args.chatId, args.userMessageId, uuid);
             }
-            return;
+            return false;
         }
         case 'result': {
-            return;
+            return false;
         }
         default:
-            return;
+            return false;
     }
 }
 
@@ -228,6 +250,7 @@ export async function runScenarioPrompt(args: ScenarioPromptArgs): Promise<Scena
                 model: args.model,
                 permissionMode: 'bypassPermissions',
                 settingSources: [],
+                settings: { autoMemoryEnabled: false },
                 persistSession: false,
                 ...((args.claudeCliPath || process.env.CLAUDE_CLI_PATH)
                     ? { pathToClaudeCodeExecutable: args.claudeCliPath || process.env.CLAUDE_CLI_PATH }

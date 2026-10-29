@@ -157,6 +157,10 @@ checkOutfileWritable()
 const result = await Bun.build({
     entrypoints: [path.join(ROOT, 'src', 'entry.ts')],
     target: 'bun',
+    // Must match the `--conditions browser` the dev/start scripts pass, or the
+    // shipped binary silently gets solid's inert SSR build and every effect
+    // stops firing. See CLAUDE.md, State Management.
+    conditions: ['browser'],
     plugins: [sharpShim, onnxShim],
     compile: {
         target: 'bun-windows-x64',

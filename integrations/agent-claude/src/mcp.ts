@@ -9,8 +9,8 @@ import { getActiveChatId, getCurrentSdkAssistantUuid, requestEndTurn, recordProd
  * One server per prompt: handlers close over the chatId, which makes acting on
  * the wrong chat impossible.
  */
-export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableSceneImages = false, enableItemIcons = false) {
-    const writeTools = commandEntries(enableSceneImages).map(([key, spec]) => {
+export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableSceneImages = false, enableItemIcons = false, enableDiceRolls = false) {
+    const writeTools = commandEntries(enableSceneImages, enableDiceRolls).map(([key, spec]) => {
         const shape = unwrapToShape(commandSchema(key as CommandName, { itemIcons: enableItemIcons }));
         return tool(
             spec.name,
@@ -111,15 +111,17 @@ export function buildGameStateMcpServer(enableChoicePrompts: boolean, enableScen
  * under "game_state", tools become `mcp__game_state__<tool>`. Listed
  * explicitly rather than wildcarded, to keep deferred-loading semantics.
  */
-export function allTools(enableSceneImages = false): string[] {
-    const cmds = commandEntries(enableSceneImages).map(([, c]) => `mcp__game_state__${c.name}`);
+export function allTools(enableSceneImages = false, enableDiceRolls = false): string[] {
+    const cmds = commandEntries(enableSceneImages, enableDiceRolls).map(([, c]) => `mcp__game_state__${c.name}`);
     const queries = Object.values(QUERIES).map(q => `mcp__game_state__${q.name}`);
     return [...cmds, ...queries, 'mcp__game_state__end_turn'];
 }
 
-function commandEntries(enableSceneImages: boolean): [string, (typeof COMMANDS)[keyof typeof COMMANDS]][] {
+function commandEntries(enableSceneImages: boolean, enableDiceRolls: boolean): [string, (typeof COMMANDS)[keyof typeof COMMANDS]][] {
     return Object.entries(COMMANDS).filter(([key]) =>
-        key !== 'choice_prompt' && (key !== 'generate_image' || enableSceneImages));
+        key !== 'choice_prompt'
+        && (key !== 'generate_image' || enableSceneImages)
+        && (key !== 'roll_random' || enableDiceRolls));
 }
 
 function unwrapToShape(schema: z.ZodTypeAny): Record<string, z.ZodTypeAny> {

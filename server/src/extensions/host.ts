@@ -11,6 +11,7 @@ import { clearExtensionState } from '../db'
 import { CurrentChat } from '../chat'
 import { execCommand } from '../agent'
 import { beginActivity, endActivity, updateActivity, withActivity } from '../activity'
+import { beginHold, endHold, holdWhile, releaseHoldsOf } from './holds'
 import { parseBlocks, serializeBlocks } from '@shared/blocks'
 import {
     backgroundEntry,
@@ -42,7 +43,13 @@ function storedConfig(id: string): ExtensionConfig | undefined {
     return state.userPreferences.extensions?.[id]
 }
 
+/**
+ * A required extension is on whether or not anything was ever stored for it, so
+ * every existing `extensionEnabled` check keeps working without learning about
+ * the flag. `loadExtensions` writes the flag through so the client agrees.
+ */
 function enabledFlag(id: string): boolean {
+    if (state.extensions?.[id]?.required) return true
     return storedConfig(id)?.enabled === true
 }
 
@@ -70,6 +77,7 @@ export function scanExtensions(): ExtensionInfo[] {
         status: 'installed' as const,
         dir: '',
         builtIn: true,
+        required: b.required === true,
         settings: [],
     }))
 
@@ -87,7 +95,7 @@ export function scanExtensions(): ExtensionInfo[] {
         } catch (err) {
             found.push({
                 manifest: { id: entry.name, name: entry.name, version: '0', main: '' },
-                status: 'invalid', dir, builtIn: false, settings: [],
+                status: 'invalid', dir, builtIn: false, required: false, settings: [],
                 error: `manifest.json is not valid JSON (${err instanceof Error ? err.message : err})`,
             })
             log.server.warn(`Extension "${entry.name}" rejected: manifest.json is not valid JSON`)
@@ -105,12 +113,12 @@ export function scanExtensions(): ExtensionInfo[] {
                     version: manifest?.version ?? '0',
                     main: manifest?.main ?? '',
                 },
-                status: 'invalid', dir, builtIn: false, settings: [], error: problem,
+                status: 'invalid', dir, builtIn: false, required: false, settings: [], error: problem,
             })
             log.server.warn(`Extension "${entry.name}" rejected: ${problem}`)
             continue
         }
-        found.push({ manifest, status: 'installed', dir, builtIn: false, settings: [] })
+        found.push({ manifest, status: 'installed', dir, builtIn: false, required: false, settings: [] })
     }
     return found
 }
@@ -220,6 +228,26 @@ function buildHost(info: ExtensionInfo): FreedungeonHost {
             end: endActivity,
         },
 
+        turn: {
+            hold: ((reason: string, fn?: () => Promise<unknown>) => {
+                if (fn) return holdWhile(id, reason, fn)
+
+                const holdId = beginHold(id, reason)
+                // Also a disposer, so switching the extension off releases a
+                // hold it never got around to releasing itself. It drops out of
+                // that list once used, or an extension that holds once a turn
+                // would accumulate dead disposers for the life of the session.
+                const release = revocable(() => {
+                    endHold(holdId)
+                    const list = bag()?.disposers
+                    const at = list?.indexOf(release) ?? -1
+                    if (list && at !== -1) list.splice(at, 1)
+                })
+                bag()?.disposers.push(release)
+                return release
+            }) as FreedungeonHost['turn']['hold'],
+        },
+
         prompt: {
             section(build) {
                 bag()?.sections.push(build)
@@ -302,6 +330,7 @@ async function activate(info: ExtensionInfo): Promise<ExtensionInfo> {
         }
     } catch (err) {
         closeContributions(id)
+        releaseHoldsOf(id)
         loaded.delete(id)
         const message = err instanceof Error ? err.message : String(err)
         log.server.error(`Extension ${id} failed to activate: ${message}`)
@@ -312,6 +341,7 @@ async function activate(info: ExtensionInfo): Promise<ExtensionInfo> {
 async function deactivate(id: string): Promise<void> {
     const module = loaded.get(id)
     closeContributions(id)
+    releaseHoldsOf(id)
     loaded.delete(id)
     if (!module) return
     try { await module.deactivate?.() } catch (err) {
@@ -357,6 +387,17 @@ export async function rescanExtensions(): Promise<ExtensionInfo[]> {
 }
 
 export async function loadExtensions(): Promise<void> {
+    // Written through rather than inferred on read: the client gates on
+    // `extensionEnabled(prefs, id)`, which knows nothing about `required`.
+    const requiredIds = BUILTIN_EXTENSIONS.filter(b => b.required).map(b => b.manifest.id)
+    const unset = requiredIds.filter(id => storedConfig(id)?.enabled !== true)
+    if (unset.length > 0) {
+        mutate(s => {
+            const bag = (s.userPreferences.extensions ??= {})
+            for (const id of unset) bag[id] = { enabled: true, values: bag[id]?.values ?? {} }
+        })
+    }
+
     const results = await rescanExtensions()
     const active = results.filter(r => r.status === 'active').length
     log.server.info(`Extensions: ${active} active of ${results.length} installed`)
@@ -374,6 +415,9 @@ export async function shutdownExtensions(): Promise<void> {
 export async function setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
     const info = state.extensions?.[id]
     if (!info) throw new Error(`No extension "${id}" is installed`)
+    if (!enabled && info.required) {
+        throw new Error(`${info.manifest.name} is part of the app and can't be switched off.`)
+    }
     if (enabled && info.status === 'invalid') {
         throw new Error(info.error ?? 'That extension\'s manifest is unusable.')
     }
@@ -485,7 +529,7 @@ export async function installFromZipBytes(bytes: Uint8Array): Promise<ExtensionI
         fs.writeFileSync(target, bytes)
     }
 
-    const info: ExtensionInfo = { manifest, status: 'installed', dir, builtIn: false, settings: [] }
+    const info: ExtensionInfo = { manifest, status: 'installed', dir, builtIn: false, required: false, settings: [] }
     mutate(s => { s.extensions[manifest.id] = info })
     log.server.ok(`Extension installed: ${manifest.name} (${manifest.id})`)
     return info
@@ -495,6 +539,9 @@ export async function uninstallExtension(id: string): Promise<void> {
     const info = state.extensions?.[id]
     if (info?.builtIn || isCoreId(id)) {
         throw new Error('Built-in extensions ship with the app and cannot be uninstalled.')
+    }
+    if (info?.required) {
+        throw new Error(`${info.manifest.name} is part of the app and cannot be removed.`)
     }
     await deactivate(id)
     if (info) fs.rmSync(info.dir, { recursive: true, force: true })

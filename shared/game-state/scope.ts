@@ -1,5 +1,7 @@
 import type { GameStateContext, ActorGameState } from '@shared/types';
-import type { Block } from '@shared/blocks';
+// Relative, not `@shared/...`: this is a value import, so it has to resolve
+// at runtime, and the alias only exists inside the server and client packages.
+import { rollPassed, type Block, type RollEntry } from '../blocks';
 
 const DEFAULT_ACTOR_HP = 100;
 
@@ -87,6 +89,12 @@ export function createScope({ ctx, arr }: ScopeBinding) {
         choice: (_text: string) => {},
         tryUse: (_opts: { what: string; on: string }) => {},
         inspect: (_target: string) => {},
+
+        rollRandom: (opts: { title: string; rolls: RollEntry[] }) => {
+            const lines = opts.rolls.map(r =>
+                `${idList(r.actors)} rolled ${r.value} against a threshold of ${r.threshold} — ${rollPassed(r) ? 'SUCCESS' : 'FAILURE'}`);
+            arr.push([`Rolled "${opts.title}":`, ...lines].join('\n'));
+        },
 
         defineItem: (opts: { key: string; label: string; description?: string; visualDescription?: string; icon?: string }) => {
             ctx.itemDefs ??= {};
@@ -222,6 +230,9 @@ export function applyBlockToCtx(ctx: GameStateContext, block: Block, arr: string
             return;
         case 'setLocation':
             scope.setLocation(block.description);
+            return;
+        case 'rollRandom':
+            scope.rollRandom(block);
             return;
         // text / pause / image / webview / unformatted / noOpContinue / tryUse / inspect: display-only.
     }

@@ -12,6 +12,7 @@ import { TextBlock } from './blocks/TextBlock'
 import { ImageBlock } from './blocks/ImageBlock'
 import { PauseBlock } from './blocks/PauseBlock'
 import { WebviewBlock } from './blocks/WebviewBlock'
+import { RollRandomBlock } from './blocks/RollRandomBlock'
 import { UnformattedBlock } from './blocks/UnformattedBlock'
 import { NoOpContinueBlock } from './blocks/NoOpContinueBlock'
 import { DamageBlock } from './blocks/DamageBlock'
@@ -68,6 +69,16 @@ export function ChatMessage(props: {
         props.message.id === playback.playingMessageId() && i >= playback.cursor()
 
     const isPlaying = () => props.message.id === playback.playingMessageId()
+
+    // A block that is already showing when it mounts in a message that arrived
+    // live animates in; one held back by playback gets the reveal transition
+    // instead. Indexes are remembered so an edit's re-parse doesn't replay it.
+    const isLive = playback.isLiveMessage(props.message.id)
+    const mountedBlocks = new Set<number>()
+    const markEntering = (el: HTMLDivElement, i: number) => {
+        if (isLive && !mountedBlocks.has(i) && !isFutureBlock(i)) el.classList.add('chat-block-enter')
+        mountedBlocks.add(i)
+    }
 
     const isLatest = () => latestMessageId() === props.message.id
     const choiceEnabled = () => extensionEnabled(state.userPreferences, 'core.choicePrompts')
@@ -144,7 +155,10 @@ export function ChatMessage(props: {
             </div>
             <For each={blocks()}>
                 {(block, i) => (
-                    <div classList={{ 'chat-block-future': isFutureBlock(i()), 'block-container': true }}>
+                    <div
+                        ref={(el) => markEntering(el, i())}
+                        classList={{ 'chat-block-future': isFutureBlock(i()), 'block-container': true }}
+                    >
                         <Switch>
                             <Match when={block.type === 'speech'}>
                                 <SpeechBlock
@@ -181,6 +195,12 @@ export function ChatMessage(props: {
                                 <WebviewBlock
                                     block={block as Extract<Block, { type: 'webview' }>}
                                     onUpdate={(b) => updateBlock(i(), b)}
+                                />
+                            </Match>
+                            <Match when={block.type === 'rollRandom'}>
+                                <RollRandomBlock
+                                    block={block as Extract<Block, { type: 'rollRandom' }>}
+                                    isActive={playback.isActiveBlock(props.message.id, i())}
                                 />
                             </Match>
                             <Match when={block.type === 'unformatted'}>

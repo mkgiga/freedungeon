@@ -91,26 +91,33 @@ export function ExtensionsList() {
                         }}
                     >
                         <Show
-                            when={info.status !== 'invalid'}
+                            when={info.status === 'invalid' || info.required}
                             fallback={
-                                <div class="extension-head">
-                                    <span class="extension-badge">Rejected</span>
-                                    <span class="extension-title">
-                                        <Text class="extension-name">{info.manifest.name}</Text>
-                                        <Show when={info.manifest.description}>
-                                            {(d) => <Text size="sm" class="settings-hint">{d()}</Text>}
-                                        </Show>
-                                    </span>
-                                </div>
+                                <SettingsToggle
+                                    label={info.manifest.name}
+                                    hint={info.manifest.description}
+                                    checked={config(info).enabled}
+                                    disabled={busy() === info.manifest.id}
+                                    onChange={(on) => toggle(info, on)}
+                                />
                             }
                         >
-                            <SettingsToggle
-                                label={info.manifest.name}
-                                hint={info.manifest.description}
-                                checked={config(info).enabled}
-                                disabled={busy() === info.manifest.id}
-                                onChange={(on) => toggle(info, on)}
-                            />
+                            {/* No switch rather than a dead one: a checkbox that
+                                refuses to move reads as broken. */}
+                            <div class="extension-head">
+                                <span
+                                    class="extension-badge"
+                                    classList={{ 'is-neutral': info.required && info.status !== 'invalid' }}
+                                >
+                                    {info.status === 'invalid' ? 'Rejected' : 'Always on'}
+                                </span>
+                                <span class="extension-title">
+                                    <Text class="extension-name">{info.manifest.name}</Text>
+                                    <Show when={info.manifest.description}>
+                                        {(d) => <Text size="sm" class="settings-hint">{d()}</Text>}
+                                    </Show>
+                                </span>
+                            </div>
                         </Show>
 
                         <Show when={problem(info)}>

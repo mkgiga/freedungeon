@@ -82,12 +82,14 @@ export function buildAiSdkTools(
     enableChoicePrompts: boolean,
     enableSceneImages = false,
     enableItemIcons = false,
+    enableDiceRolls = false,
 ): Record<string, Tool> {
     const tools: Record<string, Tool> = {}
 
     for (const [key, spec] of Object.entries(COMMANDS)) {
         if (key === 'choice_prompt') continue
         if (key === 'generate_image' && !enableSceneImages) continue
+        if (key === 'roll_random' && !enableDiceRolls) continue
         tools[spec.name] = tool({
             description: spec.description,
             inputSchema: jsonSchema(z.toJSONSchema(
@@ -140,11 +142,12 @@ export type AiSdkTurnArgs = {
     enableChoicePrompts: boolean
     enableSceneImages: boolean
     enableItemIcons: boolean
+    enableDiceRolls: boolean
     signal: AbortSignal
 }
 
 export async function runAiSdkTurn(args: AiSdkTurnArgs): Promise<{ transcript: ModelMessage[] }> {
-    const tools = buildAiSdkTools(args.chatId, args.enableChoicePrompts, args.enableSceneImages, args.enableItemIcons)
+    const tools = buildAiSdkTools(args.chatId, args.enableChoicePrompts, args.enableSceneImages, args.enableItemIcons, args.enableDiceRolls)
     const messages: ModelMessage[] = [...args.transcript, { role: 'user', content: args.userContent }]
 
     const result = await generateText({

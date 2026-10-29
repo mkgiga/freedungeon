@@ -28,7 +28,11 @@ export default {
         ])
 
         // Answers the button in the chat HUD. See content.ts.
-        fd.onCall('roll', () => {
+        //
+        // Held for as long as the roll takes, so the player can't send a
+        // message into the gap. `hold` with a function releases in a `finally`,
+        // so a throw here can't wedge the composer.
+        fd.onCall('roll', () => fd.turn.hold('Rolling…', async () => {
             const sides = fd.settings.get('sides', 20)
             const value = roll(sides)
 
@@ -45,7 +49,7 @@ export default {
             }
 
             return { sides, value, total: fd.state.values.rolls }
-        })
+        }))
 
         // Rolls belong to the story they happened in, so a new one starts clean.
         fd.on('chat.loaded', () => fd.state.set('last', null))

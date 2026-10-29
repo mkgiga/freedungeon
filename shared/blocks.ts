@@ -16,6 +16,13 @@ export type ImageBlock = {
     aspect?: 'square' | 'landscape' | 'portrait'
 }
 export type WebviewBlock = { type: 'webview'; html: string; css?: string; script?: string }
+export type RollEntry = { actors: string[]; threshold: number; value: number }
+export type RollRandomBlock = {
+    type: 'rollRandom'
+    title: string
+    subtitle: string
+    rolls: RollEntry[]
+}
 export type UnformattedBlock = { type: 'unformatted'; content: string }
 export type NoOpContinueBlock = { type: 'noOpContinue' }
 export type EnterActorsBlock = { type: 'enterActors'; actors: string[] }
@@ -48,6 +55,7 @@ export type Block =
     | PauseBlock
     | ImageBlock
     | WebviewBlock
+    | RollRandomBlock
     | UnformattedBlock
     | NoOpContinueBlock
     // State-mutating commands
@@ -74,10 +82,20 @@ export type Block =
  * Block types that pause the playback queue until the user advances. Everything
  * else applies its effect and lets playback continue.
  */
-export const BLOCKING_BLOCK_TYPES = new Set<Block['type']>(['text', 'speech', 'pause'])
+export const BLOCKING_BLOCK_TYPES = new Set<Block['type']>(['text', 'speech', 'pause', 'rollRandom'])
 
 export function isBlockingBlock(b: Block): boolean {
     return BLOCKING_BLOCK_TYPES.has(b.type)
+}
+
+/**
+ * Strictly above the threshold, so 50 is a coin flip and the odds of a pass
+ * are always `100 - threshold` percent. The agent, the effects text and the
+ * rendered block all read it from here so a roll can't pass in one and fail
+ * in another.
+ */
+export function rollPassed(r: RollEntry): boolean {
+    return r.value > r.threshold
 }
 
 const parseCache = new Map<string, Block[]>()
@@ -130,6 +148,14 @@ export function parseBlocks(content: string): Block[] {
                 html,
                 ...(opts?.css ? { css: opts.css } : {}),
                 ...(opts?.script ? { script: opts.script } : {}),
+            })
+        },
+        rollRandom: (opts: { title: string; subtitle: string; rolls: RollEntry[] }) => {
+            blocks.push({
+                type: 'rollRandom',
+                title: opts.title,
+                subtitle: opts.subtitle,
+                rolls: opts.rolls,
             })
         },
         unformatted: (c: string) => {
@@ -267,6 +293,12 @@ export function serializeBlocks(blocks: Block[]): string {
                     if (b.script) optsParts.push(`script: ${tpl(b.script)}`)
                     const opts = optsParts.length ? `, { ${optsParts.join(', ')} }` : ''
                     return `webview(${tpl(b.html)}${opts});`
+                }
+                case 'rollRandom': {
+                    const rolls = b.rolls
+                        .map(r => `{ actors: [${r.actors.map(str).join(', ')}], threshold: ${r.threshold}, value: ${r.value} }`)
+                        .join(', ')
+                    return `rollRandom({ title: ${str(b.title)}, subtitle: ${str(b.subtitle)}, rolls: [${rolls}] });`
                 }
                 case 'unformatted':
                     return `unformatted(${tpl(b.content)});`

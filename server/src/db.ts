@@ -736,6 +736,7 @@ export async function loadStateFromDb(): Promise<Omit<AppState, 'userPreferences
         extensionState,
         activities: {},
         extensions: {},
+        extensionHolds: {},
         dependencies: {},
         currentChat: {
             id: null,

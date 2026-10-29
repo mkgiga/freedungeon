@@ -13,6 +13,7 @@ own persisted state.
 - persisted, replicated state via `fd.state`
 - writing to the story with `fd.chat.post` and `fd.chat.systemNotice`
 - a lifecycle hook (`fd.on('chat.loaded', …)`)
+- holding the next turn while it works (`fd.turn.hold`)
 - browser UI in a layout slot (`fd.ui.slot('chat.hud', …)`)
 - the browser half calling the server half (`fd.call` ↔ `fd.onCall`)
 

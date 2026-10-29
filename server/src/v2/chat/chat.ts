@@ -4,11 +4,23 @@ import { mutate, state } from '../../server'
 import { CurrentChat, logChat } from '../../chat'
 import { parseBlocks } from '@shared/blocks'
 import { turnBlockers } from '@shared/dependencies'
+import { heldTurns } from '@shared/extensions'
 import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
 import { createInitialContext } from '@shared/game-state'
 
+/**
+ * Two reasons a turn can't start, refused in one place so the composer and the
+ * server can't disagree about whether the button should have worked.
+ */
 function assertTurnAllowed(): void {
+    const held = heldTurns(state.extensionHolds)
+    if (held.length > 0) {
+        throw new Error(
+            `${held.map(h => h.reason).join('; ')} — an extension is holding the next turn.`,
+        )
+    }
+
     const activeProvider = state.assets.llmConfigs[state.userPreferences.activeLLMConfigId!]?.provider
     const blockers = turnBlockers(state.dependencies, state.userPreferences.extensions, activeProvider)
     if (blockers.length === 0) return

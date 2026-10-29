@@ -17,6 +17,7 @@ type PlaybackApi = {
     isActiveScrolling: () => boolean
     tap: () => void
     isMessageRevealed: (id: string) => boolean
+    isLiveMessage: (id: string) => boolean
     hasUnread: () => boolean
 }
 
@@ -44,6 +45,18 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
     const [seenVersion, setSeenVersion] = createSignal(0)
     const markSeen = (id: string) => { seenAssistantIds.add(id); setSeenVersion(v => v + 1) }
     const isMessageRevealed = (id: string) => { seenVersion(); return seenAssistantIds.has(id) }
+
+    // Messages that were already there when the chat opened; anything else
+    // arrived while it was on screen. Captured lazily as well as on chat
+    // switch, because a user message can render before the effect below runs.
+    let baseline: { chatId: string; ids: Set<string> } | null = null
+    const captureBaseline = () => {
+        baseline = { chatId: state.currentChat.id, ids: new Set(Object.keys(state.currentChat.messages)) }
+    }
+    const isLiveMessage = (id: string) => {
+        if (baseline?.chatId !== state.currentChat.id) captureBaseline()
+        return !baseline!.ids.has(id)
+    }
 
     let pauseTimer: ReturnType<typeof setTimeout> | null = null
     let typewriterTimer: ReturnType<typeof setInterval> | null = null
@@ -191,6 +204,7 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
                     if (m.role === 'assistant') seenAssistantIds.add(m.id)
                 }
                 setSeenVersion(v => v + 1)
+                captureBaseline()
             })
             lastSeenChatId = cid
             return
@@ -256,6 +270,7 @@ export function PlaybackProvider(props: { children: JSX.Element }) {
         isActiveScrolling,
         tap,
         isMessageRevealed,
+        isLiveMessage,
         hasUnread,
     }
 

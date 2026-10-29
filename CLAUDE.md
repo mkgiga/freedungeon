@@ -143,17 +143,24 @@ mutate(s => { s.currentChat.gameState.itemDefs[key].icon = url })
 
 **Arrays are leaf values.** Write them whole (`s.x.list = next`). Deleting an array index leaves a hole rather than splicing, and the patch protocol has no representation for splice or reorder. Anything that gains and loses members should be a `Record` keyed by id — which is what every `assets.*` root already is.
 
-**There is no reactivity on the server.** Bun resolves solid-js's SSR build, where the store is inert: `createEffect` never runs, not even once. Reactivity is a client-only thing here, and `mutate` is explicit precisely because nothing can observe a write on its own. Do not add an effect to `server/src` expecting it to fire — it will fail silently.
+**Reactivity works on the server**, but only because we ask for it. solid's `exports` map sends the `node` condition to `dist/server.js`, a gutted SSR build where the store is inert and `createEffect` never runs. We override that: the `start`/`dev` scripts pass `--conditions browser` and `build.ts` passes `conditions: ['browser']`. Both have to agree, or the compiled binary gets the inert build and every effect silently stops firing. solid's reactive core needs no DOM — only `solid-js/web` does.
+
+The cost of the real build is that the store is a lazy proxy, so a full walk is ~9x slower (2.5ms → 22ms serialising a 3000-message chat). That only lands on `socket.emit('init', …)`, once per client connection; per-write costs are unchanged. If it ever matters, emit `unwrap(state)` there.
+
+`mutate` is still the way to write state, and is still explicit: an effect can observe a write now, but only `mutate` turns one into the patches `persistPath` and the socket need.
 
 For application state types, see `shared/types.ts`.
 
 ### Data persistence
 
-Data persistence is sqlite via kysely with a Bun adapter. The same choke point that emits socket patches also calls `persistPath`, which dehydrates the mutated entity to an SQL upsert (present in state) or delete (absent). The frontend and the database are updated through one path, so endpoints never write SQL themselves; when a new table is added, `persistPath` gains a branch. Non-persistable roots (`currentChat.gameState`, `isGenerating`, `notifications`, `activities`, `dependencies`) simply fall through.
+Data persistence is sqlite via kysely with a Bun adapter. The same choke point that emits socket patches also calls `persistPath`, which dehydrates the mutated entity to an SQL upsert (present in state) or delete (absent). The frontend and the database are updated through one path, so endpoints never write SQL themselves; when a new table is added, `persistPath` gains a branch. Non-persistable roots (`currentChat.gameState`, `isGenerating`, `notifications`, `activities`, `dependencies`, `extensions`, `extensionHolds`) simply fall through.
 
 Deleting an *entity* also runs `applyDeleteCascades` (`cascade.ts`) before removal. The database's foreign keys act on a projection nothing reads back at runtime, so in-memory cascades are what actually keep the store consistent — evicting a Scenario's residents, removing its collaborator conversation, pruning refs to a deleted actor or note.
 
-**Extension state.** `state.extensionState[key]` is a persisted root backed by the `extension_state` table, for state an extension owns. It is *not* `userPreferences.features[key].values`, which is settings: user-authored, schema-rendered, rewritten wholesale. Extensions declare defaults via `FeatureSpec.state` and write through `extensionStore(key)` in `extension-state.ts`.
+**Extension state vs. settings.** Two different roots, and the distinction matters:
+
+- `state.extensionState[key]` is a persisted root backed by the `extension_state` table, for state the extension owns and writes. The host knows nothing about its shape, so `seedExtensionState` restores it verbatim at boot and an extension applies its own fallbacks on read. Written through `extensionStore(key)` in `extension-state.ts`, exposed to extensions as `fd.state`.
+- `userPreferences.extensions[key]` is `{ enabled, values }` — user-authored settings, schema-rendered, rewritten wholesale. The schema comes from `fd.settings.define(fields)` at activation, and each field's `default` *is* the default, applied on read by `resolveExtensionConfig` so a field added later needs no migration.
 
 For data models/types, see `server/src/db.ts`.
 

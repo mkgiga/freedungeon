@@ -1,5 +1,5 @@
 import type { DependencyKey, DependencyState } from './dependencies'
-import type { ExtensionConfig, ExtensionInfo } from './extensions'
+import type { ExtensionConfig, ExtensionHold, ExtensionInfo } from './extensions'
 
 export type AppState = {
     assets: {
@@ -17,6 +17,8 @@ export type AppState = {
     userPreferences: UserPreferences;
     extensionState: Record<string, Record<string, unknown>>;
     extensions: Record<string, ExtensionInfo>;
+    /** Runtime only, like `activities`. Nothing survives a restart. */
+    extensionHolds: Record<string, ExtensionHold>;
 }
 
 /**

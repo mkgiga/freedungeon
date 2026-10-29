@@ -17,7 +17,7 @@ import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
 import { isEmbedded } from './embedded';
 import { dependencyPath, verifyDependency } from './dependencies';
-import { ActionableError } from './notifications';
+import { ActionableError, notification } from './notifications';
 import { DEPENDENCIES } from '@shared/dependencies';
 import { getDefaultSystemPrompt } from './system-prompt';
 import { runScenarioTool } from './scenario-agent';
@@ -31,8 +31,24 @@ const AGENT_URL = `http://127.0.0.1:${AGENT_PORT}`;
 
 let agentProcess: ChildProcess | null = null;
 
+const NO_AGENT = 'The agent process has not been started.';
+
+/**
+ * Why the server has to prove the agent is its own: the port is fixed, and on
+ * Windows a kill doesn't run exit handlers, so an agent stranded by a previous
+ * run keeps listening. Our own child then dies of EADDRINUSE and the stranded
+ * one answers `/prompt` with a 200 - running whatever code and whatever
+ * environment it was started with. That is invisible from here, and it is how
+ * a switch like auto-memory can look enabled again long after being turned
+ * off. A token we hand only our own child tells the two apart.
+ *
+ * Holds the reason the agent is unusable, or null once it has answered.
+ */
+let agentFault: Promise<string | null> = Promise.resolve(NO_AGENT);
+
 export async function spawnAgentProcess() {
     if (agentProcess) return;
+    const token = nanoid();
 
     const [command, args, cwd] = isEmbedded()
         ? [process.execPath, ['--agent'], undefined]
@@ -51,10 +67,12 @@ export async function spawnAgentProcess() {
             // The dungeon master must not keep notes between sessions. Auto
             // memory is on by default and keyed to the git repository, so every
             // chat would share one memory directory and recall actors and notes
-            // the user has since deleted. Set here rather than in the settings
-            // file because `bridge.ts` passes `settingSources: []`, which
-            // excludes the `autoMemoryEnabled` setting entirely.
+            // the user has since deleted. `bridge.ts` asks for the same thing
+            // per call through `settings.autoMemoryEnabled`; this is the belt
+            // to that braces, and it is the stronger of the two - the CLI
+            // checks the variable before it reads any settings layer.
             CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+            AGENT_TOKEN: token,
         },
         stdio: 'inherit',
     });
@@ -66,6 +84,35 @@ export async function spawnAgentProcess() {
         log.server.error(`Agent process error: ${err.message}`);
     });
     agentProcess = proc;
+    agentFault = confirmOwnAgent(token);
+}
+
+async function confirmOwnAgent(token: string): Promise<string | null> {
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+        const answer = await fetch(`${AGENT_URL}/health`).then(r => r.text()).catch(() => null);
+        if (answer === token) return null;
+        if (answer !== null) {
+            const fault = `Port ${AGENT_PORT} is held by an agent this server did not start `
+                + '- another copy of freedungeon is probably still running. '
+                + 'Close it and restart.';
+            log.server.error(fault);
+            notification({
+                title: 'Agent port taken',
+                content: fault,
+                backgroundColor: '#7a1f1f',
+                textColor: '#fff',
+                show: true,
+                toast: true,
+                push: false,
+            });
+            return fault;
+        }
+        await Bun.sleep(250);
+    }
+    const fault = `The agent did not come up on port ${AGENT_PORT}.`;
+    log.server.error(fault);
+    return fault;
 }
 
 /**
@@ -82,6 +129,7 @@ export function killAgentProcess() {
         agentProcess.kill('SIGTERM');
         agentProcess = null;
     }
+    agentFault = Promise.resolve(NO_AGENT);
 }
 
 type ExecRequest = {
@@ -496,6 +544,7 @@ async function runAiTurn(args: {
     enableChoicePrompts: boolean;
     enableSceneImages: boolean;
     enableItemIcons: boolean;
+    enableDiceRolls: boolean;
 }) {
     const controller = new AbortController();
     inFlightAiTurns.set(args.chatId, controller);
@@ -509,6 +558,7 @@ async function runAiTurn(args: {
             enableChoicePrompts: args.enableChoicePrompts,
             enableSceneImages: args.enableSceneImages,
             enableItemIcons: args.enableItemIcons,
+            enableDiceRolls: args.enableDiceRolls,
             signal: controller.signal,
         });
         await saveAiTranscript(args.chatId, transcript);
@@ -557,6 +607,7 @@ export async function dispatchPromptToAgent(args: {
     }
 
     const enableChoicePrompts = isExtensionActive('core.choicePrompts');
+    const enableDiceRolls = isExtensionActive('core.diceRolls');
 
     // A template that never names the macro still gets what extensions
     // contributed, so switching one on works whatever prompt is in use.
@@ -651,6 +702,9 @@ export async function dispatchPromptToAgent(args: {
     }
 
     if (currentLoop === 'claude') {
+        const fault = await agentFault;
+        if (fault) throw new Error(fault);
+
         let response: Response;
         try {
             response = await fetch(`${AGENT_URL}/prompt`, {
@@ -666,6 +720,7 @@ export async function dispatchPromptToAgent(args: {
                     enableChoicePrompts,
                     enableSceneImages,
                     enableItemIcons,
+                    enableDiceRolls,
                     claudeCliPath: await dependencyPath('claudeCli'),
                 }),
             });
@@ -695,6 +750,7 @@ export async function dispatchPromptToAgent(args: {
             enableChoicePrompts,
             enableSceneImages,
             enableItemIcons,
+            enableDiceRolls,
         });
         log.server.info(`AI SDK turn complete for chat ${args.chatId}`);
         // The Claude loop announces its own end over RPC; this one has no
