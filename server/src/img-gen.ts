@@ -70,10 +70,10 @@ export async function generateImage(options: string | GenerationOptions): Promis
         seed: opts.seed ?? -1,
         batch_count: 1,
         sample_params: {
-            sample_steps: opts.steps ?? 30,
+            sample_steps: opts.steps ?? 8,
             sample_method: opts.samplerName ?? 'euler',
-            scheduler: opts.scheduler ?? 'ER-SDE',
-            guidance: { txt_cfg: opts.cfgScale ?? 6.0 },
+            scheduler: opts.scheduler ?? 'simple',
+            guidance: { txt_cfg: opts.cfgScale ?? 1.0 },
         },
         output_format: 'png',
         ...(opts.raw ?? {}),

@@ -1,11 +1,5 @@
-score_9, masterpiece, best quality, game cg, item icon, 1:1, from above, three quarter view, dutch angle,
+A single RPG inventory icon showing one object alone against a plain empty background, seen in three-quarter view from slightly above, the whole object inside the frame.
 
-This is a high-quality RPG game icon:
-
-\\<description\>
 {{ mcp_item_description }}
-\\</description\>
 
-\\<visual-style\>
-{{ user_style_preference }}
-\\</visual-style\>
+Rendered as {{ user_style_preference }}.

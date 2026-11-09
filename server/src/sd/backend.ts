@@ -110,22 +110,22 @@ export async function nvidiaVramGiB(): Promise<number | null> {
  * it is on for CUDA and used elsewhere only when memory is the constraint.
  */
 export function sdRuntimeFlags(backend: SdBackend, vramGiB: number | null): string[] {
-    if (backend === 'metal') return ['--max-vram', '-1']
+    if (backend === 'metal') return ['--vae-tiling', '--max-vram', '-1']
 
     const cuda = backend === 'cuda12'
-    const flags: string[] = []
+    const flags: string[] = ['--vae-tiling']
     if (cuda) flags.push('--diffusion-fa')
 
     if (vramGiB === null) return [...flags, '--offload-to-cpu', '--max-vram', '-1']
 
-    if (vramGiB >= 8) return flags
+    if (vramGiB >= 20) return flags
 
     if (!cuda) flags.push('--diffusion-fa')
     flags.push('--offload-to-cpu')
-    if (vramGiB >= 6) return flags
+    if (vramGiB >= 14) return flags
 
     flags.push('--max-vram', '-1')
-    if (vramGiB >= 4) return flags
+    if (vramGiB >= 10) return flags
 
     flags.push('--stream-layers')
     return flags

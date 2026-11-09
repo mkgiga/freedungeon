@@ -1,9 +1,3 @@
-score_9, masterpiece, best quality, game cg,
-
-\\<description\>
 {{ agent_image_prompt }}
-\\</description\>
 
-\\<visual-style\>
-{{ user_style_preference }}
-\\</visual-style\>
+Rendered as {{ user_style_preference }}.

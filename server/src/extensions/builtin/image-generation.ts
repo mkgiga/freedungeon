@@ -14,7 +14,7 @@ export const DEFAULT_STYLE_PREFERENCE = 'anime screencap'
 
 export const IMAGE_GENERATION_INSTRUCTIONS = `# 【Generated Images】
 
-You can render an image into the story with \`generate_image\`. Pass a \`description\` written for an image model — subject and action, setting, framing and camera angle, lighting, mood, colour, in concrete visual nouns; it knows nothing of the story, so name what is in frame rather than who it is to the plot. Pass an \`aspect\` of "landscape" (establishing shots, vistas), "portrait" (a figure, a tall space) or "square", and optionally \`caption\` text to sit beneath the image.
+You can render an image into the story with \`generate_image\`. Pass a \`description\` written as plain prose, not a list of tags — a sentence or two naming the subject and what they are doing, then the setting, the framing and camera angle, the lighting and mood. The image model reads English and rewards specifics, but it knows nothing of the story, so describe what is in frame rather than who it is to the plot. Pass an \`aspect\` of "landscape" (establishing shots, vistas), "portrait" (a figure, a tall space) or "square", and optionally \`caption\` text to sit beneath the image.
 
 The image is generated on the spot and the turn blocks until it is done, so spend it where a visual does work prose would not: arriving somewhere the party has never seen, a reveal whose look carries the beat. At most one per beat, and never as decoration for a moment you have already described well.`
 
@@ -67,7 +67,7 @@ export const manifest: ExtensionManifest = {
     id: 'core.imageGeneration',
     name: 'Image generation',
     version: pkg.version,
-    description: 'Draws pictures on this machine. Downloads about 3 GB the first time.',
+    description: 'Draws pictures on this machine. Downloads about 17 GB the first time.',
     author: 'freedungeon',
     main: '',
 }

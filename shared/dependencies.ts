@@ -102,17 +102,17 @@ export const DEPENDENCIES: Record<DependencyKey, { label: string; reason: string
         extension: 'core.imageGeneration',
     },
     sdDiffusionModel: {
-        label: 'Anima weights',
+        label: 'Kroma weights',
         reason: 'The model that draws the picture.',
         extension: 'core.imageGeneration',
     },
     sdVae: {
-        label: 'Anima VAE',
+        label: 'Krea 2 VAE',
         reason: 'Turns what the model produces into a viewable image.',
         extension: 'core.imageGeneration',
     },
     sdTextEncoder: {
-        label: 'Qwen3 text encoder',
+        label: 'Qwen3-VL text encoder',
         reason: 'Reads your prompt for the image model.',
         extension: 'core.imageGeneration',
     },
