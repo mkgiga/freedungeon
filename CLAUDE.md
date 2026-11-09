@@ -1,105 +1,46 @@
-# CLAUDE.md
+# Supplemental Code Guidelines for Agents
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-## 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-## 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
-## 5. Code as the source of truth
-
-Do not rely on Explore Agents to find and summarize parts of the code. Explore Agents tend to drop important context during the summarization process. Instead, prefer exploring repositories on your own; The cost of an inaccurate architectural assumption outweighs any tokens that (would have) been saved from use of agentic exploration tools.
+1. Researching
+    Don't rely on explore agents to handle tasks that require extensive research and planning. Explore agents tend to drop important context in their summaries; consider implementation mistakes more expensive than extra token spend.
+2. Planning
+    Weigh your options: When implementing a solution, should you roll a new system, or are there existing components that you can reuse? Prefer reusing existing systems when it makes sense, but do not be afraid to extend or refactor existing infrastructure should it not be sufficient for the task.
+3. Comments
+    Never add code comments. Your code is self-documenting.
 
 ---
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
-
----
-
 
 # UI Design Guidelines
 
-These design guidelines aim to deter default AI agent 'slop' visuals and improve user experience in general.
+## Style Guidelines
 
-## Brief definition of 'Aesthetic' (noun)
+These guidelines exist to help agents avoid common 'AI slop' design mistakes, and most importantly: making a clear, non-confusing
 
-'An aesthetic' or a 'style' is an emergent symptom created by pattern-seeking behaviors of the human mind. Establishing arbitrary constraints on elements' visual attributes is mandatory for a pleasant experience; Typograhic rules for text content, container line & column gaps, a constrained palette, etc...
-
-## Layout guidelines
-
-1. Forbidden: Stacked Cards
-    A bordered container may not have a child at any depth that also renders its own borders. This is by far the biggest sin of modern LLMs - we avoid this at all costs. A card can only render on top of the page background color, never inside another card.
-2. Icons
-    Use an icon library, never Emojis. Some icon libraries will harmonize better with the rest of the interface. Take this simplified example: Pick the round icons for the UI that uses rounded borders, and square/boxy icons for those without rounded borders. Apply this to all visual attributes and you get the idea.
+1. Clutter
+    What's on the screen should only be what the user needs to see at any given time - ask yourself: 'Is this useful here? Does the user need to see this now?'
+1. Nested Boxes Forbidden
+    Any single element that renders its own visual threshold (e.g. a border, a background color) distinct from the background must NEVER have a descendant that does the same. This creates nested boxes and contributes clutter to the layout.
+2. Establish typographic rules
+    Use well-defined typographic rules across the whole UI.
 3. Style reuse
-    Never hardcode magic values. Define CSS variables that you can reuse to prevent drift when things change.
+    Always reuse styles such as CSS variables as to keep a consistent theme. Never hardcode/handroll styles inline.
 4. Pressable elements
-    Don't style all interactive elements like rectangular buttons - you can use clickable text labels too; in this situation, don't change the background color on `:hover` because that would render a rectangular fill around the text.
-5. Smart `display` choices
+    Don't style all interactive elements like rectangular buttons - you can use clickable text labels too.
+5. Layout reflow
+    Elements with dynamic content must not push other inline elements in the layout context they share. - Consider these two examples:
+      - A horizontal flexbox rail renders two elements: A label showing the current hour and minutes, and a label showing the name of the user's phone provider. The label showing the current time may change in width, which would move the other label left or right.
+      - A shopping cart page that renders a list of items and checkout controls below the list: In order to prevent list items from moving the checkout controls, what do you do? You make a sticky rail inside the outer container that always renders at the bottom.
+6. Use icons, never Emojis.
+    Use real icons that (ideally) match the rest of the UI's design language such as an icon library, never Emojis.
+7. Smart `display` choices
     Choose appropriate `display` types depending on the layout - Not everything should to be a flexbox.
 
-## User-facing text content guidelines
+## User-facing text content
 
-1. User-facing text
-    - BREVITY: Verbosity is hell, brevity is heaven. User attention span isn't cheap, and that's why you should cut all padding.
-    - RELEVANCE:
-        1. Does the text content you are about to add need to exist at all? If the UI already shows how to do something - Don't narrate it! Second-guess yourself every time.
-        2. If it does: Explanatory text content must serve a *visitor of the app*  - NOT the developer that prompted you! Leaking context related to your prompt into the UI is a sin punishable by 20 hours in the torture tower.
-    - LANGUAGE: Cut technical details or explainers about internal logic that only serve to confuse visitors. Example Scenario: You are designing a settings menu where every field is succeeded by a tooltip label. You decide to add a new field, and you make its tooltip label something that *briefly states what it is* - **not** system documentation.
+**Any** text content that is displayed in a graphical user interface is considered **user-facing**. Here are the guidelines for such content:
+
+1. NO NARRATION:
+  - Do not narrate technical solutions that relate to the user's prompt or the feature that you are implementing.
+  - Do not narrate internal machinery or how to use the application to the user of the interface. Use of the application is self-documenting through intuitive UX design using visual cues, feedback on actions, etc familiar UX design patterns.
 
 ---
 
