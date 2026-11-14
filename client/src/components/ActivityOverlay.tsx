@@ -8,8 +8,14 @@ import { Text } from './typography/Text'
  * new one before the UI ships.
  */
 export function ActivityOverlay() {
+    /**
+     * Scene images are left out: they render a spinner in the slot they will
+     * occupy in the story, so an overlay row would report the same job twice.
+     */
     const activities = createMemo(() =>
-        Object.values(state.activities ?? {}).sort((a, b) => a.startedAt - b.startedAt),
+        Object.values(state.activities ?? {})
+            .filter(a => a.kind !== 'generatingImage')
+            .sort((a, b) => a.startedAt - b.startedAt),
     )
 
     return (

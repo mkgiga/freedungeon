@@ -38,7 +38,7 @@ function ChatListItem(props: {
         <tr class="resource-table-row chat-list-row" style={rowStyle()} onClick={props.onClick}>
             <td class="resource-table-col-avatar">
                 <ImageIcon
-                    url={props.chat.avatarUrl}
+                    url={props.chat.thumbnailUrl ?? props.chat.avatarUrl}
                     size={40}
                     class="actor-avatar"
                     placeholder={

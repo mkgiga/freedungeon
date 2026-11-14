@@ -287,17 +287,20 @@ export async function verifyDependency(key: DependencyKey): Promise<DependencySt
 
     const stat = fs.statSync(spec.file)
     const cached = readCache()[key]
-    if (cached && cached.bytes === stat.size && cached.mtimeMs === stat.mtimeMs) {
+
+    let resolved: Expected | null = null
+    try {
+        resolved = (await spec.resolve()).expected
+    } catch (err) {
+        if (!cached) throw err
+    }
+
+    const unchanged = resolved === null || cached?.sha256 === resolved.sha256
+    if (cached && unchanged && cached.bytes === stat.size && cached.mtimeMs === stat.mtimeMs) {
         return await gateReady(spec, 'satisfied')
     }
 
-    let expected: Expected
-    try {
-        expected = (await spec.resolve()).expected
-    } catch (err) {
-        if (!cached) throw err
-        expected = { sha256: cached.sha256, bytes: cached.bytes }
-    }
+    const expected: Expected = resolved ?? { sha256: cached!.sha256, bytes: cached!.bytes }
 
     if (stat.size !== expected.bytes) return 'corrupt'
     const actual = await hashFile(spec.file)

@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/solid-router'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../../components/TopBar'
-import { createEffect, createMemo, createSignal, For, onMount, Show, untrack } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, Match, onMount, Show, Switch, untrack } from 'solid-js'
 import { createViewportObserver } from '@solid-primitives/intersection-observer'
 import { MdFillAdd, MdFillView_sidebar } from 'solid-icons/md'
 import { Text } from '../../components/typography/Text'
@@ -239,23 +239,160 @@ function ConversationViewBody(props: { onBack: () => void }) {
   })
 
   const layouts = createMemo(() => {
-    const map = new Map<string, { prevBlock?: Block; portraitSide: 'left' | 'right' }>()
+    const map = new Map<string, { prevBlock?: Block }>()
     let prevBlock: Block | undefined
-    let portraits = 0
 
     for (const message of visibleMessages()) {
-      map.set(message.id, {
-        prevBlock,
-        portraitSide: portraits % 2 === 0 ? 'left' : 'right',
-      })
-      for (const block of parseBlocks(message.content)) {
-        if (block.type === 'image' && block.aspect === 'portrait') portraits++
-      }
+      map.set(message.id, { prevBlock })
       const last = lastRenderedBlock(message.content)
       if (last) prevBlock = last
     }
     return map
   })
+
+  /**
+   * A portrait image is half a column wide, so on its own it leaves a tall
+   * empty gutter. Instead it is floated and the narration that ran up to it is
+   * pulled in beside it, enough of it to cover the image's height and no more.
+   * The run stops at anything that isn't narration or dialogue, so a roll, an
+   * item or another image never gets swallowed into someone else's layout.
+   *
+   * Float, not grid: once the text passes the bottom of the image it reclaims
+   * the full measure, which is the same behaviour the speech avatar relies on.
+   */
+  const FLOAT_IMAGE_HEIGHT = 431
+  const BODY_CHARS_PER_LINE = 46
+  const TEXT_LINE_HEIGHT = 26
+  const SPEECH_LINE_HEIGHT = 25
+
+  const estimateHeight = (blocks: Block[]): number => {
+    let h = 0
+    for (const b of blocks) {
+      if (b.type === 'text') {
+        h += Math.max(1, Math.ceil(b.content.length / BODY_CHARS_PER_LINE)) * TEXT_LINE_HEIGHT
+      } else if (b.type === 'speech') {
+        h += Math.max(64, Math.ceil((b.dialogue?.length ?? 0) / 44) * SPEECH_LINE_HEIGHT + 22)
+      }
+    }
+    return h
+  }
+
+  type FeedEntry =
+    | { kind: 'solo'; message: ChatMessageType }
+    | {
+        kind: 'float'
+        message: ChatMessageType
+        body: { message: ChatMessageType; beside: boolean }[]
+      }
+
+  /**
+   * `For` keys rows by value identity, and the store hands out a new message
+   * object only when that message actually changed. Entries are therefore
+   * reused whenever every message they point at is the same object as last
+   * time - otherwise a recompute (pinning the window, loading more) would
+   * hand `For` all-new wrappers, tear down every row and replay every
+   * block's entry animation under the reader.
+   */
+  let feedCache = new Map<string, FeedEntry>()
+
+  const sameEntry = (a: FeedEntry | undefined, b: FeedEntry): boolean => {
+    if (!a || a.kind !== b.kind || a.message !== b.message) return false
+    if (a.kind === 'solo' || b.kind === 'solo') return true
+    return a.body.length === b.body.length
+      && a.body.every((m, i) => m.message === b.body[i]!.message && m.beside === b.body[i]!.beside)
+  }
+
+  const feed = createMemo<FeedEntry[]>(() => {
+    const out: FeedEntry[] = []
+    const messages = visibleMessages()
+
+    const narration = (blocks: Block[]): boolean =>
+      blocks.length > 0 && blocks.every(b => b.type === 'text' || b.type === 'speech')
+
+    let i = 0
+    while (i < messages.length) {
+      const message = messages[i]!
+      const blocks = parseBlocks(message.content)
+      const only = blocks.length === 1 ? blocks[0] : undefined
+      if (!only || only.type !== 'image' || only.aspect !== 'portrait') {
+        out.push({ kind: 'solo', message })
+        i++
+        continue
+      }
+
+      const before: ChatMessageType[] = []
+      const after: ChatMessageType[] = []
+      const heights = new Map<ChatMessageType, number>()
+      let filled = 0
+
+      while (out.length > 0 && filled < FLOAT_IMAGE_HEIGHT) {
+        const prev = out[out.length - 1]!
+        if (prev.kind !== 'solo') break
+        const prevBlocks = parseBlocks(prev.message.content)
+        if (!narration(prevBlocks)) break
+        out.pop()
+        before.unshift(prev.message)
+        heights.set(prev.message, estimateHeight(prevBlocks))
+        filled += estimateHeight(prevBlocks)
+      }
+
+      // Whatever gutter the earlier narration didn't cover is filled by the
+      // narration that follows, which is the direction a float wraps anyway:
+      // it runs beside the image and reclaims the full measure the moment it
+      // passes the bottom edge.
+      let j = i + 1
+      while (j < messages.length && filled < FLOAT_IMAGE_HEIGHT) {
+        const nextBlocks = parseBlocks(messages[j]!.content)
+        if (!narration(nextBlocks)) break
+        after.push(messages[j]!)
+        heights.set(messages[j]!, estimateHeight(nextBlocks))
+        filled += estimateHeight(nextBlocks)
+        j++
+      }
+
+      const ordered = [...before, ...after]
+      if (ordered.length === 0) {
+        out.push({ kind: 'solo', message })
+        i++
+        continue
+      }
+
+      // Only the rows that actually run alongside the picture mirror with it;
+      // once the stack passes the image's bottom edge the layout is ordinary
+      // again, and a portrait pinned to the far margin down there just reads
+      // as a mistake.
+      let run = 0
+      const body = ordered.map((m) => {
+        const beside = run < FLOAT_IMAGE_HEIGHT
+        run += heights.get(m) ?? 0
+        return { message: m, beside }
+      })
+
+      out.push({
+        kind: 'float',
+        message,
+        body,
+      })
+      i = j
+    }
+
+    const cache = new Map<string, FeedEntry>()
+    const stable = out.map((entry) => {
+      const key = `${entry.kind}:${entry.message.id}`
+      const reused = sameEntry(feedCache.get(key), entry) ? feedCache.get(key)! : entry
+      cache.set(key, reused)
+      return reused
+    })
+    feedCache = cache
+    return stable
+  })
+
+  const renderMessage = (message: ChatMessageType) => (
+    <ChatMessage
+      message={message}
+      prevBlock={layouts().get(message.id)?.prevBlock}
+    />
+  )
 
   const pinCurrentWindow = () => {
     if (pinnedIds() !== null) return
@@ -377,15 +514,23 @@ function ConversationViewBody(props: { onBack: () => void }) {
           >
             <div ref={topSentinelRef} class="chat-messages-sentinel" />
             <For
-              each={visibleMessages()}
+              each={feed()}
               fallback={<Text size="sm" class="p-4 opacity-50">No messages yet</Text>}
             >
-              {(message) => (
-                <ChatMessage
-                  message={message}
-                  prevBlock={layouts().get(message.id)?.prevBlock}
-                  portraitSide={layouts().get(message.id)?.portraitSide ?? 'left'}
-                />
+              {(entry) => (
+                <Switch>
+                  <Match when={entry.kind === 'solo'}>
+                    {renderMessage(entry.message)}
+                  </Match>
+                  <Match when={entry.kind === 'float'}>
+                    <div class="chat-float-group">
+                      <div class="chat-float-media">{renderMessage(entry.message)}</div>
+                      <For each={(entry as { body: { message: ChatMessageType }[] }).body}>
+                        {(m) => renderMessage(m.message)}
+                      </For>
+                    </div>
+                  </Match>
+                </Switch>
               )}
             </For>
             <div ref={bottomSentinelRef} class="chat-messages-sentinel" />

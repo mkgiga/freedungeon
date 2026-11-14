@@ -6,7 +6,7 @@ const run = promisify(execFile)
 export type SdBackend = 'cuda12' | 'vulkan' | 'metal'
 
 export type SdBuildChoice =
-    | { supported: true; backend: SdBackend; why: string }
+    | { supported: true; backend: SdBackend; why: string; computeCap: number | null }
     | { supported: false; code: SdUnsupportedCode; title: string; message: string }
 
 export type SdUnsupportedCode = 'linuxNvidia' | 'platform'
@@ -47,7 +47,7 @@ export async function resolveSdBuild(): Promise<SdBuildChoice> {
                     + 'Intel Macs are not supported.',
             }
         }
-        return { supported: true, backend: 'metal', why: 'Apple Silicon (Metal)' }
+        return { supported: true, backend: 'metal', why: 'Apple Silicon (Metal)', computeCap: null }
     }
 
     const cap = await nvidiaComputeCap()
@@ -63,12 +63,19 @@ export async function resolveSdBuild(): Promise<SdBuildChoice> {
                     + 'Vulkan would be far slower than your card is capable of. Coming soon.',
             }
         }
-        return { supported: true, backend: 'vulkan', why: 'Linux without NVIDIA (Vulkan)' }
+        return { supported: true, backend: 'vulkan', why: 'Linux without NVIDIA (Vulkan)', computeCap: null }
     }
 
     if (platform === 'win32') {
-        if (cap) return { supported: true, backend: 'cuda12', why: `NVIDIA compute ${cap} (CUDA 12)` }
-        return { supported: true, backend: 'vulkan', why: 'Windows without NVIDIA (Vulkan)' }
+        if (cap) {
+            return {
+                supported: true,
+                backend: 'cuda12',
+                why: `NVIDIA compute ${cap} (CUDA 12)`,
+                computeCap: Number(cap),
+            }
+        }
+        return { supported: true, backend: 'vulkan', why: 'Windows without NVIDIA (Vulkan)', computeCap: null }
     }
 
     return {
@@ -101,26 +108,38 @@ export async function nvidiaVramGiB(): Promise<number | null> {
 }
 
 /**
+ * SageAttention quantizes attention in the diffusion model and supersedes flash
+ * attention there. Asking for it on a device that can't run it is fatal rather
+ * than ignored - the context fails to build and nothing starts - so it is only
+ * requested when the kernels are known to exist: the CUDA build, and SM80 or
+ * newer. `ensureSdServer` drops it and retries if the launch fails anyway.
+ */
+export function sageAttentionSupported(backend: SdBackend, computeCap: number | null): boolean {
+    return backend === 'cuda12' && computeCap !== null && computeCap >= 8
+}
+
+/**
  * Runtime flags picked from measured VRAM, walking upstream's ladder:
  *   none -> --offload-to-cpu -> + --max-vram N -> + --stream-layers
  *
  * `--max-vram -1` is upstream's auto-detect: it reads free VRAM at runtime and
  * segments each pass to fit, so no budget is computed here and an unmeasurable
- * GPU still works. Flash attention speeds up CUDA but slows other backends, so
- * it is on for CUDA and used elsewhere only when memory is the constraint.
+ * GPU still works. Flash attention is left to `--flash-attn auto`, which picks
+ * per backend and device and benchmarks where it can't tell.
  */
-export function sdRuntimeFlags(backend: SdBackend, vramGiB: number | null): string[] {
-    if (backend === 'metal') return ['--vae-tiling', '--max-vram', '-1']
-
-    const cuda = backend === 'cuda12'
+export function sdRuntimeFlags(
+    backend: SdBackend,
+    vramGiB: number | null,
+    computeCap: number | null,
+): string[] {
     const flags: string[] = ['--vae-tiling']
-    if (cuda) flags.push('--diffusion-fa')
+    if (sageAttentionSupported(backend, computeCap)) flags.push('--sage-attn')
 
+    if (backend === 'metal') return [...flags, '--max-vram', '-1']
     if (vramGiB === null) return [...flags, '--offload-to-cpu', '--max-vram', '-1']
 
     if (vramGiB >= 20) return flags
 
-    if (!cuda) flags.push('--diffusion-fa')
     flags.push('--offload-to-cpu')
     if (vramGiB >= 14) return flags
 

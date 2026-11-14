@@ -71,13 +71,11 @@ export const COMMANDS = {
         schema: z.object({
             src: z.string().describe('Exact filename from the actor\'s expressions list.'),
             from: z.string().describe('Actor id whose gallery the image belongs to.'),
-            caption: z.string().optional(),
         }),
         toBlock: (args) => ({
             type: 'image',
             src: args.src,
             from: args.from,
-            ...(args.caption ? { caption: args.caption } : {}),
         }),
     }),
 
@@ -86,30 +84,26 @@ export const COMMANDS = {
         description: 'Display one of this chat\'s attached images inline in the story. `key` must be one listed by list_images — never invent one.',
         schema: z.object({
             key: z.string().describe('Image key from list_images.'),
-            caption: z.string().optional().describe('Optional text shown under the image.'),
         }),
-        toBlock: (args) => ({
+        toBlock: () => ({
             type: 'image',
             src: '',
             from: 'library',
-            ...(args.caption ? { caption: args.caption } : {}),
         }),
     }),
 
     generate_image: defineCommand({
         name: 'generate_image',
-        description: 'Generate and display an image inline in the story, for visual exposition prose would not carry. One image per beat at most; this blocks the turn while it renders.',
+        description: 'Generate and display an image inline in the story, for visual exposition prose would not carry. One image per beat at most. The image renders in the background and drops into place when it is ready, so carry on narrating.',
         schema: z.object({
             description: z.string().describe('The image to generate, as plain prose for an image model rather than a list of tags. Describe what is in frame — subject, setting, framing, lighting — not story context; it has no idea who these characters are.'),
             aspect: z.enum(['square', 'landscape', 'portrait']).describe('Shape of the image. "landscape" for establishing shots and vistas, "portrait" for a figure or a tall space, "square" when neither dominates.'),
-            caption: z.string().optional().describe('Optional text shown under the image.'),
         }),
         toBlock: (args) => ({
             type: 'image',
             src: '',
             from: 'generated',
             aspect: args.aspect,
-            ...(args.caption ? { caption: args.caption } : {}),
         }),
     }),
 

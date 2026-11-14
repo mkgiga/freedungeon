@@ -65,47 +65,67 @@ export function ensureSdServer(): Promise<void> {
             return
         }
 
-        const flags = sdRuntimeFlags(choice.backend, await nvidiaVramGiB())
-        const args = [
-            '--diffusion-model', path.join(MODELS_DIR, SD_MODELS.diffusion.file),
-            '--vae', path.join(MODELS_DIR, SD_MODELS.vae.file),
-            '--llm', path.join(MODELS_DIR, SD_MODELS.textEncoder.file),
-            '--listen-ip', SD_HOST,
-            '--listen-port', String(SD_PORT),
-            ...flags,
-        ]
+        const flags = sdRuntimeFlags(choice.backend, await nvidiaVramGiB(), choice.computeCap)
 
-        log.server.info(`Starting image server (${choice.why}) ${flags.join(' ')}`)
-        const proc = spawn(executable(), args, { cwd: SD_DIR, windowsHide: true })
-        child = proc
-
-        let tail = ''
-        const keep = (buf: Buffer) => { tail = (tail + buf.toString()).slice(-4000) }
-        proc.stdout?.on('data', keep)
-        proc.stderr?.on('data', keep)
-
-        let exited: string | null = null
-        proc.on('exit', (code, signal) => {
-            exited = `exited with ${signal ?? code}`
-            if (child === proc) child = null
-        })
-        proc.on('error', (err) => { exited = err.message })
-
-        const deadline = Date.now() + 180_000
-        while (Date.now() < deadline) {
-            if (exited) throw new Error(`Image server ${exited}\n${tail.trim().slice(-600)}`)
-            if (await isUp()) {
-                log.server.ok(`Image server ready on ${SD_URL}`)
-                return
-            }
-            await new Promise(r => setTimeout(r, 500))
+        try {
+            await launch(flags, choice.why)
+        } catch (err) {
+            if (!flags.includes('--sage-attn')) throw err
+            log.server.warn(
+                'Image server would not start with SageAttention, retrying without it: '
+                + `${err instanceof Error ? err.message.split('\n')[0] : String(err)}`,
+            )
+            await launch(flags.filter(f => f !== '--sage-attn'), choice.why)
         }
-
-        stopSdServer()
-        throw new Error('Image server did not become ready within 3 minutes.')
     })().finally(() => { starting = null })
 
     return starting
+}
+
+/**
+ * Resolves when the process answers, throws with its output when it dies first.
+ * A device that cannot run a requested kernel fails here, during context
+ * creation, rather than degrading - which is why the caller gets to retry.
+ */
+async function launch(flags: string[], why: string): Promise<void> {
+    const args = [
+        '--diffusion-model', path.join(MODELS_DIR, SD_MODELS.diffusion.file),
+        '--vae', path.join(MODELS_DIR, SD_MODELS.vae.file),
+        '--llm', path.join(MODELS_DIR, SD_MODELS.textEncoder.file),
+        '--listen-ip', SD_HOST,
+        '--listen-port', String(SD_PORT),
+        ...flags,
+    ]
+
+    log.server.info(`Starting image server (${why}) ${flags.join(' ')}`)
+    const proc = spawn(executable(), args, { cwd: SD_DIR, windowsHide: true })
+    child = proc
+
+    let tail = ''
+    const keep = (buf: Buffer) => { tail = (tail + buf.toString()).slice(-4000) }
+    proc.stdout?.on('data', keep)
+    proc.stderr?.on('data', keep)
+
+    let exited: string | null = null
+    proc.on('exit', (code, signal) => {
+        exited = `exited with ${signal ?? code}`
+        if (child === proc) child = null
+    })
+    proc.on('error', (err) => { exited = err.message })
+
+    const deadline = Date.now() + 180_000
+    while (Date.now() < deadline) {
+        if (exited) throw new Error(`Image server ${exited}
+${tail.trim().slice(-600)}`)
+        if (await isUp()) {
+            log.server.ok(`Image server ready on ${SD_URL}`)
+            return
+        }
+        await new Promise(r => setTimeout(r, 500))
+    }
+
+    stopSdServer()
+    throw new Error('Image server did not become ready within 3 minutes.')
 }
 
 /**

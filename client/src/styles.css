@@ -48,6 +48,13 @@
      breathing rather than as a button being pushed. */
   --press-scale: 0.96;
   --press-depress: 1px;
+
+  /* The side column a floated portrait occupies, and the air beside it. The
+     percentage resolves against whatever element reads the variable, which is
+     the reading measure in every case that uses it - so the float, the image
+     block and the player's own lines all agree on one column. */
+  --chat-aside-width: min(45%, 280px);
+  --chat-aside-gap: 16px;
 }
 
 [custom-css] {
@@ -821,24 +828,34 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 20px 0 20px;
+  padding: 8px 20px 0 20px;
 
 }
 
+/* The only way out of most dialogs, so it is sized to be hit rather than
+   hunted for: 40px square on a pointer, 44 under a finger, and resting at an
+   opacity you can actually see instead of fading into the header. */
 .modal-close {
-  width: 28px;
-  height: 28px;
+  width: 48px;
+  height: 48px;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  font-size: var(--text-sm);
-  opacity: 0.4;
+  border-radius: 8px;
+  opacity: 0.85;
   transition: opacity 150ms, background-color 150ms;
 
   &:hover {
     opacity: 1;
     background-color: var(--bg-2);
+  }
+}
+
+@media (pointer: coarse) {
+  .modal-close {
+    width: 52px;
+    height: 52px;
   }
 }
 
@@ -2014,6 +2031,24 @@ button {
   border-bottom: 1px solid var(--border-strong);
 }
 
+.chat-detail-instructions {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-sidebar-section-fixed {
+  flex: 0 0 auto;
+}
+
+.chat-sidebar-instructions {
+  padding: 10px 16px 14px 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .chat-sidebar-section-body {
   flex: 1;
   min-height: 0;
@@ -2452,12 +2487,93 @@ button {
   flex: 1;
   font-family: var(--font-serif);
   font-size: 17px;
-  line-height: 1.68;
+  /* Matches the dialogue's leading. The serif and the dimmer ink already mark
+   * narration apart; extra line spacing on top of that only pulled the two
+   * voices out of rhythm with each other.
+   *
+   * Ragged right, not justified: beside a floated portrait the measure is
+   * roughly 400px, and justification at that width opens rivers between words
+   * - the reason the old rule needed auto hyphenation to hold together. */
+  line-height: 1.55;
   opacity: 0.92;
-  /* Book-style justification. Auto hyphenation is load-bearing here: without
-   * it, justify stretches word gaps into rivers on narrow columns. */
-  text-align: justify;
-  hyphens: auto;
+}
+
+/* ── Floated image group ──
+ *
+ * A portrait image and the narration it belongs beside, in one block
+ * formatting context so the text wraps around the float and then reclaims the
+ * full measure below it. The 44rem measure moves here from the member
+ * messages, which have to give up the things that would make them block
+ * formatting contexts of their own - flex, and the containment that
+ * `content-visibility` applies - or they would sit rigidly beside the float
+ * instead of flowing around it. */
+.chat-float-group {
+  display: flow-root;
+  max-width: 44rem;
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 8px;
+}
+
+.chat-float-group + .chat-message,
+.chat-message + .chat-float-group,
+.chat-float-group + .chat-float-group {
+  margin-top: 16px;
+}
+
+/* Positioned so the picture is the thing under the pointer. A float paints
+   among the in-flow boxes, so the full-width block that wraps around it - the
+   narration's own editable box - was taking every click across the image and
+   opening the text for editing instead. Relative with no offset changes no
+   geometry; it only lifts the image into the positioned layer. */
+.chat-float-media {
+  float: right;
+  position: relative;
+  z-index: 1;
+  width: var(--chat-aside-width);
+  margin: 0 0 12px var(--chat-aside-gap);
+}
+
+.chat-float-group .chat-message {
+  display: block;
+  max-width: none;
+  width: auto;
+  margin-inline: 0;
+  padding-inline: 0;
+  content-visibility: visible;
+}
+
+/* Single-child flex rows whose gap can never apply; block flow is what lets
+   their line boxes wrap the float. */
+.chat-float-group .chat-block-text {
+  display: block;
+}
+
+/* A speech block uses `flow-root` to contain its avatar float, but that also
+   makes it a block formatting context - and a BFC is set *beside* an outer
+   float as a rigid box instead of wrapping around it, so it could never
+   reclaim the measure below the picture. A clearfix contains the avatar just
+   as well without establishing a context, leaving the block in normal flow
+   where its lines shorten beside the image and run full width underneath. */
+.chat-float-group .chat-block-speech {
+  display: block;
+}
+
+.chat-float-group .chat-block-speech::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+/* Inside the float the image owns the whole column, so it drops the
+   side-by-side-with-caption arrangement it uses in the main measure. */
+.chat-float-media .chat-block-image.is-portrait {
+  display: block;
+}
+
+.chat-float-media .chat-block-image.is-portrait img,
+.chat-float-media .chat-block-image.is-portrait .chat-block-image-slot {
+  width: 100%;
 }
 
 /* ── Image Block ── */
@@ -2465,6 +2581,31 @@ button {
 .chat-block-image {
   flex-direction: column;
   gap: 4px;
+}
+
+/* Stands in for the image while the backend renders it, sized by the same
+   aspect rules so the slot never resizes when the picture lands. */
+.chat-block-image-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--text-dim);
+  width: 100%;
+  min-height: 120px;
+}
+
+.chat-block-image.is-landscape .chat-block-image-slot { aspect-ratio: 1280 / 832; }
+.chat-block-image.is-portrait .chat-block-image-slot {
+  aspect-ratio: 832 / 1280;
+  width: var(--chat-aside-width);
+  flex: none;
+}
+.chat-block-image.is-square .chat-block-image-slot { aspect-ratio: 1 / 1; width: min(100%, 420px); }
+
+.chat-block-image img.is-zoomable {
+  cursor: zoom-in;
 }
 
 .chat-block-image img {
@@ -2490,21 +2631,16 @@ button {
   aspect-ratio: 1280 / 832;
 }
 
-/* A portrait image only needs half the column, so it sits beside its caption
-   rather than above it — and alternates edges down the feed so a run of them
-   doesn't march down one side. */
+/* A portrait image only needs part of the column, and always takes the right
+   of it, so a run of them lines up down one edge. */
 .chat-block-image.is-portrait {
-  flex-direction: row;
+  flex-direction: row-reverse;
   align-items: flex-start;
   gap: 12px;
 }
 
-.chat-block-image.is-portrait.is-side-right {
-  flex-direction: row-reverse;
-}
-
 .chat-block-image.is-portrait img {
-  width: min(45%, 280px);
+  width: var(--chat-aside-width);
   flex: none;
   aspect-ratio: 832 / 1280;
 }
@@ -2934,9 +3070,13 @@ button {
    answered menu still reappears above it with the pick highlighted, so nothing
    here has to re-state where the action came from. One rule for both so the
    player's voice can't drift into two looks. */
+/* Capped at the column a floated portrait leaves beside it, so a long line
+   wraps on the same edge the narration does. A cap, not a fixed width: the
+   block is pushed right by its container, and fixing the width stranded a
+   two-word line at the far left of an otherwise empty column. */
 .chat-block-unformatted-content,
 .chat-block-choice-text {
-  max-width: 70%;
+  max-width: calc(100% - var(--chat-aside-width) - var(--chat-aside-gap));
   font-family: var(--font-serif);
   font-size: 17px;
   line-height: 1.68;
@@ -2946,6 +3086,36 @@ button {
 
 .chat-block-choice {
   justify-content: flex-end;
+}
+
+@media (max-width: 767px) {
+  /* The measure is barely 360px here; a smaller portrait and a narrower
+     aside hand that space back to the words.
+     
+     40px, not 48: the name row is 18px and a line of dialogue is 24.8px, so
+     the second line's box opens at ~42.8 - above its glyphs, because a line
+     box carries half its leading on top. A line box that so much as touches
+     a float is shortened by it, and those few pixels were costing a whole
+     indented line plus the dead strip beside it. At 40 the dialogue clears
+     the portrait after exactly one line. */
+  .chat-block-avatar,
+  .chat-block-avatar-fallback {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* A phone overlays its scrollbar rather than reserving a track for it, so
+     the gutter a desktop browser carves out of the measure is dead width
+     here - and the measure is the one thing in short supply. */
+  .chat-messages {
+    --chat-aside-width: 40%;
+    --chat-aside-gap: 12px;
+    scrollbar-width: none;
+  }
+
+  .chat-messages::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ── Chat Input ── */
@@ -3207,11 +3377,27 @@ button {
 /* ── Media Viewer ── */
 
 .media-viewer {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   gap: 16px;
+}
+
+.media-viewer-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text);
+  background: color-mix(in oklch, var(--bg), transparent 25%);
 }
 
 .media-viewer-stage {
@@ -5489,7 +5675,7 @@ menu.left-nav.compact .left-nav-detail {
 }
 
 /* Editor + rail, filling the dialog. */
-.scenario-agent-settings {
+.prompt-editor {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -5497,20 +5683,20 @@ menu.left-nav.compact .left-nav-detail {
   gap: 4px;
 }
 
-.scenario-agent-settings .text-editor {
+.prompt-editor .text-editor {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
 }
 
-.scenario-agent-settings .text-editor-textarea {
+.prompt-editor .text-editor-textarea {
   flex: 1;
   min-height: 0;
   resize: none;
 }
 
-.scenario-agent-default {
+.prompt-editor-default {
   flex-shrink: 0;
 
   & summary {

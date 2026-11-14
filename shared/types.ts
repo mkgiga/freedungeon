@@ -164,7 +164,9 @@ export type Chat = {
     homeChatId?: string | null;
     avatarUrl?: string;
     bannerUrl?: string;
+    thumbnailUrl?: string;
     description?: string;
+    systemPrompt?: string;
     createdAt: number;
     updatedAt: number;
 }

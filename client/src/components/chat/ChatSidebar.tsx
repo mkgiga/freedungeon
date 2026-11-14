@@ -2,19 +2,28 @@ import { ExtensionSlot } from '../../extensions/ExtensionSlot'
 import { createMemo } from 'solid-js'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
-import { MdFillAdd, MdFillPerson_add } from 'solid-icons/md'
+import { MdFillAdd, MdFillEdit, MdFillPerson_add } from 'solid-icons/md'
 import { Heading } from '../typography/Heading'
+import { Text } from '../typography/Text'
 import { ActorList } from '../actors'
 import { NoteList } from '../notes'
 import { useModal } from '../Modal'
 import { useResourceEditors } from '../ResourceEditors'
 import { ActorPicker, NotePicker } from './AssetPicker'
+import { useChatInstructions, instructionsSummary } from './ChatInstructions'
 import type { Actor, Note } from '@shared/types'
 import { visible } from '@shared/visibility'
 
 export function ChatSidebar() {
     const modal = useModal()
     const editors = useResourceEditors()
+    const openInstructions = useChatInstructions()
+
+    const chatId = () => state.currentChat.id
+    const systemPrompt = () => {
+        const id = chatId()
+        return id ? state.assets.chats[id]?.systemPrompt : undefined
+    }
 
     const isNoteEnabled = (note: Note) =>
         state.currentChat.assets.notes[note.id]?.enabled ?? true
@@ -98,6 +107,28 @@ export function ChatSidebar() {
                             },
                         ]}
                     />
+                </div>
+            </section>
+
+            <section class="chat-sidebar-section chat-sidebar-section-fixed">
+                <header class="chat-sidebar-section-header">
+                    <Heading level={2}>Instructions</Heading>
+                    <button
+                        disabled={!chatId()}
+                        onClick={() => openInstructions({
+                            value: systemPrompt() ?? '',
+                            onSave: (next) => trpc.chat.update.mutate({
+                                id: chatId()!,
+                                patch: { systemPrompt: next },
+                            }).then(() => {}),
+                        })}
+                        title="Edit instructions"
+                    >
+                        <MdFillEdit size={18} />
+                    </button>
+                </header>
+                <div class="chat-sidebar-instructions">
+                    <Text size="sm" class="opacity-60">{instructionsSummary(systemPrompt())}</Text>
                 </div>
             </section>
 

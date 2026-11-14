@@ -30,7 +30,7 @@ function ScenarioAgentSettings() {
     }
 
     return (
-        <div class="scenario-agent-settings">
+        <div class="prompt-editor">
             <TextEditor
                 title="System instructions"
                 description="What the collaborator is told before every turn. Leave blank to use the built-in instructions."
@@ -38,7 +38,7 @@ function ScenarioAgentSettings() {
                 onInput={setDraft}
             />
 
-            <details class="scenario-agent-default">
+            <details class="prompt-editor-default">
                 <summary><Text size="sm" class="opacity-60">View built-in instructions</Text></summary>
                 <pre>{shipped() ?? ''}</pre>
             </details>

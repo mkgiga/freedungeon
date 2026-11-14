@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal, onMount, untrack } from 'solid-js'
 import { createStore } from 'solid-js/store'
-import { MdFillAdd, MdFillCheck, MdFillLibrary_add, MdFillNote_add, MdFillPerson_add, MdFillSmart_toy, MdFillUpload } from 'solid-icons/md'
+import { MdFillAdd, MdFillCheck, MdFillEdit, MdFillLibrary_add, MdFillNote_add, MdFillPerson_add, MdFillSmart_toy, MdFillUpload } from 'solid-icons/md'
 import { state } from '../../state'
 import { trpc } from '../../trpc'
 import { TopBar } from '../TopBar'
@@ -13,6 +13,7 @@ import { useResourceEditors } from '../ResourceEditors'
 import { ChoiceDialog } from '../ChoiceDialog'
 import { NoteList } from '../notes'
 import { ActorPicker, NotePicker } from '../chat/AssetPicker'
+import { useChatInstructions, instructionsSummary } from './ChatInstructions'
 import { ImagePicker } from '../chat/ImagePicker'
 import { useModal } from '../Modal'
 import { createImageDrop, pickImage } from '../../utils/imageUpload'
@@ -31,6 +32,7 @@ export function ChatPresetEditor(props: {
     const wide = () => viewport() === 'wide'
     const modal = useModal()
     const editors = useResourceEditors()
+    const openInstructions = useChatInstructions()
 
     const serverChat = () => state.assets.chats[props.id]
 
@@ -39,6 +41,7 @@ export function ChatPresetEditor(props: {
         avatarUrl: string
         bannerUrl: string
         description: string
+        systemPrompt: string
         actors: Set<string>
         notes: Set<string>
         images: string[]
@@ -47,6 +50,7 @@ export function ChatPresetEditor(props: {
         avatarUrl: serverChat()?.avatarUrl ?? '',
         bannerUrl: serverChat()?.bannerUrl ?? '',
         description: serverChat()?.description ?? '',
+        systemPrompt: serverChat()?.systemPrompt ?? '',
         actors: new Set(serverChat()?.assets.actors ?? []),
         notes: new Set(Object.keys(serverChat()?.assets.notes ?? {})),
         images: [...(serverChat()?.assets.images ?? [])],
@@ -60,6 +64,7 @@ export function ChatPresetEditor(props: {
             avatarUrl: c.avatarUrl ?? '',
             bannerUrl: c.bannerUrl ?? '',
             description: c.description ?? '',
+            systemPrompt: c.systemPrompt ?? '',
             actors: new Set(c.assets.actors),
             notes: new Set(Object.keys(c.assets.notes)),
             images: [...(c.assets.images ?? [])],
@@ -283,6 +288,7 @@ export function ChatPresetEditor(props: {
                 avatarUrl: draft.avatarUrl,
                 bannerUrl: draft.bannerUrl,
                 description: draft.description,
+                systemPrompt: draft.systemPrompt,
                 actors: [...draft.actors],
                 notes: [...draft.notes],
                 images: [...draft.images],
@@ -383,6 +389,25 @@ export function ChatPresetEditor(props: {
                             rows={4}
                             onInput={(e) => setDraft('description', e.currentTarget.value)}
                         />
+                    </section>
+
+                    <section class="mb-4">
+                        <div class="chat-detail-section-header">
+                            <Heading level={4} class="mb-1">Instructions</Heading>
+                            <button
+                                class="chat-detail-plus"
+                                onClick={() => openInstructions({
+                                    value: draft.systemPrompt,
+                                    onSave: (next) => setDraft('systemPrompt', next),
+                                })}
+                                title="Edit instructions"
+                            >
+                                <MdFillEdit size={18} />
+                            </button>
+                        </div>
+                        <Text size="sm" class="opacity-60 chat-detail-instructions">
+                            {instructionsSummary(draft.systemPrompt)}
+                        </Text>
                     </section>
 
                     <section class="chat-detail-cast mb-4">

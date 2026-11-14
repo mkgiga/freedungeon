@@ -60,12 +60,12 @@ export function ModalProvider(props: { children: JSXElement }) {
                     <Portal>
                         <div
                             class="modal-overlay"
-                            onMouseDown={(e) => {
+                            onPointerDown={(e) => {
                                 if (e.target === e.currentTarget) {
                                     (e.currentTarget as any).__clickedOverlay = true
                                 }
                             }}
-                            onMouseUp={(e) => {
+                            onPointerUp={(e) => {
                                 if (e.target === e.currentTarget && (e.currentTarget as any).__clickedOverlay && modal.closeOnOverlay) {
                                     close()
                                 }
@@ -76,7 +76,7 @@ export function ModalProvider(props: { children: JSXElement }) {
                                 <Show when={modal.title}>
                                     <div class="modal-header">
                                         <Heading level={2}>{modal.title}</Heading>
-                                        <button class="modal-close" onClick={close}><MdFillClose size={16} /></button>
+                                        <button class="modal-close" onClick={close} aria-label="Close"><MdFillClose size={24} /></button>
                                     </div>
                                 </Show>
                                 <div class="modal-body">

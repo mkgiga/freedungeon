@@ -5,13 +5,13 @@ import { Hono } from 'hono';
 import { COMMANDS, type CommandName } from '@shared/game-state/commands';
 import { QUERIES, type QueryName } from '@shared/game-state/queries';
 import { applyBlockToCtx } from '@shared/game-state';
-import { parseBlocks, serializeBlocks } from '@shared/blocks';
+import { parseBlocks, serializeBlocks, type Block } from '@shared/blocks';
 import { mutate, state } from './server';
-import { db } from './db';
+import { db, hydrateChatMessage, saveMessage } from './db';
 import { parseMacros } from './macro';
 import { emit, isExtensionActive, promptSections } from './extensions/registry';
 import { visible } from '@shared/visibility';
-import { queueItemIcon, itemIconsEnabled, generateSceneImage, sceneImagesEnabled, type ImageAspect } from './item-icons';
+import { queueItemIcon, itemIconsEnabled, queueSceneImage, sceneImagesEnabled, type ImageAspect } from './item-icons';
 import { runTurn, setCurrentTurnResult } from './game-state';
 import { normalizeModelMessage } from './game-state/debug';
 import { log } from './logger';
@@ -263,13 +263,6 @@ export async function execCommand(
         (block as { src: string }).src = image.url;
     }
 
-    if (command === 'generate_image') {
-        const args = parsed.data as { description: string; aspect: ImageAspect };
-        const url = await generateSceneImage(args.description, args.aspect);
-        if (!url) return { error: 'image_generation_failed: the image server did not return an image. Continue without it.' };
-        (block as { src: string }).src = url;
-    }
-
     if (block.type === 'defineItem') {
         const existing = state.currentChat.gameState.itemDefs?.[block.key]?.icon;
         if (existing) block.icon = existing;
@@ -301,10 +294,16 @@ export async function execCommand(
     };
     mutate(s => { s.currentChat.messages[messageId] = message });
 
+    if (command === 'generate_image') {
+        const args = parsed.data as { description: string; aspect: ImageAspect };
+        queueSceneImage(args.description, args.aspect, messageId, (url) =>
+            void attachGeneratedImage(chatId, messageId, url));
+    }
+
     if (block.type === 'defineItem' && !block.icon && itemIconsEnabled()) {
         const prompt = block.visualDescription ?? block.description ?? block.label;
         const key = block.key;
-        queueItemIcon(block.label, prompt, key, (url) => attachItemIcon(chatId, messageId, key, url));
+        queueItemIcon(block.label, prompt, key, (url) => void attachItemIcon(chatId, messageId, key, url));
     }
 
     emit('command.executed', {
@@ -322,25 +321,64 @@ export async function execCommand(
     };
 }
 
-function attachItemIcon(chatId: string, messageId: string, key: string, url: string): void {
-    if (state.currentChat.id !== chatId) return;
-    const msg = state.currentChat.messages[messageId];
-    if (!msg) return;
+/**
+ * Patch one message's blocks from a job that finished after the fact.
+ *
+ * The chat the job belongs to may no longer be the loaded one by the time the
+ * backend answers, so a background chat is written straight to the database -
+ * the store copy is rebuilt from it on the next load. `rewrite` returns null
+ * to abandon the patch when the block it wanted is gone or already filled.
+ */
+async function patchMessageBlocks(
+    chatId: string,
+    messageId: string,
+    rewrite: (blocks: Block[]) => Block[] | null,
+): Promise<boolean> {
+    if (state.currentChat.id === chatId) {
+        const msg = state.currentChat.messages[messageId];
+        if (!msg) return false;
+        const next = rewrite(parseBlocks(msg.content));
+        if (!next) return false;
+        mutate(s => { s.currentChat.messages[messageId] = {
+            ...msg,
+            content: serializeBlocks(next),
+            updatedAt: Date.now(),
+        } });
+        return true;
+    }
 
-    const blocks = parseBlocks(msg.content);
-    const target = blocks.find(b => b.type === 'defineItem' && b.key === key);
-    if (!target || target.type !== 'defineItem') return;
-    if (target.icon) return;
-
-    const patched = blocks.map(b =>
-        b === target ? { ...target, icon: url } : b);
-
-    mutate(s => { s.currentChat.messages[messageId] = {
-        ...msg,
-        content: serializeBlocks(patched),
+    const row = await db.selectFrom('chat_messages').selectAll()
+        .where('id', '=', messageId).executeTakeFirst();
+    if (!row) return false;
+    const next = rewrite(parseBlocks(row.content));
+    if (!next) return false;
+    saveMessage({
+        ...hydrateChatMessage(row),
+        content: serializeBlocks(next),
         updatedAt: Date.now(),
-    } });
+    });
+    return true;
+}
 
+function attachGeneratedImage(chatId: string, messageId: string, url: string): Promise<boolean> {
+    return patchMessageBlocks(chatId, messageId, (blocks) => {
+        const target = blocks.find(b => b.type === 'image' && b.from === 'generated' && !b.src);
+        if (!target) return null;
+        return blocks.map(b => (b === target ? { ...target, src: url } : b));
+    });
+}
+
+async function attachItemIcon(chatId: string, messageId: string, key: string, url: string): Promise<void> {
+    const patched = await patchMessageBlocks(chatId, messageId, (blocks) => {
+        const target = blocks.find(b => b.type === 'defineItem' && b.key === key);
+        if (!target || target.type !== 'defineItem' || target.icon) return null;
+        return blocks.map(b => (b === target ? { ...target, icon: url } : b));
+    });
+    if (!patched) return;
+
+    // Only the loaded chat has a live game state; a background chat rebuilds
+    // its own from the message log the next time it is opened.
+    if (state.currentChat.id !== chatId) return;
     const defs = state.currentChat.gameState.itemDefs;
     if (defs?.[key]) {
         mutate(s => { s.currentChat.gameState.itemDefs[key] = { ...defs[key]!, icon: url } });
@@ -599,7 +637,8 @@ export async function dispatchPromptToAgent(args: {
     let expandedSystemPrompt = '';
     let macroFeatures: Record<string, unknown> = {};
     try {
-        const result = parseMacros(getDefaultSystemPrompt());
+        const override = state.assets.chats[args.chatId]?.systemPrompt?.trim();
+        const result = parseMacros(override || getDefaultSystemPrompt());
         expandedSystemPrompt = result.parsed;
         macroFeatures = result.features;
     } finally {

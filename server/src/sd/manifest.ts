@@ -13,9 +13,9 @@ import type { SdBackend } from './backend'
  *   gh api repos/leejet/stable-diffusion.cpp/releases/latest \
  *     --jq '.assets[] | "\(.name)\t\(.size)\t\(.digest)"'
  */
-export const SD_RELEASE = 'master-820-de298c2'
+export const SD_RELEASE = 'master-1086-465adf3'
 
-const SD_ASSET = 'sd-master-de298c2'
+const SD_ASSET = 'sd-master-465adf3'
 
 const SD_DL = `https://github.com/leejet/stable-diffusion.cpp/releases/download/${SD_RELEASE}`
 
@@ -47,8 +47,8 @@ export const SD_BINARIES: Record<SdTarget, SdArtifact[]> = {
     'win32-cuda12': [
         {
             url: `${SD_DL}/${SD_ASSET}-bin-win-cuda12-x64.zip`,
-            sha256: 'b76a8e8515f8c558a8cac38fadbfd9c2ea49b720c79277e392222beae2f7ea68',
-            bytes: 336197151,
+            sha256: 'd775bff22f7677af664c198d0d978098990bf45525aa538bb7f630f8329ea5ad',
+            bytes: 367151447,
         },
         {
             url: `${SD_DL}/cudart-sd-bin-win-cu12-x64.zip`,
@@ -58,18 +58,18 @@ export const SD_BINARIES: Record<SdTarget, SdArtifact[]> = {
     ],
     'win32-vulkan': [{
         url: `${SD_DL}/${SD_ASSET}-bin-win-vulkan-x64.zip`,
-        sha256: 'e9d3072e090eaa0dc91970034ebccee6fafd502c3226480b46bd12ac54f96889',
-        bytes: 38781335,
+        sha256: 'f468c6c4c1130e7d7facafe2163139e259739f480ef2413d968057e1e691c817',
+        bytes: 30023026,
     }],
     'linux-vulkan': [{
-        url: `${SD_DL}/${SD_ASSET}-bin-Linux-Ubuntu-24.04-x86_64-vulkan.zip`,
-        sha256: '945b697995d8c7dbde6323d04177d7c12d29091ca84796b423f9ab6c660090ad',
-        bytes: 46000063,
+        url: `${SD_DL}/${SD_ASSET}-bin-Linux-Ubuntu-26.04-x86_64-vulkan.zip`,
+        sha256: '6475e4015e3000412dcdc1a81b313e25e660ed1052e334b64547ab1ecde039be',
+        bytes: 41918106,
     }],
     'darwin-metal': [{
-        url: `${SD_DL}/${SD_ASSET}-bin-Darwin-macOS-26.5.2-arm64.zip`,
-        sha256: '22ddba91714447fa885ef97cb4040dcb043ffc57531a441cb87737f69d72b7f5',
-        bytes: 49908841,
+        url: `${SD_DL}/${SD_ASSET}-bin-Darwin-macOS-26.7.2-arm64.zip`,
+        sha256: 'f04c897e127fa1f0afa5cf5a0e182804c84c796df5008f5f2706339afa0ed0c9',
+        bytes: 38089008,
     }],
 }
 

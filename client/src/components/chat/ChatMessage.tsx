@@ -49,7 +49,6 @@ export function lastRenderedBlock(content: string): Block | undefined {
 export function ChatMessage(props: {
     message: ChatMessageType
     prevBlock?: Block
-    portraitSide?: 'left' | 'right'
 }) {
     const blocks = createMemo(() => parseBlocks(props.message.content))
 
@@ -181,7 +180,8 @@ export function ChatMessage(props: {
                                     block={block as Extract<Block, { type: 'image' }>}
                                     onUpdate={(b) => updateBlock(i(), b)}
                                     prevBlock={precedingRendered(i())}
-                                    portraitSide={props.portraitSide ?? 'left'}
+                                    interactive={!isPlaying()}
+                                    messageId={props.message.id}
                                 />
                             </Match>
                             <Match when={block.type === 'pause'}>

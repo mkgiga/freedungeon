@@ -8,6 +8,7 @@ import { heldTurns } from '@shared/extensions'
 import { nanoid } from 'nanoid'
 import type { Chat } from '@shared/types'
 import { createInitialContext } from '@shared/game-state'
+import { getDefaultSystemPrompt } from '../../system-prompt'
 
 /**
  * Two reasons a turn can't start, refused in one place so the composer and the
@@ -33,6 +34,8 @@ function assertTurnAllowed(): void {
 }
 
 export const chatRouter = router({
+    defaultSystemPrompt: procedure.query(() => getDefaultSystemPrompt()),
+
     list: procedure
         .query(() => {
             return Object.values(state.assets.chats)
@@ -52,6 +55,7 @@ export const chatRouter = router({
             avatarUrl: z.string().optional(),
             bannerUrl: z.string().optional(),
             description: z.string().optional(),
+            systemPrompt: z.string().optional(),
             actors: z.array(z.string()).optional().default([]),
             notes: z.array(z.string()).optional().default([]),
             images: z.array(z.string()).optional().default([]),
@@ -70,6 +74,7 @@ export const chatRouter = router({
                 avatarUrl: input.avatarUrl || undefined,
                 bannerUrl: input.bannerUrl || undefined,
                 description: input.description || undefined,
+                systemPrompt: input.systemPrompt || undefined,
                 createdAt: now,
                 updatedAt: now,
             }
@@ -101,6 +106,7 @@ export const chatRouter = router({
                 avatarUrl: z.string().optional(),
                 bannerUrl: z.string().optional(),
                 description: z.string().optional(),
+                systemPrompt: z.string().optional(),
                 actors: z.array(z.string()).optional(),
                 notes: z.array(z.string()).optional(),
                 images: z.array(z.string()).optional(),
@@ -111,7 +117,7 @@ export const chatRouter = router({
             if (!chat) throw new Error(`Chat ${input.id} not found`)
 
             const now = Date.now()
-            const { title, avatarUrl, bannerUrl, description, actors, notes, images } = input.patch
+            const { title, avatarUrl, bannerUrl, description, systemPrompt, actors, notes, images } = input.patch
             const isCurrent = state.currentChat.id === input.id
 
             if (title !== undefined) {
@@ -126,6 +132,9 @@ export const chatRouter = router({
             }
             if (description !== undefined) {
                 mutate(s => { s.assets.chats[input.id]!.description = description || undefined })
+            }
+            if (systemPrompt !== undefined) {
+                mutate(s => { s.assets.chats[input.id]!.systemPrompt = systemPrompt.trim() || undefined })
             }
             if (actors !== undefined) {
                 mutate(s => { s.assets.chats[input.id]!.assets.actors = actors })

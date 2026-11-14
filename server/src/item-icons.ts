@@ -45,6 +45,7 @@ export type ImageAspect = keyof typeof ASPECT_DIMENSIONS
 export async function generateSceneImage(
     description: string,
     aspect: ImageAspect,
+    messageId?: string,
 ): Promise<string | undefined> {
     const cfg = imageGenConfig()
     if (!cfg) return undefined
@@ -55,12 +56,16 @@ export async function generateSceneImage(
 
     const { width, height } = ASPECT_DIMENSIONS[aspect]
 
-    return withActivity('generatingImage', { aspect }, async () => {
+    const taskId = nanoid()
+
+    return withActivity('generatingImage', { aspect, messageId }, async (update) => {
+        const stopPolling = pollTask(taskId, update)
         try {
             const result = await generateImage({
                 prompt,
                 width,
                 height,
+                taskId,
             })
 
             const image = result.images[0]
@@ -80,8 +85,27 @@ export async function generateSceneImage(
         } catch (err) {
             log.server.error(`Scene image generation failed: ${err}`)
             return undefined
+        } finally {
+            stopPolling()
         }
     })
+}
+
+/**
+ * Fire-and-forget, like `queueItemIcon`: the message and its reserved image
+ * slot already exist, so the turn carries on narrating while the backend
+ * renders. `onDone` runs only on success - a failed render just leaves the
+ * slot empty once the activity clears.
+ */
+export function queueSceneImage(
+    description: string,
+    aspect: ImageAspect,
+    messageId: string,
+    onDone: (url: string) => void,
+): void {
+    void generateSceneImage(description, aspect, messageId)
+        .then(url => { if (url) onDone(url) })
+        .catch(err => log.server.error(`Scene image job failed: ${err}`))
 }
 
 /**

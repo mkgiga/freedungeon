@@ -3,11 +3,12 @@ import SQLite from 'bun:sqlite';
 import { Kysely, sql, type Generated } from 'kysely';
 import { BunSqliteDialect } from 'kysely-bun-sqlite';
 import { nanoid } from 'nanoid';
-import { state } from './server';
+import { state, mutate } from './server';
 import { savePreferences, loadPreferences } from './preferences';
 import { DB_PATH, ensureDataDirs } from './paths';
 import { log } from './logger';
 import { createInitialContext } from '@shared/game-state';
+import { parseBlocks } from '@shared/blocks';
 import type { Actor, Note, ChatMessage, AppState, Chat, LLMConfig, AppNotification, CurrentChatState, ImageAsset }  from '@shared/types';
 export interface DB {
     actor_expressions: {
@@ -70,7 +71,9 @@ export interface DB {
         home_chat_id: string | null;
         avatar_url: string | null;
         banner_url: string | null;
+        thumbnail_url: string | null;
         description: string | null;
+        system_prompt: string | null;
         agent_session_id: string | null;
         last_agent_flags_snapshot: string | null;
         ai_transcript: string | null;
@@ -243,6 +246,12 @@ export async function initDb() {
     }
     if (!haveChatCol('last_agent_loop')) {
         await db.schema.alterTable('chats').addColumn('last_agent_loop', 'text').execute();
+    }
+    if (!haveChatCol('system_prompt')) {
+        await db.schema.alterTable('chats').addColumn('system_prompt', 'text').execute();
+    }
+    if (!haveChatCol('thumbnail_url')) {
+        await db.schema.alterTable('chats').addColumn('thumbnail_url', 'text').execute();
     }
 
     await db.schema
@@ -420,7 +429,9 @@ export function hydrateChat(row: ChatRow) {
         homeChatId: row.home_chat_id ?? null,
         avatarUrl: row.avatar_url ?? undefined,
         bannerUrl: row.banner_url ?? undefined,
+        thumbnailUrl: row.thumbnail_url ?? undefined,
         description: row.description ?? undefined,
+        systemPrompt: row.system_prompt ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -700,6 +711,7 @@ export async function loadAllChatsLite(): Promise<Record<string, Chat>> {
             avatarUrl: row.avatar_url ?? undefined,
             bannerUrl: row.banner_url ?? undefined,
             description: row.description ?? undefined,
+            systemPrompt: row.system_prompt ?? undefined,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         };
@@ -802,6 +814,39 @@ export function saveMessage(msg: ChatMessage) {
         .values({ id: msg.id, ...dehydrateChatMessage(msg) })
         .onConflict((oc) => oc.column('id').doUpdateSet(dehydrateChatMessage(msg)))
         .execute()
+    rememberChatThumbnail(msg)
+}
+
+/**
+ * Every message write lands here - creation, an edit, and the deferred patch
+ * that fills a generated image's src - so this is where a chat learns what
+ * picture it is currently showing. The newest write wins outright: the field
+ * tracks what was last put on screen, not what was last produced, and it does
+ * not care whether the url came from a generator or from an asset the turn
+ * referenced.
+ *
+ * The src is read with a pattern rather than `parseBlocks`, which runs the
+ * content as a function and throws on anything malformed. A thumbnail is not
+ * worth taking a message write down with it, and this runs on every save.
+ */
+const IMAGE_SRC = /image\(\{\s*src:\s*"((?:[^"\\]|\\.)*)"/g
+
+function rememberChatThumbnail(msg: ChatMessage) {
+    if (!msg.content.includes('image({')) return
+    const chat = state.assets.chats[msg.chatId]
+    if (!chat) return
+
+    let url: string | undefined
+    for (const match of msg.content.matchAll(IMAGE_SRC)) {
+        const src = match[1]
+        if (src) url = src.replace(/\\(.)/g, '$1')
+    }
+    if (!url || chat.thumbnailUrl === url) return
+
+    mutate(s => {
+        const draft = s.assets.chats[msg.chatId]
+        if (draft) draft.thumbnailUrl = url
+    })
 }
 
 export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
@@ -812,7 +857,9 @@ export function saveChat(chat: Chat, messages?: Record<string, ChatMessage>) {
         home_chat_id: chat.homeChatId ?? null,
         avatar_url: chat.avatarUrl ?? null,
         banner_url: chat.bannerUrl ?? null,
+        thumbnail_url: chat.thumbnailUrl ?? null,
         description: chat.description ?? null,
+        system_prompt: chat.systemPrompt ?? null,
         created_at: chat.createdAt,
         updated_at: chat.updatedAt,
     }

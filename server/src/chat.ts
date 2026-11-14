@@ -375,6 +375,7 @@ export class CurrentChat {
             description: sourceMeta.description,
             avatarUrl: sourceMeta.avatarUrl,
             bannerUrl: sourceMeta.bannerUrl,
+            systemPrompt: sourceMeta.systemPrompt,
             isTemplate: asTemplate,
             kind: 'roleplay' as const,
             createdAt: now,

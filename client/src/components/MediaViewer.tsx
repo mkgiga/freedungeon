@@ -1,4 +1,5 @@
-import { Show, For, splitProps } from 'solid-js'
+import { Show, For } from 'solid-js'
+import { MdFillClose } from 'solid-icons/md'
 import { useModal } from './Modal'
 import type { Action } from './actions'
 
@@ -47,7 +48,17 @@ export function useMediaViewer() {
             fullscreen: true,
             content: () => (
                 <div class="media-viewer">
-                    <div class="media-viewer-stage">
+                    {/* The modal only draws a header when it has a title, and a
+                        generated image has none - so the viewer carries its own
+                        way out. Tapping the stage around the picture closes it
+                        too, the way a lightbox does. */}
+                    <button class="media-viewer-close" onClick={() => modal.close()} aria-label="Close image">
+                        <MdFillClose size={20} />
+                    </button>
+                    <div
+                        class="media-viewer-stage"
+                        onClick={(e) => { if (e.target === e.currentTarget) modal.close() }}
+                    >
                         <MediaElement url={opts.url} type={opts.type} />
                     </div>
                     <Show when={opts.actions && opts.actions.length > 0}>
