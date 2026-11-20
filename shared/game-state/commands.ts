@@ -27,6 +27,15 @@ const speechSchema = z.object({
     expression: z.string().optional().describe('Expression name. Must exactly match one of the actor\'s defined expressions.'),
 });
 
+/**
+ * The chat column is 44rem wide less 8px of padding each side, and a webview
+ * is authored against exactly that. A narrower screen scales the whole frame
+ * down rather than reflowing it, so one layout has to work everywhere - which
+ * is only true if the author knows the number. Keep this in step with
+ * `.chat-message`'s max-width.
+ */
+export const WEBVIEW_WIDTH = 688
+
 export const COMMANDS = {
     text: defineCommand({
         name: 'text',
@@ -109,7 +118,7 @@ export const COMMANDS = {
 
     webview: defineCommand({
         name: 'webview',
-        description: 'Render a sandboxed HTML iframe inline. Use for diagrams, notes, mini-UIs.',
+        description: `Render sandboxed HTML. The frame is ${WEBVIEW_WIDTH}px wide and width 100% fills it. There is no height limit: it takes exactly the height the content needs, is never cropped and never scrolls. Height is the one thing that cannot be relative to the frame - vh, or a % height on html or body, resolves against nothing and collapses it; fixed heights are fine. body starts at margin 0 with a transparent background and inherits nothing, so state every colour, font and spacing you rely on.`,
         schema: z.object({
             html: z.string(),
             css: z.string().optional(),

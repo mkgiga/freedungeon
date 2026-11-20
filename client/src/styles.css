@@ -139,7 +139,7 @@ html {
 /* ── Typography ── */
 
 h1 { font-size: var(--text-xl); font-weight: 500; margin: 0; }
-h2 { font-size: var(--text-lg); font-weight: 500; margin: 0; }
+h2 { font-size: var(--text-xl); font-weight: 500; margin: 0; }
 h3 { font-size: var(--text-md); font-weight: 500; margin: 0; }
 h4 { font-size: var(--text-sm); font-weight: 500; margin: 0; }
 
@@ -1496,11 +1496,10 @@ button {
 }
 
 .prefs-section-title {
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: 700;
   margin-bottom: 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-subtle);
 }
 
 /* ── List-and-detail dialog (models) ── */
@@ -2173,7 +2172,7 @@ button {
 
 .chat-messages {
   box-sizing: border-box;
-  padding: 48px 0;
+  padding: 48px 0 0;
   overscroll-behavior: contain;
   /* Named container so message chrome can respond to how wide the feed
      actually is — see .chat-message-actions. inline-size only: the height is
@@ -2213,26 +2212,37 @@ button {
 /* Fade-to-dark overlay below the top bar with the current scene location
  * floating in the top-right. Read-only orientation cue; never captures
  * pointer events so the chat scrolls through it. */
-.chat-location-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 64px;
-  background: linear-gradient(to bottom, color-mix(in oklch, var(--bg), transparent 10%), transparent);
-  pointer-events: none;
-  z-index: 3;
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-  padding: 8px 16px;
+/* On a phone the feed is the page, so the title rail gets out of the way while
+   the reader moves down it and comes back the moment they turn around.
+   It leaves the flow to do that: collapsing its height would resize the scroll
+   container under the reader's finger, and near the bottom of the history that
+   turns into a fight with overscroll. Fixed and translated, the feed's geometry
+   never moves - which is why .chat-messages reserves the rail's 60px whether it
+   is on screen or not. */
+.chat-rail {
+  flex: none;
 }
 
-.chat-location-label {
-  color: var(--text-dim);
-  text-shadow: var(--text-shadow);
-  letter-spacing: 0.02em;
-  user-select: none;
+@media (max-width: 767px) {
+  .chat-rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 6;
+    background: var(--bg);
+    transition: transform 180ms ease;
+  }
+
+  .chat-rail.is-hidden {
+    transform: translateY(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-rail {
+    transition: none;
+  }
 }
 
 /* Inline scene-break shown when setLocation fires inside an assistant
@@ -2846,12 +2856,22 @@ button {
 /* ── Webview Block ── */
 
 .chat-block-webview {
-  /* noop */
+  display: block;
+}
+
+/* The frame is authored at one width and scaled down to fit, so it is laid out
+   from the top-left corner and the stage - not the frame - is what occupies
+   height in the feed. A transform does not affect layout, so without the stage
+   holding the scaled height the following messages would sit under it. */
+.chat-block-webview-stage {
+  overflow: hidden;
 }
 
 .chat-block-webview iframe {
-  width: 100%;
-  min-height: 200px;
+  display: block;
+  border: 0;
+  transform-origin: top left;
+  color-scheme: normal;
 }
 
 /* ── Damage / Heal event blocks ── */
@@ -3089,27 +3109,13 @@ button {
 }
 
 @media (max-width: 767px) {
-  /* The measure is barely 360px here; a smaller portrait and a narrower
-     aside hand that space back to the words.
-     
-     40px, not 48: the name row is 18px and a line of dialogue is 24.8px, so
-     the second line's box opens at ~42.8 - above its glyphs, because a line
-     box carries half its leading on top. A line box that so much as touches
-     a float is shortened by it, and those few pixels were costing a whole
-     indented line plus the dead strip beside it. At 40 the dialogue clears
-     the portrait after exactly one line. */
-  .chat-block-avatar,
-  .chat-block-avatar-fallback {
-    width: 40px;
-    height: 40px;
-  }
-
   /* A phone overlays its scrollbar rather than reserving a track for it, so
      the gutter a desktop browser carves out of the measure is dead width
      here - and the measure is the one thing in short supply. */
   .chat-messages {
     --chat-aside-width: 40%;
     --chat-aside-gap: 12px;
+    padding-top: 60px;
     scrollbar-width: none;
   }
 

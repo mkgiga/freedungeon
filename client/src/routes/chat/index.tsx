@@ -223,8 +223,54 @@ function ConversationViewBody(props: { onBack: () => void }) {
 
   let scrollEl: HTMLDivElement | undefined
 
+  const [railHidden, setRailHidden] = createSignal(false)
+  let lastScrollY = 0
+  let scrollRun = 0
+  let programmaticScroll = false
+
+  /*
+   * Direction alone flips on every stray pixel, so a run of travel in one
+   * direction has to add up to RAIL_TRAVEL before the rail moves, and reverses
+   * reset the tally. The rail always comes back at the top of the feed, and a
+   * scroll we caused ourselves is not the reader asking for anything.
+   */
+  const RAIL_TRAVEL = 28
+  const RAIL_TOP = 8
+
+  const onFeedScroll = () => {
+    if (!scrollEl) return
+    const y = scrollEl.scrollTop
+    const delta = y - lastScrollY
+    lastScrollY = y
+
+    if (programmaticScroll) {
+      programmaticScroll = false
+      scrollRun = 0
+      return
+    }
+    if (viewport() !== 'phone') {
+      if (railHidden()) setRailHidden(false)
+      return
+    }
+    if (y <= RAIL_TOP) {
+      scrollRun = 0
+      setRailHidden(false)
+      return
+    }
+
+    scrollRun = (delta > 0) === (scrollRun > 0) ? scrollRun + delta : delta
+    if (scrollRun > RAIL_TRAVEL) {
+      setRailHidden(true)
+      scrollRun = 0
+    } else if (scrollRun < -RAIL_TRAVEL) {
+      setRailHidden(false)
+      scrollRun = 0
+    }
+  }
+
   const scrollToBottom = () => {
     if (!scrollEl) return
+    programmaticScroll = true
     scrollEl.scrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight - 1)
   }
 
@@ -482,18 +528,20 @@ function ConversationViewBody(props: { onBack: () => void }) {
 
   return (
     <>
-      <TopBar
-        title={state.currentChat.title || 'Chat'}
-        backButton={props.onBack}
-        height="60px"
-        slots={{
-          right: (
-            <button onClick={toggleSidebar} title="Actors & notes">
-              <MdFillView_sidebar size={48} />
-            </button>
-          ),
-        }}
-      />
+      <div class="chat-rail" classList={{ 'is-hidden': railHidden() }}>
+        <TopBar
+          title={state.currentChat.title || 'Chat'}
+          backButton={props.onBack}
+          height="60px"
+          slots={{
+            right: (
+              <button onClick={toggleSidebar} title="Actors & notes">
+                <MdFillView_sidebar size={48} />
+              </button>
+            ),
+          }}
+        />
+      </div>
 
       <div class="chat-layout">
         <div class="chat-main flex flex-col grow min-h-0 relative">
@@ -501,16 +549,10 @@ function ConversationViewBody(props: { onBack: () => void }) {
             <div class="chat-generation-indicator" aria-hidden="true" />
           </Show>
           <ActivityOverlay />
-          <Show when={playback.effectiveGameState().scene.location}>
-            {(loc) => (
-              <div class="chat-location-overlay" aria-hidden="true">
-                <Text size="sm" class="chat-location-label">{loc()}</Text>
-              </div>
-            )}
-          </Show>
           <div
             ref={scrollEl}
             class="chat-messages flex-1 overflow-y-auto"
+            onScroll={onFeedScroll}
           >
             <div ref={topSentinelRef} class="chat-messages-sentinel" />
             <For
